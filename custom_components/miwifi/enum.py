@@ -293,5 +293,6 @@ class Model(str, Enum):
     # RN Series
     
     RN01 = "rn01" # Xiaomi ROUTER BE3600 Pro Black
+    RN02 = "rn02" # Xiaomi ROUTER BE6500 Black
     RN04 = "rn04" # Xiaomi Whole House BE3600 Pro MASTER
     RN06 = "rn06" # Xiaomi Mi Router BE3600 2.5G (Versión Global)
