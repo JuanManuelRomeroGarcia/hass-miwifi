@@ -633,14 +633,16 @@ class LuciUpdater(DataUpdateCoordinator):
 
         try:
             response: dict = await self.luci.wan_info()
+            
             _LOGGER.debug("WAN info response: %s", response)
-
-            if not isinstance(response, dict):
-                raise ValueError("WAN info response is not a dictionary")
-
-            info = response.get("info")
+            
+            info = response.get("info") if isinstance(response, dict) else {}
             if not isinstance(info, dict):
-                raise ValueError("WAN info['info'] is not a dictionary")
+                _LOGGER.debug("WAN info['info'] is not a dict, got: %s", type(info))
+                info = {}
+            elif not info:
+                _LOGGER.debug("WAN info['info'] is empty.")
+
 
             # WAN State (based on uptime)
             data[ATTR_BINARY_SENSOR_WAN_STATE] = info.get("uptime", 0) > 0
