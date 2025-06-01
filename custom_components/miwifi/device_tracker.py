@@ -393,8 +393,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         is_connected = current > before
 
         if before == current:
-            is_connected = (int(time.time()) - current) <= self._stay_online
-
+            is_connected = (int(time.time()) - current) <= (self._stay_online)
+            
         attr_changed: list = [
             attr
             for attr in ATTR_CHANGES

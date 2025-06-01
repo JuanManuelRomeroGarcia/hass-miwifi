@@ -295,7 +295,11 @@ class LuciUpdater(DataUpdateCoordinator):
 
             for method in PREPARE_METHODS:
                 if not self._is_only_login or method == "init":
+                    
+                    if method in ("devices", "device_list") and "new_status" in self.data and self.is_force_load:
+                        continue
                     await self._async_prepare(method, self.data)
+
         except LuciConnectionError as _e:
             _err = _e
 
@@ -1124,14 +1128,14 @@ class LuciUpdater(DataUpdateCoordinator):
             self.is_repeater and self.is_force_load
         ):
             return
-
+        
+    if "new_status" not in self.data:
         self.data[ATTR_SENSOR_DEVICES] += 1
-
         connection = _device.get(ATTR_TRACKER_CONNECTION)
         code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
         code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
-
         self.data[code] += 1
+
 
     def _build_device(
         self, device: dict, integrations: dict[str, Any] | None = None
