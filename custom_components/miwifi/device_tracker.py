@@ -186,7 +186,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
 
         self._attr_name = device.get(ATTR_TRACKER_NAME, self.mac_address)
 
-        self._stay_online: int = stay_online
+        self._stay_online: int = max(stay_online, 10)
 
         self.entity_id = entity_id
         self._attr_unique_id = unique_id
@@ -397,6 +397,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
 
         if before == current:
             is_connected = (int(time.time()) - current) <= (self._stay_online)
+            _LOGGER.debug("[MiWiFi] Device %s: last_activity sin cambios. Tiempo desde último: %ds (stay_online=%s) → %s",self.mac_address,
+                          int(time.time()) - current,self._stay_online,"conectado" if is_connected else "desconectado")
             
         attr_changed: list = [
             attr

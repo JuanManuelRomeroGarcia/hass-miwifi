@@ -1388,6 +1388,8 @@ class LuciUpdater(DataUpdateCoordinator):
             else:
                 graph["is_main"] = True
 
+            graph["is_main_auto"] = auto_main
+
             self.data["topo_graph"] = topo_data
             _LOGGER.debug("[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
 
