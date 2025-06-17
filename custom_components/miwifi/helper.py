@@ -167,14 +167,15 @@ async def set_global_panel_state(hass: HomeAssistant, enabled: bool) -> None:
     await store.async_save({"enabled": enabled})
 
 def map_signal_quality(signal: int) -> str:
-    """Map numeric signal to translation key."""
-    if signal >= -50:
+    """Map numeric signal (0-100) to quality."""
+    
+    if signal >= 70:
         return "very_strong"
-    elif signal >= -60:
+    elif signal >= 50:
         return "strong"
-    elif signal >= -70:
+    elif signal >= 30:
         return "fair"
-    elif signal >= -80:
+    elif signal >= 10:
         return "weak"
     else:
         return "no_signal"

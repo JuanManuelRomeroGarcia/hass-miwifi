@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import aiohttp
+import httpx
 from .logger import _LOGGER
 from typing import Any, Final
 from datetime import datetime
@@ -257,7 +258,9 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
 
     @property
     def release_summary(self) -> str | None:
-        return self._attr_latest_version
+        version = self._attr_latest_version
+        return f"📱 Mobile layout fixes, topbar improvements and responsive tweaks in v{version}"
+
 
     @property
     def entity_picture(self) -> str | None:
@@ -289,15 +292,25 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
 
 
     async def async_release_notes(self) -> str | None:
-        lang = self._updater.hass.config.language
-        return (
-            self._updater.hass.data.get("translations", {})
-            .get(lang, {})
-            .get("component", {})
-            .get(DOMAIN, {})
-            .get("panel_update", {})
-            .get("release_notes", "")
-        )
+        version = self._attr_latest_version
+        if not version:
+            return None
+
+        try:
+            url = f"https://api.github.com/repos/JuanManuelRomeroGarcia/miwifi-panel-frontend/releases/tags/v{version}"
+            async with httpx.AsyncClient(timeout=10) as client:
+                response = await client.get(url)
+
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("body", f"No release notes found for v{version}")
+            else:
+                _LOGGER.warning(f"GitHub release not found for v{version}: {response.status_code}")
+                return None
+
+        except Exception as e:
+            _LOGGER.error(f"Error fetching GitHub release notes for v{version}: {e}")
+            return None
 
     async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:
         from .frontend import async_download_panel_if_needed, async_register_panel, read_local_version
