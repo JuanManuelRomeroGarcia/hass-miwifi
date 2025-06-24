@@ -217,7 +217,8 @@ async def async_start_panel_monitor(hass):
         except Exception as e:
             _LOGGER.warning(f"[MiWiFi] Panel monitor error: {e}")
 
-        async_track_time_interval(hass, _check_panel_version, PANEL_MONITOR_INTERVAL)
+    # Register periodic execution outside the try block
+    async_track_time_interval(hass, _check_panel_version, PANEL_MONITOR_INTERVAL)
 
 
 # ------- Persistence for Main Router Manual -------

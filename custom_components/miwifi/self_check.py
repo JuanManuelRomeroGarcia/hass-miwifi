@@ -40,6 +40,8 @@ SELF_CHECK_METHODS: Final = (
 )
 
 
+from .frontend import read_local_version
+
 async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) -> None:
     """Perform a self check against known router API methods."""
 
@@ -47,25 +49,43 @@ async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) 
 
     for path, status in SELF_CHECK_METHODS:
         if status in {"🟢", "🔴", "⚪"}:
-            # Static endpoints we just mark
             results[path] = status
             continue
 
         try:
-            method = getattr(client, status)
-            await method()
-            results[path] = "🟢"
+            method = getattr(client, status, None)
+            if callable(method):
+                await method()
+                results[path] = "🟢"
+            else:
+                results[path] = "❓"
         except LuciError as e:
             _LOGGER.warning("❌ Self check failed for %s: %s", path, e)
             results[path] = "🔴"
 
+    # Get versions safely
+    integration = await async_get_integration(hass, DOMAIN)
+    ha_version = getattr(hass.config, "version", "unknown")
+    try:
+        panel_version = await read_local_version(hass)
+    except Exception as e:
+        _LOGGER.warning("[MiWiFi] Could not read panel version: %s", e)
+        panel_version = "unknown"
+
     # Format message
     title = f"Router not supported.\n\nModel: {model}"
     checklist = "\n".join(f" * {method}: {icon}" for method, icon in results.items())
-    message = f"{title}\n\nCheck list:\n{checklist}\n\n"
 
-    # Create GitHub issue link
-    integration = await async_get_integration(hass, DOMAIN)
+    versions = (
+        f"\n\nVersions:\n"
+        f" * MiWiFi Integration: {integration.version}\n"
+        f" * Frontend Panel: {panel_version}\n"
+        f" * Home Assistant: {ha_version}"
+    )
+
+    message = f"{title}\n\nCheck list:\n{checklist}{versions}\n\n"
+
+    # GitHub issue link
     issue_url = (
         f"{integration.issue_tracker}/new?title="
         + urllib.parse.quote_plus(f"Add support for {model}")
@@ -75,5 +95,4 @@ async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) 
 
     message += f'<a href="{issue_url}" target="_blank">Create an issue with this data</a>'
 
-    # Send notification
     pn.async_create(hass, message, NAME)

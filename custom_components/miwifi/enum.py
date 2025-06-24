@@ -41,6 +41,8 @@ class Mode(IntEnum):
     DEFAULT = 0, "default"
     REPEATER = 1, "repeater"
     ACCESS_POINT = 2, "access_point"
+    MESH_NODE = 3, "mesh_node"
+    MESH_LEAF = 8, "mesh_leaf"
     MESH = 9, "mesh"
 
 

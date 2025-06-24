@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from .logger import _LOGGER
-import socket
+import asyncio
 import time
-from contextlib import closing
 from functools import cached_property
 from typing import Any, Final
 
@@ -397,8 +396,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
 
         if before == current:
             is_connected = (int(time.time()) - current) <= (self._stay_online)
-            _LOGGER.debug("[MiWiFi] Device %s: last_activity sin cambios. Tiempo desde último: %ds (stay_online=%s) → %s",self.mac_address,
-                          int(time.time()) - current,self._stay_online,"conectado" if is_connected else "desconectado")
+            #_LOGGER.debug("[MiWiFi] Device %s: last_activity sin cambios. Tiempo desde último: %ds (stay_online=%s) → %s",self.mac_address,
+            #              int(time.time()) - current,self._stay_online,"conectado" if is_connected else "desconectado")
             
         attr_changed: list = [
             attr
@@ -460,19 +459,20 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         return track_device
 
     async def check_ports(self) -> None:
-        """Scan port to configuration url"""
-
+        """Scan port to configuration URL (async-safe)"""
         if self.ip_address is None:
             return
 
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
-            sock.settimeout(5)
-
-            for port in CONFIGURATION_PORTS:
-                result = sock.connect_ex((self.ip_address, port))
-                if result == 0:
-                    self._configuration_port = port
-
-                    #_LOGGER.debug("Found open port %s: %s", self.ip_address, port)
-
-                    break
+        for port in CONFIGURATION_PORTS:
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(self.ip_address, port),
+                    timeout=3
+                )
+                writer.close()
+                await writer.wait_closed()
+                self._configuration_port = port
+                # _LOGGER.debug("Found open port %s: %s", self.ip_address, port)
+                break
+            except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
+                continue

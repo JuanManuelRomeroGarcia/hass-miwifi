@@ -7,6 +7,7 @@ import asyncio
 import aiohttp
 import contextlib
 from .logger import _LOGGER
+
 from .unsupported import UNSUPPORTED
 from datetime import datetime, timedelta
 from functools import cached_property
@@ -64,6 +65,7 @@ from .const import (
     ATTR_SWITCH_WIFI_5_0_GAME,
     ATTR_TRACKER_CONNECTION,
     ATTR_TRACKER_DOWN_SPEED,
+    ATTR_TRACKER_TOTAL_USAGE,
     ATTR_TRACKER_ENTRY_ID,
     ATTR_TRACKER_IP,
     ATTR_TRACKER_IS_RESTORED,
@@ -479,12 +481,14 @@ class LuciUpdater(DataUpdateCoordinator):
         if "hardware" in response:
             try:
                 data[ATTR_MODEL] = Model(response["hardware"].lower())
-                
-                
+
                 from .compatibility import CompatibilityChecker
                 checker = CompatibilityChecker(self.luci)
                 self.capabilities = await checker.run()
                 _LOGGER.info(f"[MiWiFi] Capabilities detected: {self.capabilities}")
+
+                from .diagnostics import suggest_unsupported_issue
+                await suggest_unsupported_issue(self.hass, data[ATTR_MODEL], self.capabilities, checker.mode)
 
             except ValueError as _e:
                 await async_self_check(self.hass, self.luci, response["hardware"])
@@ -1482,6 +1486,7 @@ def async_get_updater(hass: HomeAssistant, identifier: str) -> LuciUpdater:
 
 
 async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, async_add_entities=None):
+    from .update_panel import MiWifiPanelUpdate
     """Handle dynamic creation/removal of panel update entity."""
 
     entity_registry = er.async_get(hass)
