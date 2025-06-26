@@ -218,5 +218,5 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
                 return vol.Schema(schema)
             except Exception as e:
-                _LOGGER.exception("[MiWiFi] Error generando el formulario de opciones: %s", e)
+                _LOGGER.exception("[MiWiFi] Error generating the options form: %s", e)
                 raise   

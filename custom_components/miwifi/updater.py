@@ -345,7 +345,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.data["panel_local_version"] = local
                 self.data["panel_remote_version"] = remote
         except Exception as e:
-            _LOGGER.warning("[MiWiFi] No se pudo actualizar la versión del panel frontend: %s", e)
+            _LOGGER.warning("[MiWiFi] The frontend panel version could not be updated: %s", e)
 
         return self.data
 
@@ -457,9 +457,6 @@ class LuciUpdater(DataUpdateCoordinator):
         ):
             return
 
-
-
-
         response: dict = await self.luci.init_info()
 
         if "model" in response:
@@ -481,14 +478,6 @@ class LuciUpdater(DataUpdateCoordinator):
         if "hardware" in response:
             try:
                 data[ATTR_MODEL] = Model(response["hardware"].lower())
-
-                from .compatibility import CompatibilityChecker
-                checker = CompatibilityChecker(self.luci)
-                self.capabilities = await checker.run()
-                _LOGGER.info(f"[MiWiFi] Capabilities detected: {self.capabilities}")
-
-                from .diagnostics import suggest_unsupported_issue
-                await suggest_unsupported_issue(self.hass, data[ATTR_MODEL], self.capabilities, checker.mode)
 
             except ValueError as _e:
                 await async_self_check(self.hass, self.luci, response["hardware"])
@@ -1357,7 +1346,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
             if self.data.get(ATTR_DEVICE_MAC_ADDRESS):
                 graph["mac"] = self.data[ATTR_DEVICE_MAC_ADDRESS]
-                _LOGGER.debug("[MiWiFi] MAC añadida a topo_graph: %s", graph["mac"])
+                _LOGGER.debug("[MiWiFi] MAC added to topo_graph: %s", graph["mac"])
 
             auto_main = False
             try:
@@ -1375,7 +1364,7 @@ class LuciUpdater(DataUpdateCoordinator):
                     graph["is_main"] = True
                     auto_main = True
             except Exception as e:
-                _LOGGER.warning("[MiWiFi] Error al interpretar topología: %s", e)
+                _LOGGER.warning("[MiWiFi] Error interpreting topology: %s", e)
 
             if not auto_main:
                 from custom_components.miwifi.frontend import async_load_manual_main_mac
@@ -1397,6 +1386,19 @@ class LuciUpdater(DataUpdateCoordinator):
             self.data["topo_graph"] = topo_data
             _LOGGER.debug("[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
 
+            if graph.get("is_main") and not getattr(self, "capabilities", None):
+                try:
+                    from .compatibility import CompatibilityChecker
+                    checker = CompatibilityChecker(self.luci)
+                    self.capabilities = await checker.run()
+                    _LOGGER.info(f"[MiWiFi] Capabilities detected: {self.capabilities}")
+
+                    from .diagnostics import suggest_unsupported_issue
+                    if ATTR_MODEL in self.data:
+                        await suggest_unsupported_issue(self.hass, self.data[ATTR_MODEL], self.capabilities, checker.mode)
+                except Exception as e:
+                    _LOGGER.warning("[MiWiFi] Compatibility check failed for main router: %s", e)
+
             for entity in self.hass.states.async_all("sensor"):
                 if entity.entity_id.startswith("sensor.topologia_miwifi"):
                     g = entity.attributes.get("graph", {})
@@ -1408,14 +1410,12 @@ class LuciUpdater(DataUpdateCoordinator):
                             "friendly_name": entity.attributes.get("friendly_name", "Topología MiWiFi"),
                         }
                         self.hass.states.async_set(entity.entity_id, entity.state, clean_attributes)
-                        #_LOGGER.debug("[MiWiFi] 🔄 Sensor %s actualizado con graph limpio", entity.entity_id)
 
             try:
                 self.async_set_updated_data(self.data)
             except AttributeError:
-                #_LOGGER.debug("[MiWiFi] Coordinator no disponible para router %s", self.ip)
                 pass
-            
+
             nodes = graph.get("nodes")
             if isinstance(nodes, list):
                 for node in nodes:
@@ -1424,7 +1424,7 @@ class LuciUpdater(DataUpdateCoordinator):
                         node_mac = node.get("mac")
                         if node_ip and node_ip != self.ip:
                             if node_ip not in self.hass.data.get(DOMAIN, {}):
-                                _LOGGER.warning("[MiWiFi] 🆕 Nodo Mesh no integrado: IP=%s, MAC=%s", node_ip, node_mac)
+                                _LOGGER.warning("[MiWiFi] 🆕 Non-integrated Mesh Node: IP=%s, MAC=%s", node_ip, node_mac)
 
         except LuciError as e:
             _LOGGER.warning("[MiWiFi] Failed to get topology graph for router at %s: %s", self.ip, e)
@@ -1433,6 +1433,7 @@ class LuciUpdater(DataUpdateCoordinator):
         except Exception as e:
             _LOGGER.error("[MiWiFi] Unexpected error while getting topology graph for router at %s: %s", self.ip, e)
             self.data["topo_graph"] = None
+
 
 
     @property
@@ -1500,14 +1501,14 @@ async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, a
 
     if is_main:
         if not entry and async_add_entities:
-            _LOGGER.debug("[MiWiFi] 🟢 Creando update panel porque es ahora main")
+            _LOGGER.debug("[MiWiFi] 🟢 Creating update panel because it is now main")
             panel_entity = MiWifiPanelUpdate(f"{updater.entry_id}_miwifi_panel", updater)
             async_add_entities([panel_entity])
         elif not entry:
-            _LOGGER.debug("[MiWiFi] ⚠ No puedo crear el update panel porque async_add_entities no está disponible")
+            _LOGGER.debug("[MiWiFi] ⚠ Cannot create update panel because async_add_entities is not available")
     else:
         if entry:
-            _LOGGER.debug("[MiWiFi] 🔴 Eliminando update panel porque ya no es main")
+            _LOGGER.debug("[MiWiFi] 🔴 Removing update panel because it is no longer main")
             entity_registry.async_remove(entity_id)
 
 

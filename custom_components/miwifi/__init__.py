@@ -114,7 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         else:
             await async_remove_miwifi_panel(hass)
     except Exception as e:
-        _LOGGER.warning(f"[MiWiFi] Error gestionando el panel: {e}")
+        _LOGGER.warning(f"[MiWiFi] Error managing the panel: {e}")
 
     is_new = get_config_value(entry, OPTION_IS_FROM_FLOW, False)
     if is_new:
@@ -185,7 +185,7 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
         else:
             await async_remove_miwifi_panel(hass)
     except Exception as e:
-        _LOGGER.warning(f"[MiWiFi] Error gestionando el panel: {e}")
+        _LOGGER.warning(f"[MiWiFi] Error managing the panel: {e}")
 
     await asyncio.gather(*[
         hass.config_entries.async_reload(e.entry_id)

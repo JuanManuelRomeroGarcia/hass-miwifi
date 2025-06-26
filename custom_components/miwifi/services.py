@@ -160,17 +160,17 @@ class MiWifiSelectMainNodeServiceCall(MiWifiServiceCall):
 
     async def async_call_service(self, service: ServiceCall) -> None:
         selected_mac = service.data["mac"]
-        _LOGGER.info("[MiWiFi] 📥 Servicio 'select_main_router' invocado con MAC: %s", selected_mac)
+        _LOGGER.info("[MiWiFi] 📥 Service 'select_main_router' invoked with MAC: %s", selected_mac)
 
         integrations = async_get_integrations(self.hass)
         routers = [entry[UPDATER] for entry in integrations.values()]
 
         if selected_mac:
             await async_save_manual_main_mac(self.hass, selected_mac)
-            _LOGGER.info("[MiWiFi] ✅ Manual MAC guardada correctamente: %s", selected_mac)
+            _LOGGER.info("[MiWiFi] ✅ Manual MAC saved successfully: %s", selected_mac)
         else:
             await async_clear_manual_main_mac(self.hass)
-            _LOGGER.info("[MiWiFi] 🧹 Limpieza de selección manual de router principal.")
+            _LOGGER.info("[MiWiFi] 🧹 Cleared manual selection of main router.")
 
         for router in routers:
             await router._async_prepare_topo()

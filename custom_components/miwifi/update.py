@@ -124,9 +124,9 @@ async def async_setup_entry(
             panel_entity = MiWifiPanelUpdate(f"{config_entry.entry_id}_miwifi_panel", updater)
             entities.append(panel_entity)
         except Exception as e:
-            _LOGGER.warning(f"[MiWiFi] No se pudo crear la entidad update del panel: {e}")
+            _LOGGER.warning(f"[MiWiFi] The panel update entity could not be created: {e}")
     else:
-        _LOGGER.debug("[MiWiFi] Panel update entity no creada porque este router no es el principal.")
+        _LOGGER.debug("[MiWiFi] Panel update entity not created because this router is not the main one.")
 
     if entities:
         async_add_entities(entities)
