@@ -1392,12 +1392,12 @@ class LuciUpdater(DataUpdateCoordinator):
                 try:
                     from .compatibility import CompatibilityChecker
                     checker = CompatibilityChecker(self.luci)
-                    self.capabilities = await checker.run()
+                    self.capabilities = await checker.run() or {}
                     _LOGGER.info(f"[MiWiFi] Capabilities detected: {self.capabilities}")
 
                     from .diagnostics import suggest_unsupported_issue
                     if ATTR_MODEL in self.data:
-                        await suggest_unsupported_issue(self.hass, self.data[ATTR_MODEL], self.capabilities, checker.mode)
+                        await suggest_unsupported_issue(self.hass, self.data[ATTR_MODEL], self.capabilities, getattr(checker, "mode", None))
                 except Exception as e:
                     _LOGGER.warning("[MiWiFi] Compatibility check failed for main router: %s", e)
 
