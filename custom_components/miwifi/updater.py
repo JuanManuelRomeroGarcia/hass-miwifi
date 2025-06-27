@@ -436,6 +436,8 @@ class LuciUpdater(DataUpdateCoordinator):
             method in UNSUPPORTED
             and data.get(ATTR_MODEL, Model.NOT_KNOWN) in UNSUPPORTED[method]
         ):
+            _LOGGER.debug("[MiWiFi] Skipping '%s' for model '%s' (unsupported)", method, data.get(ATTR_MODEL))
+            
             return
 
         if action := getattr(self, f"_async_prepare_{method}"):

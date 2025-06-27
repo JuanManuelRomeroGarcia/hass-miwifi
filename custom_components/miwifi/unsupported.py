@@ -24,8 +24,17 @@ UNSUPPORTED: dict[str, list[Model]] = {
         Model.D01,
         Model.RN06,
     ],
+    
+    "wifi_config": [
+        Model.CR8806,
+    ],
 
     "mac_filter": [],
+    
+    "mac_filter_info":[
+        Model.RM1800,
+    ],
+
     "qos_info": [],
     "vpn_control": [],
 }

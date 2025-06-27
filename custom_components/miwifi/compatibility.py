@@ -3,7 +3,8 @@ from __future__ import annotations
 from .luci import LuciClient
 from .exceptions import LuciError
 from .logger import _LOGGER
-from .enum import Mode
+from .enum import Mode, Model
+from .unsupported import UNSUPPORTED
 
 class CompatibilityChecker:
     """Main compatibility detector."""
@@ -12,10 +13,12 @@ class CompatibilityChecker:
         self.client = client
         self.result: dict[str, bool | None] = {}
         self.mode: Mode | None = None
+        self.model: Model | None = None
 
     async def run(self) -> dict[str, bool | None]:
         """Run full compatibility checks."""
 
+        # Detect mode
         try:
             raw_mode = await self.client.mode()
             _LOGGER.debug(f"[MiWiFi] Raw mode response from client: {raw_mode}")
@@ -34,27 +37,62 @@ class CompatibilityChecker:
                 "3": Mode.MESH_NODE,
             }
 
-            self.mode = MODE_MAP.get(str(raw_mode).lower(), Mode.DEFAULT) if raw_mode is not None else None
+            self.mode = MODE_MAP.get(str(raw_mode).lower(), Mode.DEFAULT)
             _LOGGER.debug(f"[MiWiFi] Parsed mode: {self.mode}")
 
         except (LuciError, KeyError, ValueError, AttributeError):
             self.mode = None
 
-        self.result = {
-            "mac_filter": await self._check_mac_filter(),
-            "mac_filter_info": await self._check_mac_filter_info(),
-            "per_device_qos": await self._check_qos_info(),
-            "rom_update": await self._check_rom_update(),
-            "flash_permission": await self._check_flash_permission(),
-            "led_control": await self._check_led(),
-            "guest_wifi": await self._check_guest_wifi(),
-            "wifi_config": await self._check_wifi_config(),
-            "device_list": await self._check_device_list(),
-            "topo_graph": await self._check_topo_graph(),
+        # Detect model
+        try:
+            info = await self.client.init_info()
+            if "hardware" in info:
+                self.model = Model(info["hardware"].lower())
+        except Exception as e:
+            _LOGGER.debug(f"[MiWiFi] Could not detect model: {e}")
+            self.model = None
+
+        # Run all checks with UNSUPPORTED filtering
+        features: dict[str, callable] = {
+            "mac_filter": self._check_mac_filter,
+            "mac_filter_info": self._check_mac_filter_info,
+            "per_device_qos": self._check_qos_info,
+            "rom_update": self._check_rom_update,
+            "flash_permission": self._check_flash_permission,
+            "led_control": self._check_led,
+            "guest_wifi": self._check_guest_wifi,
+            "wifi_config": self._check_wifi_config,
+            "device_list": self._check_device_list,
+            "topo_graph": self._check_topo_graph,
         }
 
-        _LOGGER.info(f"[MiWiFi] Compatibility detection finished (mode={self.mode}): {self.result}")
-        return self.result
+        for feature, check_func in features.items():
+            unsupported_models = UNSUPPORTED.get(feature, [])
+
+            if self.model and self.model in unsupported_models:
+                _LOGGER.debug(
+                    "[MiWiFi] ⏭️ Skipping '%s' check for model '%s' (already UNSUPPORTED)",
+                    feature, self.model
+                )
+                self.result[feature] = False
+                continue
+
+            try:
+                supported = await check_func()
+                self.result[feature] = supported
+
+                if supported is False:
+                    _LOGGER.warning(
+                        "[MiWiFi] 🚫 Detected unsupported feature '%s' for model: %s (mode: %s).",
+                        feature, self.model, self.mode
+                    )
+                    _LOGGER.warning(
+                        "➡️ Please add it to unsupported.py to silence this warning."
+                    )
+
+            except Exception as e:
+                self.result[feature] = False
+                _LOGGER.warning("[MiWiFi] ❌ Error during '%s' check: %s", feature, e)
 
     async def _check_mac_filter(self) -> bool:
         try:

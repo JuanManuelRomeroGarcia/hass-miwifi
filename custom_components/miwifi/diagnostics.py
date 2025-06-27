@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Final
 import urllib.parse
 import homeassistant.components.persistent_notification as pn
@@ -77,6 +78,26 @@ async def async_get_config_entry_diagnostics(
     return _data
 
 
+async def async_get_config_entry_diagnostics(
+    hass: HomeAssistant, config_entry: ConfigEntry
+) -> dict:
+    """Return diagnostics for a config entry."""
+
+    _data: dict = {"config_entry": async_redact_data(config_entry.as_dict(), TO_REDACT)}
+
+    if _updater := async_get_updater(hass, config_entry.entry_id):
+        if hasattr(_updater, "data"):
+            _data["data"] = async_redact_data(_updater.data, TO_REDACT)
+
+        if hasattr(_updater, "devices"):
+            _data["devices"] = _updater.devices
+
+        if len(_updater.luci.diagnostics) > 0:
+            _data["requests"] = async_redact_data(_updater.luci.diagnostics, TO_REDACT)
+
+    return _data
+
+
 async def suggest_unsupported_issue(
     hass: HomeAssistant,
     model: str | Model,
@@ -95,14 +116,17 @@ async def suggest_unsupported_issue(
         _LOGGER.warning("[MiWiFi] Model name '%s' may not be valid for enum entry.", model_name)
 
     integration = await async_get_integration(hass, DOMAIN)
-    ha_version = getattr(hass.config, "version", "unknown")
+    if "homeassistant.const" in sys.modules:
+        from homeassistant.const import __version__ as HA_VERSION
+    else:
+        HA_VERSION = "unknown"
+
 
     # Block of code to suggest for UNSUPPORTED
-    code_lines = []
-    for feature in failed:
-        code_lines.append(f'UNSUPPORTED["{feature}"].append(Model.{model_name})')
-
-    code_block = "\n".join(code_lines)
+    code_lines = [
+        f'    "{feature}": [Model.{model_name.upper()}],' for feature in failed
+    ]
+    code_block = "UNSUPPORTED = {\n" + "\n".join(code_lines) + "\n}"
 
     checklist = "\n".join(f" * {feature}: ❌" for feature in failed)
     mode_str = mode.name if isinstance(mode, Mode) else str(mode or "unknown")
@@ -115,7 +139,7 @@ async def suggest_unsupported_issue(
         f"```python\n{code_block}\n```\n\n"
         f"Versions:\n"
         f" * MiWiFi Integration: {integration.version}\n"
-        f" * Home Assistant: {ha_version}"
+        f" * Home Assistant: {HA_VERSION}"
     )
 
     issue_url = (
@@ -129,7 +153,7 @@ async def suggest_unsupported_issue(
         f"🚫 Detected unsupported features for model: {model_name} (mode: {mode_str})\n\n"
         f"{checklist}\n\n"
         f"<a href=\"{issue_url}\" target=\"_blank\">\n"
-        f"Create a GitHub issue to update unsupported.py\n"
+        f"📬 Create a GitHub issue to update unsupported.py\n"
         f"</a>"
     )
 
