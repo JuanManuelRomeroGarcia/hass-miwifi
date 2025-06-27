@@ -221,7 +221,7 @@ class MiWifiBlockDeviceServiceCall:
         if main_updater is None:
             raise vol.Invalid("Main router not found (is_main).")
 
-        if not main_updater.capabilities.get("mac_filter", False):
+        if not (getattr(main_updater, "capabilities", {}) or {}).get("mac_filter", False):
             raise vol.Invalid("This router does not support MAC Filter API.")
 
         allow = service.data["allow"]

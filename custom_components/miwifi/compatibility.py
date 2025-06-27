@@ -93,6 +93,8 @@ class CompatibilityChecker:
             except Exception as e:
                 self.result[feature] = False
                 _LOGGER.warning("[MiWiFi] ❌ Error during '%s' check: %s", feature, e)
+                
+        return self.result
 
     async def _check_mac_filter(self) -> bool:
         try:
