@@ -58,45 +58,6 @@ async def async_get_config_entry_diagnostics(
 
     return _data
 
-async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, config_entry: ConfigEntry
-) -> dict:
-    """Return diagnostics for a config entry."""
-
-    _data: dict = {"config_entry": async_redact_data(config_entry.as_dict(), TO_REDACT)}
-
-    if _updater := async_get_updater(hass, config_entry.entry_id):
-        if hasattr(_updater, "data"):
-            _data["data"] = async_redact_data(_updater.data, TO_REDACT)
-
-        if hasattr(_updater, "devices"):
-            _data["devices"] = _updater.devices
-
-        if len(_updater.luci.diagnostics) > 0:
-            _data["requests"] = async_redact_data(_updater.luci.diagnostics, TO_REDACT)
-
-    return _data
-
-
-async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, config_entry: ConfigEntry
-) -> dict:
-    """Return diagnostics for a config entry."""
-
-    _data: dict = {"config_entry": async_redact_data(config_entry.as_dict(), TO_REDACT)}
-
-    if _updater := async_get_updater(hass, config_entry.entry_id):
-        if hasattr(_updater, "data"):
-            _data["data"] = async_redact_data(_updater.data, TO_REDACT)
-
-        if hasattr(_updater, "devices"):
-            _data["devices"] = _updater.devices
-
-        if len(_updater.luci.diagnostics) > 0:
-            _data["requests"] = async_redact_data(_updater.luci.diagnostics, TO_REDACT)
-
-    return _data
-
 
 async def suggest_unsupported_issue(
     hass: HomeAssistant,

@@ -336,6 +336,8 @@ class LuciUpdater(DataUpdateCoordinator):
             
         await self._async_prepare_topo()
 
+        await self._async_prepare_compatibility()
+        
         # Panel frontend version check (local + remote)
         try:
             from .frontend import read_local_version, read_remote_version
@@ -819,7 +821,11 @@ class LuciUpdater(DataUpdateCoordinator):
 
         response: dict = await self.luci.wifi_connect_devices()
 
-        macfilter_info: dict = await self.luci.macfilter_info()
+        macfilter_info: dict = {}
+        try:
+            macfilter_info = await self.luci.macfilter_info()
+        except Exception as e:
+            _LOGGER.warning("[MiWiFi] macfilter_info failed for %s: %s", self.ip, e)
         filter_macs: dict[str, int] = {}
 
         for entry in macfilter_info.get("flist", []):
@@ -885,7 +891,11 @@ class LuciUpdater(DataUpdateCoordinator):
                     await self._async_prepare_devices(data)
             return
 
-        macfilter_info: dict = await self.luci.macfilter_info()
+        macfilter_info: dict = {}
+        try:
+            macfilter_info = await self.luci.macfilter_info()
+        except Exception as e:
+            _LOGGER.warning("[MiWiFi] macfilter_info failed for %s (device_list): %s", self.ip, e)
         filter_macs: dict[str, int] = {}
 
         for entry in macfilter_info.get("flist", []):
@@ -1388,19 +1398,6 @@ class LuciUpdater(DataUpdateCoordinator):
             self.data["topo_graph"] = topo_data
             _LOGGER.debug("[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
 
-            if graph.get("is_main") and not getattr(self, "capabilities", None):
-                try:
-                    from .compatibility import CompatibilityChecker
-                    checker = CompatibilityChecker(self.luci)
-                    self.capabilities = await checker.run() or {}
-                    _LOGGER.info(f"[MiWiFi] Capabilities detected: {self.capabilities}")
-
-                    from .diagnostics import suggest_unsupported_issue
-                    if ATTR_MODEL in self.data:
-                        await suggest_unsupported_issue(self.hass, self.data[ATTR_MODEL], self.capabilities, getattr(checker, "mode", None))
-                except Exception as e:
-                    _LOGGER.warning("[MiWiFi] Compatibility check failed for main router: %s", e)
-
             for entity in self.hass.states.async_all("sensor"):
                 if entity.entity_id.startswith("sensor.topologia_miwifi"):
                     g = entity.attributes.get("graph", {})
@@ -1436,12 +1433,37 @@ class LuciUpdater(DataUpdateCoordinator):
             _LOGGER.error("[MiWiFi] Unexpected error while getting topology graph for router at %s: %s", self.ip, e)
             self.data["topo_graph"] = None
 
-
-
     @property
     def entry_id(self) -> str | None:
         """Return the config entry ID."""
         return self._entry_id
+    
+    async def _async_prepare_compatibility(self) -> None:
+        """Run compatibility detection if main and not already checked."""
+        if not self.data.get("topo_graph", {}).get("graph", {}).get("is_main"):
+            _LOGGER.debug("[MiWiFi] Skipping compatibility: not main router")
+            return
+
+        if getattr(self, "capabilities", None):
+            _LOGGER.debug("[MiWiFi] Capabilities already detected, skipping")
+            return
+
+        try:
+            from .compatibility import CompatibilityChecker
+            checker = CompatibilityChecker(self.luci)
+            self.capabilities = await checker.run() or {}
+            _LOGGER.info(f"[MiWiFi] ✅ Capabilities detected (final): {self.capabilities}")
+
+            from .diagnostics import suggest_unsupported_issue
+            if ATTR_MODEL in self.data:
+                await suggest_unsupported_issue(
+                    self.hass,
+                    self.data[ATTR_MODEL],
+                    self.capabilities,
+                    getattr(checker, "mode", None),
+                )
+        except Exception as e:
+            _LOGGER.warning("[MiWiFi] Compatibility check failed (final): %s", e)
 
 @callback
 def async_get_integrations(hass: HomeAssistant) -> dict[str, dict]:
