@@ -19,6 +19,9 @@
           "stay_online": "Permanencia mínima en línea en segundos",
           "scan_interval": "Intervalo de escaneo en segundos [PRO]",
           "timeout": "Tiempo de espera de solicitudes en segundos [PRO]",
+          "wan_speed_unit": "Unidad de velocidad WAN",
+          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
+          "activity_days": "Días permitidos desde la última actividad [PRO]",
           "log_level": "Nivel de log (global)",
           "enable_panel": "Habilitar panel de control"
         }
@@ -43,10 +46,12 @@
           "is_track_devices": "Rastrear dispositivos",
           "stay_online": "Permanencia mínima en línea en segundos",
           "scan_interval": "Intervalo de escaneo en segundos [PRO]",
+          "wan_speed_unit": "Unidad de velocidad WAN",
+          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
           "activity_days": "Días permitidos desde la última actividad [PRO]",
           "timeout": "Tiempo de espera de solicitudes en segundos [PRO]",
-          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
-          "log_level": "Nivel de log (global)"
+          "log_level": "Nivel de log (global)",
+          "enable_panel": "Habilitar panel de control"
         }
       }
     }

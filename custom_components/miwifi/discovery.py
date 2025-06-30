@@ -16,6 +16,7 @@ from httpx import AsyncClient
 from .const import (
     CLIENT_ADDRESS,
     CLIENT_ADDRESS_IP,
+    CLIENT_ADDRESS_DEFAULT,
     DEFAULT_CHECK_TIMEOUT,
     DISCOVERY,
     DISCOVERY_INTERVAL,
@@ -65,7 +66,7 @@ async def async_discover_devices(client: AsyncClient) -> list:
 
     response: dict = {}
 
-    for address in [CLIENT_ADDRESS, CLIENT_ADDRESS_IP]:
+    for address in [CLIENT_ADDRESS, CLIENT_ADDRESS_IP, CLIENT_ADDRESS_DEFAULT]:
         try:
             response = await LuciClient(client, address).topo_graph()
 
@@ -94,24 +95,44 @@ async def async_discover_devices(client: AsyncClient) -> list:
 
 
 @callback
-def async_trigger_discovery(
-    hass: HomeAssistant,
-    discovered_devices: list,
-) -> None:
-    """Trigger config flows for discovered devices.
+def async_trigger_discovery(hass: HomeAssistant, discovered_devices: list) -> None:
+    """Trigger config flows for discovered devices."""
+    for ip in discovered_devices:
+        async def _launch(ip_address: str) -> None:
+            model = "MiWiFi"
+            try:
+                client = get_async_client(hass)
+                luci = LuciClient(client, ip_address)
+                response = await luci.topo_graph()
+                _LOGGER.debug("[MiWiFi] topo_graph for %s: %s", ip_address, response)
 
-    :param hass: HomeAssistant: Home Assistant object
-    :param discovered_devices: list: Discovered devices
-    """
+                model = (
+                    response.get("hardware") or
+                    response.get("model") or
+                    response.get("graph", {}).get("hardware") or
+                    response.get("graph", {}).get("model") or
+                    "MiWiFi"
+                )
+            except Exception as e:
+                _LOGGER.warning("[MiWiFi] Failed to get model from %s: %s", ip_address, e)
 
-    for device in discovered_devices:
-        hass.async_create_task(
-            hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": config_entries.SOURCE_INTEGRATION_DISCOVERY},
-                data={CONF_IP_ADDRESS: device},
+            hass.async_create_task(
+                hass.config_entries.flow.async_init(
+                    DOMAIN,
+                    context={
+                        "source": config_entries.SOURCE_INTEGRATION_DISCOVERY,
+                        "title_placeholders": {
+                            "name": f"MiWifi {model} ({ip_address})"
+                        }
+                    },
+                    data={
+                        CONF_IP_ADDRESS: ip_address,
+                        "model": model
+                    },
+                )
             )
-        )
+
+        hass.async_create_task(_launch(ip))
 
 
 async def async_prepare_leafs(client: AsyncClient, devices: list, leafs: list) -> list:

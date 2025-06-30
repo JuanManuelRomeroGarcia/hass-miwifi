@@ -111,8 +111,13 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def _show_form(self, user_input, errors, step_id: str) -> FlowResult:
         defaults = self._discovered_device or {}
         ip = defaults.get(CONF_IP_ADDRESS, "")
+        model = defaults.get("model", "MiWiFi")
 
-        schema = vol.Schema({
+        # Cargar configuraciones globales para mostrar por defecto
+        panel_state = await get_global_panel_state(self.hass)
+        log_level = await get_global_log_level(self.hass)
+
+        schema_dict = {
             vol.Required(CONF_IP_ADDRESS, default=ip): str,
             vol.Required(CONF_PASSWORD): str,
             vol.Required(CONF_ENCRYPTION_ALGORITHM, default=EncryptionAlgorithm.SHA1): vol.In([
@@ -122,12 +127,20 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
-        })
+        }
+
+        # Añadir extras solo en el paso de confirmación
+        if step_id == "discovery_confirm":
+            schema_dict[vol.Optional(CONF_ENABLE_PANEL, default=panel_state)] = cv.boolean
+            schema_dict[vol.Optional(CONF_WAN_SPEED_UNIT, default=DEFAULT_WAN_SPEED_UNIT)] = vol.In(WAN_SPEED_UNIT_OPTIONS)
+            schema_dict[vol.Optional(CONF_LOG_LEVEL, default=log_level)] = vol.In(LOG_LEVEL_OPTIONS)
+
+        schema = vol.Schema(schema_dict)
 
         description_placeholders = None
         if step_id == "discovery_confirm":
             description_placeholders = {
-                "name": ip,
+                "name": f"{model} ({ip})",
                 "ip_address": ip,
                 "local_user_documentation_url": await async_user_documentation_url(self.hass),
             }
@@ -138,6 +151,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders=description_placeholders,
         )
+
 
 
 class MiWifiOptionsFlow(config_entries.OptionsFlow):
