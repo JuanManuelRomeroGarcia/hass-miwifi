@@ -74,7 +74,6 @@ class CompatibilityChecker:
                     "[MiWiFi] ⏭️ Skipping '%s' check for model '%s' (already UNSUPPORTED)",
                     feature, self.model
                 )
-                self.result[feature] = False
                 continue
 
             try:
