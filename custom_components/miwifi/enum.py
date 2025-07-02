@@ -283,6 +283,7 @@ class Model(str, Enum):
     # RD Series
     
     RD03 = "rd03"  # Xiaomi Router AX3000T
+    RD05 = "rd05"  # Xiaomi Mi Router 4A
     RD04v2 = "rd04v2"  # Xiaomi Router AX1500
     RD08 = "rd08"  # Xiaomi Router 6500 Pro
     RD12 = "rd12"  # Xiaomi Router AX1500 EU
