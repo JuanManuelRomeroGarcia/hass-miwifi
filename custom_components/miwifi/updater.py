@@ -1511,7 +1511,7 @@ def async_get_updater(hass: HomeAssistant, identifier: str) -> LuciUpdater:
 
 
 async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, async_add_entities=None):
-    from .update_panel import MiWifiPanelUpdate
+    from .update import MiWifiPanelUpdate
     """Handle dynamic creation/removal of panel update entity."""
 
     entity_registry = er.async_get(hass)
