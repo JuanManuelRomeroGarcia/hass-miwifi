@@ -400,6 +400,64 @@ class LuciClient:
             return True
         except Exception:
             return False
+        
+    
+    async def portforward(self, ftype: int = 1) -> dict:
+        """Get port forwarding rules (ftype 1 = single port, 2 = range)."""
+        _LOGGER.debug("Requesting NAT rules with ftype=%s", ftype)
+        data = await self.get("xqnetwork/portforward", {"ftype": ftype})
+        _LOGGER.debug("NAT response for ftype=%s → %s", ftype, data)
+        return data
+
+    async def add_redirect(self, name: str, proto: int, sport: int, ip: str, dport: int) -> dict:
+        """Add a single port forwarding rule."""
+        _url = f"{self._url}/;stok={self._token}/api/xqnetwork/add_redirect"
+        data = {
+            "name": name,
+            "proto": proto,
+            "sport": sport,
+            "ip": ip,
+            "dport": dport,
+        }
+        async with self._client as client:
+            response = await client.post(_url, data=data, timeout=self._timeout)
+        _data = json.loads(response.content)
+        if response.status_code != 200 or _data.get("code", 1) != 0:
+            raise LuciRequestError(f"Failed to add rule: {_data}")
+        return _data
+
+    async def add_range_redirect(self, name: str, proto: int, fport: int, tport: int, ip: str) -> dict:
+        """Add a port range forwarding rule."""
+        _url = f"{self._url}/;stok={self._token}/api/xqnetwork/add_range_redirect"
+        data = {
+            "name": name,
+            "proto": proto,
+            "fport": fport,
+            "tport": tport,
+            "ip": ip,
+        }
+        async with self._client as client:
+            response = await client.post(_url, data=data, timeout=self._timeout)
+        _data = json.loads(response.content)
+        if response.status_code != 200 or _data.get("code", 1) != 0:
+            raise LuciRequestError(f"Failed to add port range: {_data}")
+        return _data
+
+    async def redirect_apply(self) -> dict:
+        """Apply NAT rule changes after adding/deleting."""
+        return await self.get("xqnetwork/redirect_apply")
+
+    async def delete_redirect(self, port: int, proto: int) -> dict:
+        """Delete a port forwarding rule."""
+        _url = f"{self._url}/;stok={self._token}/api/xqnetwork/delete_redirect"
+        data = {"port": port, "proto": proto}
+        async with self._client as client:
+            response = await client.post(_url, data=data, timeout=self._timeout)
+        _data = json.loads(response.content)
+        if response.status_code != 200 or _data.get("code", 1) != 0:
+            raise LuciRequestError(f"Failed to delete rule: {_data}")
+        return _data
+
 
 
     async def rom_update(self) -> dict:

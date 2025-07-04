@@ -29,7 +29,9 @@ UNSUPPORTED: dict[str, list[Model]] = {
         Model.CR8806,
     ],
 
-    "mac_filter": [],
+    "mac_filter": [
+        Model.RM1800
+        ],
     
     "mac_filter_info":[
     ],

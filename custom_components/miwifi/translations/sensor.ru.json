@@ -5,6 +5,25 @@
       "repeater": "Репитер",
       "access_point": "Точка доступа",
       "mesh": "Меш"
+ },
+    "sensor.miwifi_nat_rules": "Активные NAT правила"
+  },
+  "state_attributes": {
+    "ftype_1": "Индивидуальные нормы",
+    "ftype_2": "Нормы по диапазону",
+    "total": "Всего правил",
+    "source": "IP роутера"
+  },
+  
+  "error": {
+    "miwifi__error": {
+      "invalid_port": "Порт невалидный",
+      "invalid_range": "Диапазон невалидный",
+      "port_already_exists": "Порт уже существует",
+      "range_already_exists": "Диапазон уже существует",
+      "port_not_found": "Порт не найден",
+      "range_not_found": "Диапазон не найден",
+      "communication_error": "Ошибка связи с роутером"
     }
   }
 }

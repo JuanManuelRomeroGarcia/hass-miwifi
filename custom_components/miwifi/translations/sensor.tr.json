@@ -5,6 +5,25 @@
       "repeater": "Tekrarlayıcı",
       "access_point": "Erişim Noktası",
       "mesh": "Mesh (Ağ)"
+ },
+    "sensor.miwifi_nat_rules": "Aktif NAT kuralları"
+  },
+  "state_attributes": {
+    "ftype_1": "Bireysel standartlar",
+    "ftype_2": "Aralık standartları",
+    "total": "Toplam kural",
+    "source": "Yönlendirici IP'si"
+  },
+  
+  "error": {
+    "miwifi__error": {
+      "invalid_port": "Geçersiz port",
+      "invalid_range": "Geçersiz aralık",
+      "port_already_exists": "Port zaten mevcut",
+      "range_already_exists": "Aralık zaten mevcut",
+      "port_not_found": "Port bulunamadı",
+      "range_not_found": "Aralık bulunamadı",
+      "communication_error": "Yönlendirici ile iletişim hatası"
     }
   }
 }

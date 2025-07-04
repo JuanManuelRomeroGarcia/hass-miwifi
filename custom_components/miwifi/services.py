@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 from .logger import _LOGGER
 from typing import Final
+from .sensor import MiWifiNATRulesSensor 
+
 
 import homeassistant.components.persistent_notification as pn
 import voluptuous as vol
@@ -251,8 +253,221 @@ class MiWifiBlockDeviceServiceCall:
             )
 
 
+class MiWifiListPortsServiceCall:
+    """List NAT port forwarding rules automatically from the main router."""
+
+    schema = vol.Schema({
+        vol.Required("ftype"): vol.In([1, 2])
+    })
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        ftype = service.data["ftype"]
+        integrations = async_get_integrations(self.hass)
+
+        main_updater = None
+        for integration in integrations.values():
+            updater = integration[UPDATER]
+            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            if topo_graph.get("is_main", False):
+                main_updater = updater
+                break
+
+        if main_updater is None:
+            raise vol.Invalid("No main router detected (is_main).")
+
+        await main_updater.luci.login()
+        _LOGGER.info("[MiWiFi] 📡 Main router detected (IP: %s). Requesting NAT rules (ftype=%s)", main_updater.ip, ftype)
+
+        try:
+            data = await main_updater.luci.portforward(ftype)
+            _LOGGER.info("[MiWiFi] 🔁 NAT rules fetched (ftype=%s): %s", ftype, data)
+            return data
+        except LuciError as e:
+            _LOGGER.error("[MiWiFi] ❌ Error fetching NAT rules: %s", e)
+            raise vol.Invalid(f"Error communicating with the main router: {e}")
 
 
+class MiWifiAddPortServiceCall:
+    """Add a single port forwarding rule (ftype=1)."""
+
+    schema = vol.Schema({
+        vol.Required("ip"): str,             
+        vol.Required("name"): str,           
+        vol.Required("proto"): vol.In([1, 2, 3]),  
+        vol.Required("sport"): int,          
+        vol.Required("dport"): int,          
+    })
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        ip = service.data["ip"]
+        name = service.data["name"]
+        proto = service.data["proto"]
+        sport = service.data["sport"]
+        dport = service.data["dport"]
+
+        integrations = async_get_integrations(self.hass)
+        main_updater = None
+
+        for integration in integrations.values():
+            updater = integration[UPDATER]
+            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            if topo_graph.get("is_main", False):
+                main_updater = updater
+                break
+
+        if main_updater is None:
+            raise vol.Invalid("No main router detected (is_main).")
+
+        _LOGGER.info("[MiWiFi] ➕ Adding NAT rule ftype=1: %s:%s → %s:%s (%s)", sport, name, ip, dport, proto)
+
+        try:
+            await main_updater.luci.login()
+            response = await main_updater.luci.add_redirect(name, proto, sport, ip, dport)
+            _LOGGER.info("[MiWiFi] ✅ Rule successfully added: %s", response)
+
+            await main_updater.luci.redirect_apply()
+            _LOGGER.info("[MiWiFi] 🔄 NAT changes applied after adding rule.")
+        except LuciError as e:
+            _LOGGER.error("[MiWiFi] ❌ Error adding NAT rule: %s", e)
+            raise vol.Invalid(f"Failed to add rule: {e}")
+
+
+class MiWifiAddRangePortServiceCall:
+    """Add a port range forwarding rule (ftype=2)."""
+
+    schema = vol.Schema({
+        vol.Required("ip"): str,
+        vol.Required("name"): str,
+        vol.Required("proto"): vol.In([1, 2, 3]),
+        vol.Required("fport"): int,
+        vol.Required("tport"): int,
+    })
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        ip = service.data["ip"]
+        name = service.data["name"]
+        proto = service.data["proto"]
+        fport = service.data["fport"]
+        tport = service.data["tport"]
+
+        integrations = async_get_integrations(self.hass)
+        main_updater = None
+
+        for integration in integrations.values():
+            updater = integration[UPDATER]
+            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            if topo_graph.get("is_main", False):
+                main_updater = updater
+                break
+
+        if main_updater is None:
+            raise vol.Invalid("No main router detected (is_main).")
+
+        _LOGGER.info("[MiWiFi] ➕ Adding NAT rule ftype=2: %s:%s-%s (%s)", name, fport, tport, proto)
+
+        try:
+            await main_updater.luci.login()
+            response = await main_updater.luci.add_range_redirect(name, proto, fport, tport, ip)
+            _LOGGER.info("[MiWiFi] ✅ Range rule successfully added: %s", response)
+
+            await main_updater.luci.redirect_apply()
+            _LOGGER.info("[MiWiFi] 🔄 NAT changes applied after adding range rule.")
+        except LuciError as e:
+            _LOGGER.error("[MiWiFi] ❌ Error adding NAT range rule: %s", e)
+            raise vol.Invalid(f"Failed to add range rule: {e}")
+
+
+class MiWifiDeletePortServiceCall:
+    """Delete a port forwarding rule (ftype=1 or 2)."""
+
+    schema = vol.Schema({
+        vol.Required("proto"): vol.In([1, 2, 3]),
+        vol.Required("port"): int,
+    })
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        proto = service.data["proto"]
+        port = service.data["port"]
+
+        integrations = async_get_integrations(self.hass)
+        main_updater = None
+
+        for integration in integrations.values():
+            updater = integration[UPDATER]
+            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            if topo_graph.get("is_main", False):
+                main_updater = updater
+                break
+
+        if main_updater is None:
+            raise vol.Invalid("No main router detected (is_main).")
+
+        _LOGGER.info("[MiWiFi] 🗑️ Deleting NAT rule: proto=%s, port=%s", proto, port)
+
+        try:
+            await main_updater._async_prepare_topo()
+            await main_updater.luci.login()
+
+            response = await main_updater.luci.delete_redirect(port, proto)
+            _LOGGER.info("[MiWiFi] ✅ Rule successfully deleted: %s", response)
+
+            await main_updater.luci.redirect_apply()
+            _LOGGER.info("[MiWiFi] 🔄 NAT changes applied after rule deletion.")
+
+        except LuciError as e:
+            _LOGGER.error("[MiWiFi] ❌ Error deleting NAT rule: %s", e)
+            raise vol.Invalid(f"Failed to delete rule: {e}")
+
+
+class MiWifiRefreshNATRulesServiceCall:
+    """Force refresh of NAT rules."""
+    
+    schema = vol.Schema({})
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        integrations = async_get_integrations(self.hass)
+        main_updater = None
+
+        for integration in integrations.values():
+            updater = integration[UPDATER]
+            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            if topo_graph.get("is_main", False):
+                main_updater = updater
+                break
+
+        if main_updater is None:
+            raise vol.Invalid("No main router detected (is_main).")
+
+        _LOGGER.info("[MiWiFi] 🔄 Forcing NAT rules refresh...")
+
+        await main_updater._async_prepare_topo()
+        await main_updater.update()
+        main_updater.async_set_updated_data(main_updater.data)
+
+        for entity_id in self.hass.states.async_entity_ids("sensor"):
+            entity = self.hass.data["entity_components"]["sensor"].get_entity(entity_id)
+            if isinstance(entity, MiWifiNATRulesSensor) and getattr(entity, "_updater", None) == main_updater:
+                _LOGGER.debug("[MiWiFi] 🔁 Forcing update of NAT sensor: %s", entity_id)
+                entity.async_update_from_updater()
+
+        _LOGGER.info("[MiWiFi] ✅ NAT rules successfully refreshed.")
+        
+        
 SERVICES: Final = (
     (SERVICE_CALC_PASSWD, MiWifiCalcPasswdServiceCall),
     (SERVICE_REQUEST, MiWifiRequestServiceCall),
@@ -260,4 +475,9 @@ SERVICES: Final = (
     ("log_panel", MiWifiLogPanelServiceCall),
     ("select_main_router", MiWifiSelectMainNodeServiceCall),
     ("block_device", MiWifiBlockDeviceServiceCall),
+    ("list_ports", MiWifiListPortsServiceCall),
+    ("add_port", MiWifiAddPortServiceCall),
+    ("add_range_port", MiWifiAddRangePortServiceCall),
+    ("delete_port", MiWifiDeletePortServiceCall),
+    ("refresh_nat_rules", MiWifiRefreshNATRulesServiceCall),
 )

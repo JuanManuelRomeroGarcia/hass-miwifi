@@ -5,6 +5,25 @@
       "repeater": "Repetidor",
       "access_point": "Ponto de acesso",
       "mesh": "Malha"
+ },
+    "sensor.miwifi_nat_rules": "Regras NAT ativas"
+  },
+  "state_attributes": {
+    "ftype_1": "Normas individuais",
+    "ftype_2": "Normas por faixa",
+    "total": "Total de regras",
+    "source": "IP do roteador"
+  },
+  
+  "error": {
+    "miwifi__error": {
+      "invalid_port": "Porto não válido",
+      "invalid_range": "Faixa não válida",
+      "port_already_exists": "O porto já existe",
+      "range_already_exists": "A faixa já existe",
+      "port_not_found": "Porto não encontrado",
+      "range_not_found": "Faixa não encontrada",
+      "communication_error": "Erro de comunicação com o roteador"
     }
   }
 }

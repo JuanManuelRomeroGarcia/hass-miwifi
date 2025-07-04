@@ -5,6 +5,25 @@
       "repeater": "Repetidor",
       "access_point": "Punto de acceso",
       "mesh": "Mesh"
+    },
+    "sensor.miwifi_nat_rules": "Reglas NAT activas"
+  },
+  "state_attributes": {
+    "ftype_1": "Normas individuales",
+    "ftype_2": "Normas por rango",
+    "total": "Total de reglas",
+    "source": "IP del router"
+  },
+  
+  "error": {
+    "miwifi__error": {
+      "invalid_port": "Puerto no válido",
+      "invalid_range": "Rango no válido",
+      "port_already_exists": "El puerto ya existe",
+      "range_already_exists": "El rango ya existe",
+      "port_not_found": "Puerto no encontrado",
+      "range_not_found": "Rango no encontrado",
+      "communication_error": "Error de comunicación con el router"
     }
   }
 }

@@ -20,6 +20,9 @@ from homeassistant.const import PERCENTAGE, UnitOfInformation, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity import Entity
+from datetime import datetime
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_SENSOR_AP_SIGNAL,
@@ -56,7 +59,9 @@ from .const import (
     ATTR_SENSOR_WAN_IP_NAME,
     ATTR_SENSOR_WAN_TYPE,
     ATTR_SENSOR_WAN_TYPE_NAME,
+    ATTR_SENSOR_NAT_ENTITY,
     ATTR_STATE,
+    CONF_WAN_SPEED_UNIT,
 )
 from .entity import MiWifiEntity
 from .enum import DeviceClass
@@ -218,8 +223,6 @@ MIWIFI_SENSORS: tuple[SensorEntityDescription, ...] = (
 )
 
 
-
-
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -312,7 +315,7 @@ class MiWifiTopologyGraphSensor(SensorEntity):
 
     def __init__(self, updater: LuciUpdater) -> None:
         self._attr_unique_id = f"{updater.entry_id}_topology_graph"
-        self._attr_name = "Topología MiWiFi"
+        self._attr_name = "MiWiFi Topology"
         self._updater = updater
         self._attr_icon = "mdi:network"
         self._attr_should_poll = False
@@ -331,13 +334,48 @@ class MiWifiTopologyGraphSensor(SensorEntity):
     async def async_update(self) -> None:
         """No polling, data is pushed from coordinator."""
         pass
+    
+class MiWifiNATRulesSensor(SensorEntity):
+    """Sensor que representa las reglas NAT del router principal."""
 
-from homeassistant.helpers.entity import Entity
-from .const import CONF_ENABLE_PANEL, CONF_WAN_SPEED_UNIT, CONF_LOG_LEVEL
-from .helper import get_global_log_level
-from .logger import _LOGGER
-from datetime import datetime
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+    def __init__(self, updater: LuciUpdater) -> None:
+        self._updater = updater
+        self._attr_unique_id = f"{updater.entry_id}_nat_rules"
+        self._attr_name = "MiWiFi nat rules" 
+        self._attr_icon = "mdi:router-network"
+        self._attr_should_poll = False
+
+    @property
+    def native_value(self) -> int:
+        """Return the total number of NAT rules."""
+        rules_data = self._updater.data.get("nat_rules", {})
+        total = 0
+
+        for key in ("ftype_1", "ftype_2"):
+            rules = rules_data.get(key, [])
+            if isinstance(rules, list):
+                total += len(rules)
+            else:
+                _LOGGER.warning("[MiWiFi] Sensor NAT: se esperaba una lista en '%s', pero se recibió: %s", key, type(rules))
+
+        return total
+
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return details about NAT rules."""
+        nat_data = self._updater.data.get("nat_rules", {})
+        return {
+            "source": self._updater.ip,
+            "ftype_1": nat_data.get("ftype_1", []),
+            "ftype_2": nat_data.get("ftype_2", []),
+            "total": sum(len(r) for r in nat_data.values() if isinstance(r, list)),
+        }
+
+    async def async_update(self) -> None:
+        """No se hace polling directo. Actualiza vía coordinator."""
+        pass
+
 
 class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
     """Sensor que expone la configuración actual como atributos."""
@@ -378,7 +416,7 @@ class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
         config = self._updater.config_entry.options
 
         self._extra_attrs = {
-            "panel_activo": config.get("enable_panel", True),
+            "panel_active": config.get("enable_panel", True),
             "speed_unit": config.get("wan_speed_unit", "MB"),
             "log_level": log_level,
             "panel_version": panel_version,
@@ -402,6 +440,7 @@ async def _async_add_all_sensors_later(
     entities: list[SensorEntity] = [
         MiWifiTopologyGraphSensor(updater),
         MiWifiConfigSensor(updater),
+        MiWifiNATRulesSensor(updater), 
     ]
 
     for description in MIWIFI_SENSORS:
@@ -421,5 +460,7 @@ async def _async_add_all_sensors_later(
                 updater,
             )
         )
+        if updater.data.get("topo_graph", {}).get("graph", {}).get("is_main", False):
+            entities.append(MiWifiNATRulesSensor(updater))
 
     async_add_entities(entities)

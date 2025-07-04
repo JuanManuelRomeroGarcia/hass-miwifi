@@ -5,6 +5,25 @@
       "repeater": "Verstärker",
       "access_point": "Zugangspunkt",
       "mesh": "Mesh"
+ },
+    "sensor.miwifi_nat_rules": "Aktive NAT-Regeln"
+  },
+  "state_attributes": {
+    "ftype_1": "Individuelle Normen",
+    "ftype_2": "Normen nach Bereich",
+    "total": "Insgesamt Regeln",
+    "source": "IP des Routers"
+  },
+  
+  "error": {
+    "miwifi__error": {
+      "invalid_port": "Ungültiger Port",
+      "invalid_range": "Ungültiger Bereich",
+      "port_already_exists": "Der Port existiert bereits",
+      "range_already_exists": "Der Bereich existiert bereits",
+      "port_not_found": "Port nicht gefunden",
+      "range_not_found": "Bereich nicht gefunden",
+      "communication_error": "Fehler bei der Kommunikation mit dem Router"
     }
   }
 }
