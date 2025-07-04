@@ -440,8 +440,10 @@ async def _async_add_all_sensors_later(
     entities: list[SensorEntity] = [
         MiWifiTopologyGraphSensor(updater),
         MiWifiConfigSensor(updater),
-        MiWifiNATRulesSensor(updater), 
     ]
+
+    if updater.data.get("topo_graph", {}).get("graph", {}).get("is_main", False):
+        entities.append(MiWifiNATRulesSensor(updater))
 
     for description in MIWIFI_SENSORS:
         if description.key == ATTR_SENSOR_DEVICES_5_0_GAME and not updater.supports_game:
