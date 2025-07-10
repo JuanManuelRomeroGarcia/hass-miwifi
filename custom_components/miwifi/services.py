@@ -14,6 +14,7 @@ from homeassistant.const import CONF_DEVICE_ID, CONF_IP_ADDRESS, CONF_TYPE
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.translation import async_get_translations
 
 
 from .const import (
@@ -246,12 +247,27 @@ class MiWifiBlockDeviceServiceCall:
             device_entry = device_registry.async_get(device_id)
             friendly_name = device_entry.name_by_user or device_entry.name or mac_address
 
-            pn.async_create(
-                self.hass,
-                f"El dispositivo {friendly_name} ha sido {'BLOQUEADO' if allow else 'DESBLOQUEADO'} automáticamente.",
-                NAME,
+            translations = await async_get_translations(self.hass, self.hass.config.language)
+            title = NAME  # o usa una clave de traducción si querés cambiarlo
+
+            message_template = translations.get(
+                "component.miwifi.notifications.device_blocked_message",
+                "Device {name} has been automatically {status}."
             )
 
+            status = translations.get(
+                "component.miwifi.notifications.status_blocked" if allow else "component.miwifi.notifications.status_unblocked",
+                "BLOCKED" if allow else "UNBLOCKED"
+            )
+
+            message = message_template.replace("{name}", friendly_name).replace("{status}", status)
+
+            pn.async_create(
+                self.hass,
+                message,
+                title,
+                notification_id=f"miwifi_block_{mac_address}",
+            )
 
 class MiWifiListPortsServiceCall:
     """List NAT port forwarding rules automatically from the main router."""

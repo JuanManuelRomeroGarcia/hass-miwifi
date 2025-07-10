@@ -58,5 +58,15 @@
     "update_title": "MiWiFi-Panel aktualisiert",
     "update_message": "✅ Das MiWiFi-Panel wurde auf Version <b>{version}</b> aktualisiert.<br>Bitte <b>aktualisiere deinen Browser (Strg+F5)</b>, um die Änderungen zu sehen.",
     "release_notes": "Dieses Panel ist Teil der benutzerdefinierten MiWiFi-Integration. Es bietet eine visuelle Übersicht über die Netzwerktopologie, Gerätesteuerung und Routerstatistiken. Das Update enthält Verbesserungen an der Benutzeroberfläche, Leistungsverbesserungen und Fehlerbehebungen."
+  },
+
+  "notifications": {
+    "new_device_title": "Neues Gerät auf MiWiFi erkannt",
+    "new_device_message": "📶 Neues Gerät verbunden: {name} ({mac})",
+    "unsupported_router_title": "Nicht unterstützter Router",
+    "unsupported_router_message": "⚠️ Der Router unter {ip} wird von der MiWiFi-Integration nicht unterstützt.",
+    "device_blocked_message": "Gerät {name} wurde automatisch {status}.",
+    "status_blocked": "BLOCKIERT",
+    "status_unblocked": "ENTBLOCKIERT"
   }
 }

@@ -26,6 +26,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.httpx_client import get_async_client
 from homeassistant.helpers.storage import Store, STORAGE_DIR
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import utcnow
 from httpx import codes
 
@@ -512,7 +513,14 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
 
-        pn.async_create(self.hass, f"Router {self.ip} not supported", NAME)
+        translations = await async_get_translations(self.hass, self.hass.config.language)
+        title = translations.get("component.miwifi.notifications.unsupported_router_title", "Unsupported Router")
+        message = translations.get(
+            "component.miwifi.notifications.unsupported_router_message",
+            f"⚠️ Router at {self.ip} is not supported by the MiWiFi integration."
+        ).replace("{ip}", self.ip)
+
+        pn.async_create(self.hass, message, title)
 
         if not self._is_only_login:
             raise LuciError(f"Router {self.ip} not supported")
@@ -1099,73 +1107,78 @@ class LuciUpdater(DataUpdateCoordinator):
 
         self._clean_devices()
 
-    def add_device(
-        self,
-        device: dict,
-        is_from_parent: bool = False,
-        action: DeviceAction = DeviceAction.ADD,
-        integrations: dict[str, Any] | None = None,
-    ) -> None:
-        """Prepare device.
+        def add_device(
+            self,
+            device: dict,
+            is_from_parent: bool = False,
+            action: DeviceAction = DeviceAction.ADD,
+            integrations: dict[str, Any] | None = None,
+        ) -> None:
+            """Prepare device.
 
-        :param device: dict
-        :param is_from_parent: bool: The call came from a third party integration
-        :param action: DeviceAction: Device action
-        :param integrations: dict[str, Any]: Integrations list
-        """
+            :param device: dict
+            :param is_from_parent: bool: The call came from a third party integration
+            :param action: DeviceAction: Device action
+            :param integrations: dict[str, Any]: Integrations list
+            """
 
-        is_new: bool = device[ATTR_TRACKER_MAC] not in self.devices
+            is_new: bool = device[ATTR_TRACKER_MAC] not in self.devices
+            _device: dict[str, Any] = self._build_device(device, integrations)
 
-        _device: dict[str, Any] = self._build_device(device, integrations)
+            if (
+                self.is_repeater
+                and self.is_force_load
+                and device[ATTR_TRACKER_MAC] in self.devices
+            ):
+                self.devices[device[ATTR_TRACKER_MAC]] |= {
+                    key: value
+                    for key, value in _device.items()
+                    if (
+                        (not is_from_parent and key not in REPEATER_SKIP_ATTRS)
+                        or (is_from_parent and key in REPEATER_SKIP_ATTRS)
+                    )
+                    and value is not None
+                }
+            else:
+                self.devices[device[ATTR_TRACKER_MAC]] = _device
 
-        if (
-            self.is_repeater
-            and self.is_force_load
-            and device[ATTR_TRACKER_MAC] in self.devices
-        ):
-            self.devices[device[ATTR_TRACKER_MAC]] |= {
-                key: value
-                for key, value in _device.items()
-                if (
-                    (not is_from_parent and key not in REPEATER_SKIP_ATTRS)
-                    or (is_from_parent and key in REPEATER_SKIP_ATTRS)
+            if not is_from_parent and action == DeviceAction.MOVE:
+                self._moved_devices.append(device[ATTR_TRACKER_MAC])
+                action = DeviceAction.ADD
+
+            if (
+                is_new
+                and action == DeviceAction.ADD
+                and self.new_device_callback is not None
+            ):
+                async_dispatcher_send(
+                    self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
                 )
-                and value is not None
-            }
-        else:
-            self.devices[device[ATTR_TRACKER_MAC]] = _device
+                _LOGGER.debug("Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
 
-        if not is_from_parent and action == DeviceAction.MOVE:
-            self._moved_devices.append(device[ATTR_TRACKER_MAC])
+                if ATTR_TRACKER_FIRST_SEEN not in self.devices[device[ATTR_TRACKER_MAC]]:
+                    self.hass.async_create_task(
+                        self._async_notify_new_device(
+                            device.get("name", device[ATTR_TRACKER_MAC]),
+                            device[ATTR_TRACKER_MAC],
+                        )
+                    )
 
-            action = DeviceAction.ADD
+            elif action == DeviceAction.MOVE:
+                _LOGGER.debug("Move device: %s", device[ATTR_TRACKER_MAC])
 
-        if (
-            is_new
-            and action == DeviceAction.ADD
-            and self.new_device_callback is not None
-        ):
-            async_dispatcher_send(
-                self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
-            )
+            if device[ATTR_TRACKER_MAC] in self._moved_devices or (
+                self.is_repeater and self.is_force_load
+            ):
+                return
 
-            #_LOGGER.debug("Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
-            
-        elif action == DeviceAction.MOVE:
-            #_LOGGER.debug("Move device: %s", device[ATTR_TRACKER_MAC])
-            pass
+            if "new_status" not in self.data:
+                self.data[ATTR_SENSOR_DEVICES] += 1
+                connection = _device.get(ATTR_TRACKER_CONNECTION)
+                code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
+                code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
+                self.data[code] += 1
 
-        if device[ATTR_TRACKER_MAC] in self._moved_devices or (
-            self.is_repeater and self.is_force_load
-        ):
-            return
-        
-        if "new_status" not in self.data:
-            self.data[ATTR_SENSOR_DEVICES] += 1
-            connection = _device.get(ATTR_TRACKER_CONNECTION)
-            code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
-            code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
-            self.data[code] += 1
 
 
     def _build_device(
@@ -1457,31 +1470,60 @@ class LuciUpdater(DataUpdateCoordinator):
         return self._entry_id
     
     async def _async_prepare_compatibility(self) -> None:
-        """Run compatibility detection if main and not already checked."""
-        if not self.data.get("topo_graph", {}).get("graph", {}).get("is_main"):
-            _LOGGER.debug("[MiWiFi] Skipping compatibility: not main router")
-            return
+            """Run compatibility detection if main and not already checked."""
 
-        if getattr(self, "capabilities", None):
-            _LOGGER.debug("[MiWiFi] Capabilities already detected, skipping")
-            return
+            graph = self.data.get("topo_graph", {}).get("graph", {})
+            if not graph.get("is_main"):
+                _LOGGER.debug("[MiWiFi] Skipping compatibility: not main router")
+                return
 
-        try:
-            from .compatibility import CompatibilityChecker
-            checker = CompatibilityChecker(self.luci)
-            self.capabilities = await checker.run() or {}
-            _LOGGER.info(f"[MiWiFi] ✅ Capabilities detected (final): {self.capabilities}")
+            is_manual_main = not graph.get("is_main_auto", False)
 
-            from .diagnostics import suggest_unsupported_issue
-            if ATTR_MODEL in self.data:
-                await suggest_unsupported_issue(
-                    self.hass,
-                    self.data[ATTR_MODEL],
-                    self.capabilities,
-                    getattr(checker, "mode", None),
-                )
-        except Exception as e:
-            _LOGGER.warning("[MiWiFi] Compatibility check failed (final): %s", e)
+            if getattr(self, "capabilities", None):
+                _LOGGER.debug("[MiWiFi] Capabilities already detected, skipping")
+                return
+
+            try:
+                from .compatibility import CompatibilityChecker
+                checker = CompatibilityChecker(self.luci)
+
+                checker.silent_mode = is_manual_main
+
+                self.capabilities = await checker.run() or {}
+                _LOGGER.info(f"[MiWiFi] ✅ Capabilities detected (final): {self.capabilities}")
+
+
+                if not is_manual_main and ATTR_MODEL in self.data:
+                    from .diagnostics import suggest_unsupported_issue
+                    await suggest_unsupported_issue(
+                        self.hass,
+                        self.data[ATTR_MODEL],
+                        self.capabilities,
+                        getattr(checker, "mode", None),
+                    )
+
+            except Exception as e:
+                _LOGGER.warning("[MiWiFi] Compatibility check failed (final): %s", e)
+                
+    async def _async_notify_new_device(self, name: str, mac: str) -> None:
+        from homeassistant.helpers.translation import async_get_translations
+        import homeassistant.components.persistent_notification as pn
+
+        translations = await async_get_translations(self.hass, self.hass.config.language)
+        title = translations.get("component.miwifi.notifications.new_device_title", "New Device Detected on MiWiFi")
+        message = translations.get(
+            "component.miwifi.notifications.new_device_message",
+            f"📶 New device connected: {name} ({mac})"
+        ).replace("{name}", name).replace("{mac}", mac)
+
+        pn.async_create(
+            self.hass,
+            message,
+            title=title,
+            notification_id=f"miwifi_new_{mac}",
+        )
+
+
 
 @callback
 def async_get_integrations(hass: HomeAssistant) -> dict[str, dict]:
@@ -1538,16 +1580,18 @@ async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, a
 
     topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
     is_main = topo_graph.get("is_main")
+    is_auto = topo_graph.get("is_main_auto", False)
 
     entry = entity_registry.async_get(entity_id)
 
     if is_main:
+        source = "auto" if is_auto else "manual"
         if not entry and async_add_entities:
-            _LOGGER.debug("[MiWiFi] 🟢 Creating update panel because it is now main")
+            _LOGGER.debug("[MiWiFi] 🟢 Creating update panel (%s main selection)", source)
             panel_entity = MiWifiPanelUpdate(f"{updater.entry_id}_miwifi_panel", updater)
             async_add_entities([panel_entity])
         elif not entry:
-            _LOGGER.debug("[MiWiFi] ⚠ Cannot create update panel because async_add_entities is not available")
+            _LOGGER.debug("[MiWiFi] ⚠ Cannot create update panel (%s main) because async_add_entities is not available", source)
     else:
         if entry:
             _LOGGER.debug("[MiWiFi] 🔴 Removing update panel because it is no longer main")

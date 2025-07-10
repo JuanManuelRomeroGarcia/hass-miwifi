@@ -64,6 +64,16 @@
     "update_title": "Painel MiWiFi atualizado",
     "update_message": "✅ O Painel MiWiFi foi atualizado para a versão <b>{version}</b>.<br>Por favor, <b>atualize seu navegador (Ctrl+F5)</b> para ver as mudanças.",
     "release_notes": "Este painel faz parte da integração personalizada MiWiFi. Ele oferece uma visão visual da topologia da rede, controle de dispositivos e estatísticas do roteador. A atualização inclui melhorias na interface, desempenho e correções de bugs."
+  },
+
+  "notifications": {
+    "new_device_title": "Novo dispositivo detectado no MiWiFi",
+    "new_device_message": "📶 Novo dispositivo conectado: {name} ({mac})",
+    "unsupported_router_title": "Roteador não compatível",
+    "unsupported_router_message": "⚠️ O roteador em {ip} não é compatível com a integração MiWiFi.",
+    "device_blocked_message": "O dispositivo {name} foi {status} automaticamente.",
+    "status_blocked": "BLOQUEADO",
+    "status_unblocked": "DESBLOQUEADO"
   }
 }
   

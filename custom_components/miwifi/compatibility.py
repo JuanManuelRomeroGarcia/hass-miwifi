@@ -14,6 +14,7 @@ class CompatibilityChecker:
         self.result: dict[str, bool | None] = {}
         self.mode: Mode | None = None
         self.model: Model | None = None
+        self.silent_mode: bool = False
 
     async def run(self) -> dict[str, bool | None]:
         """Run full compatibility checks."""
@@ -80,7 +81,7 @@ class CompatibilityChecker:
                 supported = await check_func()
                 self.result[feature] = supported
 
-                if supported is False:
+                if supported is False and not self.silent_mode:
                     _LOGGER.warning(
                         "[MiWiFi] 🚫 Detected unsupported feature '%s' for model: %s (mode: %s).",
                         feature, self.model, self.mode

@@ -336,12 +336,12 @@ class MiWifiTopologyGraphSensor(SensorEntity):
         pass
     
 class MiWifiNATRulesSensor(SensorEntity):
-    """Sensor que representa las reglas NAT del router principal."""
+    """Sensor to represent the NAT rules of the main router."""
 
     def __init__(self, updater: LuciUpdater) -> None:
         self._updater = updater
         self._attr_unique_id = f"{updater.entry_id}_nat_rules"
-        self._attr_name = "MiWiFi nat rules" 
+        self._attr_name = "MiWiFi NAT Rules"
         self._attr_icon = "mdi:router-network"
         self._attr_should_poll = False
 
@@ -356,7 +356,7 @@ class MiWifiNATRulesSensor(SensorEntity):
             if isinstance(rules, list):
                 total += len(rules)
             else:
-                _LOGGER.warning("[MiWiFi] Sensor NAT: se esperaba una lista en '%s', pero se recibió: %s", key, type(rules))
+               _LOGGER.warning("[MyWiFi] NAT Sensor: Expected a list on '%s', but received: %s", key, type(rules))
 
         return total
 
@@ -373,12 +373,16 @@ class MiWifiNATRulesSensor(SensorEntity):
         }
 
     async def async_update(self) -> None:
-        """No se hace polling directo. Actualiza vía coordinator."""
+        """No polling, data is pushed from coordinator."""
         pass
 
-
+    def async_update_from_updater(self) -> None:
+        """Update the sensor state from the updater data."""
+        self._attr_native_value = self.native_value 
+        self._attr_extra_state_attributes = self.extra_state_attributes
+        self.async_write_ha_state()
 class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
-    """Sensor que expone la configuración actual como atributos."""
+    """Sensor to represent the MiWiFi configuration."""
 
     def __init__(self, updater: LuciUpdater) -> None:
         super().__init__(updater)
@@ -399,7 +403,7 @@ class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
         return self._extra_attrs
 
     async def async_added_to_hass(self) -> None:
-        """Se ejecuta al agregar la entidad a Home Assistant."""
+        """Register the entity and set up the coordinator listener."""
         await super().async_added_to_hass()
         await self._update_attrs()
         self._unsub_coordinator_update = self._updater.async_add_listener(self._handle_coordinator_update)
@@ -431,7 +435,7 @@ async def _async_add_all_sensors_later(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Add all MiWiFi sensors asynchronously to avoid blocking startup."""
+    """Add all sensors after a short delay to avoid blocking startup."""
 
     await asyncio.sleep(0)
 

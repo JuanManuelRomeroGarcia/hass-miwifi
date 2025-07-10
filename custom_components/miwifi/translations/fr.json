@@ -61,5 +61,14 @@
     "update_title": "Panneau MiWiFi mis à jour",
     "update_message": "✅ Le panneau MiWiFi a été mis à jour vers la version <b>{version}</b>.<br>Veuillez <b>actualiser votre navigateur (Ctrl+F5)</b> pour voir les modifications.",
     "release_notes": "Ce panneau fait partie de l'intégration personnalisée MiWiFi. Il offre une vue visuelle de la topologie réseau, le contrôle des appareils et des statistiques du routeur. La mise à jour inclut des améliorations de l'interface, des performances et des corrections de bugs."
+  },
+  "notifications": {
+    "new_device_title": "Nouveau dispositif détecté sur MiWiFi",
+    "new_device_message": "📶 Nouveau dispositif connecté : {name} ({mac})",
+    "unsupported_router_title": "Routeur non pris en charge",
+    "unsupported_router_message": "⚠️ Le routeur à {ip} n'est pas pris en charge par l'intégration MiWiFi.",
+    "device_blocked_message": "Le dispositif {name} a été {status} automatiquement.",
+    "status_blocked": "BLOQUÉ",
+    "status_unblocked": "DÉBLOQUÉ"
   }
 }
