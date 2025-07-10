@@ -1107,77 +1107,77 @@ class LuciUpdater(DataUpdateCoordinator):
 
         self._clean_devices()
 
-        def add_device(
-            self,
-            device: dict,
-            is_from_parent: bool = False,
-            action: DeviceAction = DeviceAction.ADD,
-            integrations: dict[str, Any] | None = None,
-        ) -> None:
-            """Prepare device.
+    def add_device(
+        self,
+        device: dict,
+        is_from_parent: bool = False,
+        action: DeviceAction = DeviceAction.ADD,
+        integrations: dict[str, Any] | None = None,
+    ) -> None:
+        """Prepare device.
 
-            :param device: dict
-            :param is_from_parent: bool: The call came from a third party integration
-            :param action: DeviceAction: Device action
-            :param integrations: dict[str, Any]: Integrations list
-            """
+        :param device: dict
+        :param is_from_parent: bool: The call came from a third party integration
+        :param action: DeviceAction: Device action
+        :param integrations: dict[str, Any]: Integrations list
+        """
 
-            is_new: bool = device[ATTR_TRACKER_MAC] not in self.devices
-            _device: dict[str, Any] = self._build_device(device, integrations)
+        is_new: bool = device[ATTR_TRACKER_MAC] not in self.devices
+        _device: dict[str, Any] = self._build_device(device, integrations)
 
-            if (
-                self.is_repeater
-                and self.is_force_load
-                and device[ATTR_TRACKER_MAC] in self.devices
-            ):
-                self.devices[device[ATTR_TRACKER_MAC]] |= {
-                    key: value
-                    for key, value in _device.items()
-                    if (
-                        (not is_from_parent and key not in REPEATER_SKIP_ATTRS)
-                        or (is_from_parent and key in REPEATER_SKIP_ATTRS)
-                    )
-                    and value is not None
-                }
-            else:
-                self.devices[device[ATTR_TRACKER_MAC]] = _device
-
-            if not is_from_parent and action == DeviceAction.MOVE:
-                self._moved_devices.append(device[ATTR_TRACKER_MAC])
-                action = DeviceAction.ADD
-
-            if (
-                is_new
-                and action == DeviceAction.ADD
-                and self.new_device_callback is not None
-            ):
-                async_dispatcher_send(
-                    self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
+        if (
+            self.is_repeater
+            and self.is_force_load
+            and device[ATTR_TRACKER_MAC] in self.devices
+        ):
+            self.devices[device[ATTR_TRACKER_MAC]] |= {
+                key: value
+                for key, value in _device.items()
+                if (
+                    (not is_from_parent and key not in REPEATER_SKIP_ATTRS)
+                    or (is_from_parent and key in REPEATER_SKIP_ATTRS)
                 )
-                _LOGGER.debug("Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
+                and value is not None
+            }
+        else:
+            self.devices[device[ATTR_TRACKER_MAC]] = _device
 
-                if ATTR_TRACKER_FIRST_SEEN not in self.devices[device[ATTR_TRACKER_MAC]]:
-                    self.hass.async_create_task(
-                        self._async_notify_new_device(
-                            device.get("name", device[ATTR_TRACKER_MAC]),
-                            device[ATTR_TRACKER_MAC],
-                        )
+        if not is_from_parent and action == DeviceAction.MOVE:
+            self._moved_devices.append(device[ATTR_TRACKER_MAC])
+            action = DeviceAction.ADD
+
+        if (
+            is_new
+            and action == DeviceAction.ADD
+            and self.new_device_callback is not None
+        ):
+            async_dispatcher_send(
+                self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
+            )
+            _LOGGER.debug("Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
+
+            if ATTR_TRACKER_FIRST_SEEN not in self.devices[device[ATTR_TRACKER_MAC]]:
+                self.hass.async_create_task(
+                    self._async_notify_new_device(
+                        device.get("name", device[ATTR_TRACKER_MAC]),
+                        device[ATTR_TRACKER_MAC],
                     )
+                )
 
-            elif action == DeviceAction.MOVE:
-                _LOGGER.debug("Move device: %s", device[ATTR_TRACKER_MAC])
+        elif action == DeviceAction.MOVE:
+            _LOGGER.debug("Move device: %s", device[ATTR_TRACKER_MAC])
 
-            if device[ATTR_TRACKER_MAC] in self._moved_devices or (
-                self.is_repeater and self.is_force_load
-            ):
-                return
+        if device[ATTR_TRACKER_MAC] in self._moved_devices or (
+            self.is_repeater and self.is_force_load
+        ):
+            return
 
-            if "new_status" not in self.data:
-                self.data[ATTR_SENSOR_DEVICES] += 1
-                connection = _device.get(ATTR_TRACKER_CONNECTION)
-                code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
-                code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
-                self.data[code] += 1
+        if "new_status" not in self.data:
+            self.data[ATTR_SENSOR_DEVICES] += 1
+            connection = _device.get(ATTR_TRACKER_CONNECTION)
+            code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
+            code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
+            self.data[code] += 1
 
 
 
