@@ -513,7 +513,7 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
 
-        translations = await async_get_translations(self.hass, self.hass.config.language)
+        translations = await async_get_translations(self.hass, self.hass.config.language, category="services")
         title = translations.get("component.miwifi.notifications.unsupported_router_title", "Unsupported Router")
         message = translations.get(
             "component.miwifi.notifications.unsupported_router_message",
@@ -1509,7 +1509,7 @@ class LuciUpdater(DataUpdateCoordinator):
         from homeassistant.helpers.translation import async_get_translations
         import homeassistant.components.persistent_notification as pn
 
-        translations = await async_get_translations(self.hass, self.hass.config.language)
+        translations = await async_get_translations(self.hass, self.hass.config.language, category="services")
         title = translations.get("component.miwifi.notifications.new_device_title", "New Device Detected on MiWiFi")
         message = translations.get(
             "component.miwifi.notifications.new_device_message",
@@ -1532,15 +1532,21 @@ def async_get_integrations(hass: HomeAssistant) -> dict[str, dict]:
     :param hass: HomeAssistant
     :return dict[str, dict]
     """
+    integrations: dict[str, dict] = {}
 
-    return {
-        integration[CONF_IP_ADDRESS]: {
-            UPDATER: integration[UPDATER],
-            ATTR_TRACKER_ENTRY_ID: entry_id,
-        }
-        for entry_id, integration in hass.data[DOMAIN].items()
-        if isinstance(integration, dict)
-    }
+    for entry_id, integration in hass.data.get(DOMAIN, {}).items():
+        if (
+            isinstance(integration, dict)
+            and CONF_IP_ADDRESS in integration
+            and UPDATER in integration
+        ):
+            integrations[integration[CONF_IP_ADDRESS]] = {
+                UPDATER: integration[UPDATER],
+                ATTR_TRACKER_ENTRY_ID: entry_id,
+            }
+
+    return integrations
+
 
 
 @callback

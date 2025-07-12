@@ -34,7 +34,7 @@
       "password.not_matched": "Contraseña o algoritmo de cifrado incorrectos",
       "connection": "No se pudo establecer la conexión",
       "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones."
-      },
+    },
     "step": {
       "init": {
         "title": "Configuración de MiWiFi",
@@ -61,20 +61,27 @@
       "version": "Version"
     }
   },
- "panel_update": {
+  "panel_update": {
     "title": "Panel MiWiFi",
     "update_title": "Panel MiWiFi actualizado",
     "update_message": "✅ El Panel MiWiFi se ha actualizado a la versión <b>{version}</b>.<br>Por favor, <b>actualiza tu navegador (Ctrl+F5)</b> para ver los cambios.",
     "release_notes": "Este panel forma parte de la integración personalizada MiWiFi. Ofrece una vista visual de la topología de red, control de dispositivos y estadísticas del router. La actualización incluye mejoras de interfaz, rendimiento y correcciones de errores."
   },
-  
+  "connection_type": {
+    "lan": "Cable (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Red de Invitados",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
+    "unknown": "Desconocido"
+  },
   "notifications": {
     "new_device_title": "Nuevo dispositivo detectado en MiWiFi",
-    "new_device_message": "📶 Nuevo dispositivo conectado: {name} ({mac})",
+    "new_device_message": "📶 Nuevo dispositivo conectado: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Conexión: `{conn}`",
     "unsupported_router_title": "Router no compatible",
     "unsupported_router_message": "⚠️ El router en {ip} no es compatible con la integración MiWiFi.",
     "device_blocked_message": "El dispositivo {name} ha sido {status} automáticamente.",
     "status_blocked": "BLOQUEADO",
-    "status_unblocked": "DESBLOQUEADO"
+    "status_unblocked": "DESBLOQUEADO"  
+   } 
   }
-}

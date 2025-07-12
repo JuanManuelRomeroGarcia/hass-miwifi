@@ -8,6 +8,8 @@ import httpx
 from .logger import _LOGGER
 from typing import Any, Final
 from datetime import datetime
+from .enum import Connection
+from homeassistant.util.json import load_json
 from homeassistant.util import dt as dt_util
 
 
@@ -44,14 +46,7 @@ from .const import (
     REPOSITORY,
     DOMAIN,
 )
-from .frontend import (
-    async_download_panel_if_needed,
-    async_remove_miwifi_panel,
-    async_register_panel,
-    read_local_version,
-    read_remote_version
-)
-import homeassistant.components.persistent_notification as pn
+
 from .entity import MiWifiEntity
 from .enum import Model
 from .exceptions import LuciError
@@ -349,3 +344,84 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
         message = message_template.replace("{version}", remote_version)
 
         async_create(hass, message, title)
+        
+
+class MiWiFiNotifier:
+    def __init__(self, hass):
+        self.hass = hass
+
+    @staticmethod
+    def build_nested_translations(flat: dict[str, str]) -> dict:
+        """Converts flat keys with dots into nested structures."""
+        nested = {}
+        for key, value in flat.items():
+            parts = key.split(".")
+            d = nested
+            for part in parts[:-1]:
+                d = d.setdefault(part, {})
+            d[parts[-1]] = value
+        return nested
+
+    async def async_notify_new_device(self, router_ip: str, mac: str, new_device: dict, notified_store):
+        stored = await notified_store[router_ip].async_load() or {}
+        if mac in stored:
+            return
+
+        name = new_device.get("name", "Unknown")
+        ip = new_device.get("ip", "N/A")
+        conn_type = new_device.get("connection")
+
+        try:
+            conn_enum = Connection(int(conn_type))
+            conn_key = conn_enum.name.lower()  # e.g., wifi_24g
+            conn_phrase = conn_enum.phrase
+        except (ValueError, TypeError):
+            conn_key = "unknown"
+            conn_phrase = "Unknown"
+
+        lang = self.hass.config.language
+        translations = self.hass.data.get("translations", {}).get(lang, {}).get("component", {}).get(DOMAIN)
+
+        # ⏳ If not exist yet, load from disk
+        if not translations:
+            try:
+                translation_path = f"{self.hass.config.path('custom_components')}/{DOMAIN}/translations/{lang}.json"
+                flat_translations = load_json(translation_path)
+                _LOGGER.debug("[MiWiFi] 📥 Translations loaded from disk: %s", flat_translations)
+                nested = self.build_nested_translations(flat_translations)
+                self.hass.data.setdefault("translations", {}).setdefault(lang, {}).setdefault("component", {})[DOMAIN] = nested
+                translations = nested
+            except Exception as e:
+                _LOGGER.warning("[MiWiFi] ❌ Could not load translations from disk: %s", e)
+                translations = {}
+
+        translations_type = translations.get("connection_type", {})
+        translations_notify = translations.get("notifications", {})
+
+        conn_str = translations_type.get(conn_key, conn_phrase)
+        title = translations_notify.get("new_device_title", "New Device Detected on MiWiFi")
+        message_template = translations_notify.get(
+            "new_device_message",
+            "📶 New device connected: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Connection: `{conn}`"
+        )
+
+        if any(p not in message_template for p in ("{name}", "{mac}", "{ip}", "{conn}")):
+            message_template = (
+                "📶 New device connected: **{name}**\n"
+                "💻 MAC: `{mac}`\n"
+                "🌐 IP: `{ip}`\n"
+                "📡 Connection: `{conn}`"
+            )
+
+        message = message_template.format(name=name, mac=mac, ip=ip, conn=conn_str)
+
+        from homeassistant.components.persistent_notification import async_create
+        async_create(
+            self.hass,
+            message,
+            title=title,
+            notification_id=f"miwifi_new_device_{mac.replace(':','_')}"
+        )
+
+        stored[mac] = True
+        await notified_store[router_ip].async_save(stored)

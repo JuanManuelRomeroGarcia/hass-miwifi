@@ -113,7 +113,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ip = defaults.get(CONF_IP_ADDRESS, "")
         model = defaults.get("model", "MiWiFi")
 
-        # Cargar configuraciones globales para mostrar por defecto
+        
         panel_state = await get_global_panel_state(self.hass)
         log_level = await get_global_log_level(self.hass)
 
@@ -129,7 +129,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
         }
 
-        # Añadir extras solo en el paso de confirmación
+        
         if step_id == "discovery_confirm":
             schema_dict[vol.Optional(CONF_ENABLE_PANEL, default=panel_state)] = cv.boolean
             schema_dict[vol.Optional(CONF_WAN_SPEED_UNIT, default=DEFAULT_WAN_SPEED_UNIT)] = vol.In(WAN_SPEED_UNIT_OPTIONS)

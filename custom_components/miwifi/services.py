@@ -14,7 +14,7 @@ from homeassistant.const import CONF_DEVICE_ID, CONF_IP_ADDRESS, CONF_TYPE
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.translation import async_get_translations
+from homeassistant.util.json import load_json
 
 
 from .const import (
@@ -30,6 +30,7 @@ from .const import (
     SERVICE_CALC_PASSWD,
     SERVICE_REQUEST,
     UPDATER,
+    DOMAIN
 )
 from .exceptions import LuciError
 from .updater import LuciUpdater, async_get_updater, async_update_panel_entity
@@ -191,11 +192,24 @@ class MiWifiBlockDeviceServiceCall:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
 
+    @staticmethod
+    def build_nested_translations(flat: dict[str, str]) -> dict:
+        """Converts flat keys with dots into nested structures."""
+        nested = {}
+        for key, value in flat.items():
+            parts = key.split(".")
+            d = nested
+            for part in parts[:-1]:
+                d = d.setdefault(part, {})
+            d[parts[-1]] = value
+        return nested
+
     async def async_call_service(self, service: ServiceCall) -> None:
         device_id: str = service.data[CONF_DEVICE_ID]
 
         entity_registry = er.async_get(self.hass)
-        entities = [e for e in entity_registry.entities.values() if e.device_id == device_id and e.platform == "miwifi" and e.domain == "device_tracker"]
+        entities = [e for e in entity_registry.entities.values()
+                    if e.device_id == device_id and e.platform == "miwifi" and e.domain == "device_tracker"]
 
         if not entities:
             raise vol.Invalid("No MiWiFi device_tracker entity found for selected device.")
@@ -238,25 +252,40 @@ class MiWifiBlockDeviceServiceCall:
         except LuciError as e:
             if "Connection error" in str(e):
                 _LOGGER.info("[MiWiFi] Connection dropped after applying MAC filter (likely successfully applied): %s", e)
-
             else:
                 _LOGGER.error("[MiWiFi] Error applying MAC filter: %s", e)
                 raise vol.Invalid(f"Failed to apply mac filter: {e}")
+
         finally:
             device_registry = dr.async_get(self.hass)
             device_entry = device_registry.async_get(device_id)
             friendly_name = device_entry.name_by_user or device_entry.name or mac_address
 
-            translations = await async_get_translations(self.hass, self.hass.config.language)
-            title = NAME  # o usa una clave de traducción si querés cambiarlo
+            lang = self.hass.config.language
+            translations = self.hass.data.get("translations", {}).get(lang, {}).get("component", {}).get(DOMAIN)
 
-            message_template = translations.get(
-                "component.miwifi.notifications.device_blocked_message",
+            if not translations:
+                try:
+                    translation_path = f"{self.hass.config.path('custom_components')}/{DOMAIN}/translations/{lang}.json"
+                    flat_translations = load_json(translation_path)
+                    nested = self.build_nested_translations(flat_translations)
+                    self.hass.data.setdefault("translations", {}).setdefault(lang, {}).setdefault("component", {})[DOMAIN] = nested
+                    translations = nested
+                    _LOGGER.debug("[MiWiFi] 📥 Service translations loaded from disk.")
+                except Exception as e:
+                    _LOGGER.warning("[MiWiFi] ❌ Could not load translations from disk: %s", e)
+                    translations = {}
+
+            trans_notify = translations.get("notifications", {})
+            title = translations.get("title", "MiWiFi")
+
+            message_template = trans_notify.get(
+                "device_blocked_message",
                 "Device {name} has been automatically {status}."
             )
 
-            status = translations.get(
-                "component.miwifi.notifications.status_blocked" if allow else "component.miwifi.notifications.status_unblocked",
+            status = trans_notify.get(
+                "status_blocked" if allow else "status_unblocked",
                 "BLOCKED" if allow else "UNBLOCKED"
             )
 
@@ -266,8 +295,9 @@ class MiWifiBlockDeviceServiceCall:
                 self.hass,
                 message,
                 title,
-                notification_id=f"miwifi_block_{mac_address}",
+                notification_id=f"miwifi_block_{mac_address.replace(':', '_')}",
             )
+
 
 class MiWifiListPortsServiceCall:
     """List NAT port forwarding rules automatically from the main router."""

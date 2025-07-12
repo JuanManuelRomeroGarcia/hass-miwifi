@@ -7,9 +7,9 @@ import asyncio
 import time
 from functools import cached_property
 from typing import Any, Final
-
 from homeassistant.components.device_tracker import ENTITY_ID_FORMAT
 from .helper import map_signal_quality
+from .update import MiWiFiNotifier
 
 SOURCE_TYPE_ROUTER = "router"
 
@@ -25,6 +25,8 @@ from homeassistant.helpers.entity_platform import (
     async_get_current_platform,
 )
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+
 
 from .const import (
     ATTR_STATE,
@@ -103,7 +105,6 @@ async def async_setup_entry(
 
         :param new_device: dict: Device object
         """
-
         if (
             not get_config_value(config_entry, CONF_IS_TRACK_DEVICES, True)
             or new_device[ATTR_TRACKER_UPDATER_ENTRY_ID] != config_entry.entry_id
@@ -121,27 +122,46 @@ async def async_setup_entry(
 
         try:
             platform: EntityPlatform = async_get_current_platform()
-        except RuntimeError as _e:  # pragma: no cover
+        except RuntimeError:
             return
 
         unique_id = f"{DOMAIN}-{config_entry.entry_id}-{mac}"
-
         existing_entity = next((e for e in platform.entities.values() if e.unique_id == unique_id), None)
 
         if existing_entity:
             existing_entity._device = dict(new_device)
             existing_entity.async_write_ha_state()
-            return
+        else:
+            async_add_entities([
+                MiWifiDeviceTracker(
+                    unique_id,
+                    entity_id,
+                    new_device,
+                    updater,
+                    get_config_value(config_entry, CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE),
+                )
+            ])
 
-        async_add_entities([
-            MiWifiDeviceTracker(
-                unique_id,
-                entity_id,
-                new_device,
-                updater,
-                get_config_value(config_entry, CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE),
-            )
-        ])
+    
+        hass.data.setdefault(DOMAIN, {})
+        hass.data[DOMAIN].setdefault("notified_macs_store", {})
+
+        notified_store = hass.data[DOMAIN]["notified_macs_store"]
+        router_ip = updater.ip.replace(".", "_")
+        if router_ip not in notified_store:
+            from homeassistant.helpers.storage import Store
+            notified_store[router_ip] = Store(hass, 1, f"{DOMAIN}/{router_ip}_notified_macs.json")
+
+
+        def notify_new_device(hass, router_ip, mac, new_device, notified_store):
+            async def _notify():
+                notifier = MiWiFiNotifier(hass)
+                await notifier.async_notify_new_device(router_ip, mac, new_device, notified_store)
+                
+            hass.async_create_task(_notify())
+
+        notify_new_device(hass, router_ip, mac, new_device, notified_store)
+
 
     for device in updater.devices.values():
         add_device(device)

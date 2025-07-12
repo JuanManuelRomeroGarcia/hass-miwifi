@@ -466,7 +466,5 @@ async def _async_add_all_sensors_later(
                 updater,
             )
         )
-        if updater.data.get("topo_graph", {}).get("graph", {}).get("is_main", False):
-            entities.append(MiWifiNATRulesSensor(updater))
 
     async_add_entities(entities)

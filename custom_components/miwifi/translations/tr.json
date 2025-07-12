@@ -62,13 +62,20 @@
     "update_message": "✅ MiWiFi Paneli <b>{version}</b> sürümüne güncellendi.<br>Değişiklikleri görmek için lütfen <b>tarayıcınızı yenileyin (Ctrl+F5)</b>.",
     "release_notes": "Bu panel, özel MiWiFi entegrasyonunun bir parçasıdır. Ağ topolojisinin görsel bir görünümünü, cihaz kontrolünü ve yönlendirici istatistiklerini sunar. Güncelleme, arayüz geliştirmeleri, performans iyileştirmeleri ve hata düzeltmeleri içerir."
   },
-  
+  "connection_type": {
+    "lan": "Kablo (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Misafir Ağı",
+    "wifi_5_0_game": "Wi-Fi 5G (Oyun)",
+    "unknown": "Bilinmiyor"
+  },
   "notifications": {
     "new_device_title": "MiWiFi'de Yeni Cihaz Tespit Edildi",
-    "new_device_message": "📶 Yeni cihaz bağlandı: {name} ({mac})",
+    "new_device_message": "📶 Yeni cihaz bağlandı: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Bağlantı: `{conn}`",
     "unsupported_router_title": "Desteklenmeyen Yönlendirici",
     "unsupported_router_message": "⚠️ {ip} adresindeki yönlendirici MiWiFi entegrasyonu tarafından desteklenmiyor.",
-    "device_blocked_message": "{name} cihazı otomatik olarak {status} edildi.",
+    "device_blocked_message": "Cihaz {name} otomatik olarak {status} edildi.",
     "status_blocked": "BLOKE EDİLDİ",
     "status_unblocked": "BLOKEDEN KALDIRILDI"
   }

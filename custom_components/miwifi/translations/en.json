@@ -62,10 +62,17 @@
     "update_message": "✅ MiWiFi Panel has been updated to version <b>{version}</b>.<br>Please <b>refresh your browser (Ctrl+F5)</b> to see the changes.",
     "release_notes": "This panel is part of the custom MiWiFi integration. It offers a visual overview of your network topology, device control, and router stats. The update includes UI improvements, performance enhancements, and fixes."
   },
-
+  "connection_type": {
+    "lan": "Cable (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Guest Network",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
+    "unknown": "Unknown"
+  },
   "notifications": {
     "new_device_title": "New Device Detected on MiWiFi",
-    "new_device_message": "📶 New device connected: {name} ({mac})",
+    "new_device_message": "📶 New device connected: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Connection: `{conn}`",
     "unsupported_router_title": "Unsupported Router",
     "unsupported_router_message": "⚠️ Router at {ip} is not supported by the MiWiFi integration.",
     "device_blocked_message": "Device {name} has been automatically {status}.",
