@@ -22,9 +22,6 @@ from .const import (
 from .logger import _LOGGER
 
 
-DEFAULT_PANEL_VERSION = "1.2.3" # Minimum version required v 1.2.3
-
-
 async def async_download_panel_if_needed(hass: HomeAssistant) -> str:
     """Check and download panel if needed. Return the version."""
     if hass.data.get("_miwifi_panel_updating"):
@@ -97,21 +94,24 @@ async def save_local_version(hass: HomeAssistant, version: str) -> None:
 async def read_local_version(hass: HomeAssistant) -> str:
     path = hass.config.path(PANEL_STORAGE_FILE)
     if not os.path.exists(path):
-        _LOGGER.info(f"[MiWiFi] First installation detected, downloading frontend panel version {DEFAULT_PANEL_VERSION}")
+        _LOGGER.info("[MiWiFi] First installation detected, fetching latest frontend panel version...")
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         async with aiohttp.ClientSession() as session:
             try:
-                await download_panel_files(hass, session, DEFAULT_PANEL_VERSION)
-                await hass.async_add_executor_job(_write_json_file, path, {"version": DEFAULT_PANEL_VERSION})
+                latest_version = await read_remote_version(session)
+                await download_panel_files(hass, session, latest_version)
+                await hass.async_add_executor_job(_write_json_file, path, {"version": latest_version})
+                _LOGGER.info(f"[MiWiFi] Downloaded and saved latest panel version {latest_version}")
+                return latest_version
             except Exception as e:
                 _LOGGER.error(f"[MiWiFi] Error downloading panel on first installation: {e}")
-                return "0.0"
-
-        return DEFAULT_PANEL_VERSION
+                return DEFAULT_PANEL_VERSION  # Fallback to a known version
 
     data = await hass.async_add_executor_job(_read_json_file, path)
-    return data.get("version", DEFAULT_PANEL_VERSION)
+    version = data.get("version", DEFAULT_PANEL_VERSION)
+    _LOGGER.debug(f"[MiWiFi] Loaded local panel version: {version}")
+    return version
 
 
 async def download_panel_files(hass: HomeAssistant, session: aiohttp.ClientSession, remote_version: str) -> None:

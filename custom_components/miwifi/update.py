@@ -386,7 +386,7 @@ class MiWiFiNotifier:
         if not translations:
             try:
                 translation_path = f"{self.hass.config.path('custom_components')}/{DOMAIN}/translations/{lang}.json"
-                flat_translations = load_json(translation_path)
+                flat_translations = await self.hass.async_add_executor_job(load_json, translation_path)
                 _LOGGER.debug("[MiWiFi] 📥 Translations loaded from disk: %s", flat_translations)
                 nested = self.build_nested_translations(flat_translations)
                 self.hass.data.setdefault("translations", {}).setdefault(lang, {}).setdefault("component", {})[DOMAIN] = nested

@@ -55,7 +55,7 @@ WAN_SPEED_UNIT_OPTIONS: Final = ["B/s", "Mbps"]
 
 """Panel const"""
 CONF_ENABLE_PANEL = "enable_panel"
-DEFAULT_PANEL_VERSION = "1.0"
+DEFAULT_PANEL_VERSION = "1.2.3" # Minimum version required v 1.2.3
 DEFAULT_ENABLE_PANEL = True
 GLOBAL_PANEL_STORE = "miwifi/miwifi_global_panel_state"
 PANEL_REPO_BASE_URL = "https://raw.githubusercontent.com/JuanManuelRomeroGarcia/miwifi-panel-frontend/main/"
