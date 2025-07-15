@@ -1,0 +1,19 @@
+{
+  "state": {
+    "miwifi__device_tracker": {
+      "home": "连接",
+      "not_home": "断开连接"
+    }
+  },
+  "state_attributes": {
+    "miwifi__device_tracker": {
+      "total_usage": "总使用量",
+      "signal_quality": "信号质量",
+      "very_strong": "非常强",
+      "strong": "强",
+      "fair": "一般",
+      "weak": "弱",
+      "no_signal": "无信号"
+    }
+  }
+}

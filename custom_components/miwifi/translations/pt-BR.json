@@ -5,7 +5,8 @@
       "ip_address.not_matched": "IP inválido",
       "password.not_matched": "Senha ou algoritmo de criptografia incorreto",
       "connection": "Falha ao estabelecer conexão",
-      "router.not.supported": "O roteador não é suportado. Informações detalhadas foram enviadas para o centro de notificação."
+      "router.not.supported": "O roteador não é suportado. Informações detalhadas foram enviadas para o centro de notificação.",
+      "router.error_with_reason": "Erro ao conectar ao roteador: {reason}"
     },
     "step": {
       "discovery_confirm": {
@@ -31,7 +32,8 @@
       "ip_address.not_matched": "IP inválido",
       "password.not_matched": "Senha ou algoritmo de criptografia incorreto",
       "connection": "Falha ao estabelecer conexão",
-      "router.not.supported": "O roteador não é suportado. Informações detalhadas foram enviadas para o centro de notificação."
+      "router.not.supported": "O roteador não é suportado. Informações detalhadas foram enviadas para o centro de notificação.",
+      "router.error_with_reason": "Erro ao conectar ao roteador: {reason}"
     },
     "step": {
       "init": {
@@ -80,7 +82,13 @@
     "unsupported_router_message": "⚠️ O roteador em {ip} não é suportado pela integração MiWiFi.",
     "device_blocked_message": "O dispositivo {name} foi automaticamente {status}.",
     "status_blocked": "BLOQUEADO",
-    "status_unblocked": "DESBLOQUEADO"
+    "status_unblocked": "DESBLOQUEADO",
+    "download_ready": "📦 Seus logs estão prontos: <a href='{url}' target='_blank'>Clique aqui para baixá-los</a>",
+    "calc_passwd_message": "🔐 Sua senha é: <b>{passwd}</b>",
+    "self_check_title": "Compatibilidade do roteador falhou",
+    "self_check_message": "🔍 Métodos incompatíveis foram detectados no roteador ({model}).",
+    "suggest_unsupported_title": "Modelo não suportado detectado",
+    "suggest_unsupported_message": "🚫 Este roteador falhou em alguns testes de compatibilidade."
   }
 }
 

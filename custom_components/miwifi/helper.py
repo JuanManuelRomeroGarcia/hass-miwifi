@@ -11,7 +11,7 @@ from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
 from homeassistant.util import slugify
-from httpx import codes
+from httpx import codes, HTTPError, ConnectError, TimeoutException
 
 from .const import (
     DEFAULT_TIMEOUT,
@@ -48,8 +48,8 @@ async def async_verify_access(
     password: str,
     encryption: str,
     timeout: int = DEFAULT_TIMEOUT,
-) -> codes:
-    """Verify IP and password against the router."""
+) -> tuple[codes, str]:
+    """Verify IP and password against the router and return code + reason."""
     updater = LuciUpdater(
         hass=hass,
         ip=ip,
@@ -58,9 +58,17 @@ async def async_verify_access(
         timeout=timeout,
         is_only_login=True,
     )
-    await updater.async_request_refresh()
-    await updater.async_stop()
-    return updater.code
+
+    try:
+        await updater.async_request_refresh()
+        await updater.async_stop()
+        return updater.code, ""
+    except (ConnectError, TimeoutException) as e:
+        return codes.REQUEST_TIMEOUT, str(e)
+    except HTTPError as e:
+        return codes.SERVICE_UNAVAILABLE, str(e)
+    except Exception as e:
+        return codes.INTERNAL_SERVER_ERROR, str(e)
 
 
 async def async_user_documentation_url(hass: HomeAssistant) -> str:

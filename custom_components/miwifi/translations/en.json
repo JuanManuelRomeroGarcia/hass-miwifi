@@ -5,7 +5,8 @@
       "ip_address.not_matched": "Invalid IP",
       "password.not_matched": "Wrong password or encryption algorithm",
       "connection": "Failed to establish connection",
-      "router.not.supported": "The router is not supported. Detailed information has been sent to the notification center."
+      "router.not.supported": "The router is not supported. Detailed information has been sent to the notification center.",
+      "router.error_with_reason": "Error connecting to the router: {reason}"
     },
     "step": {
       "discovery_confirm": {
@@ -28,7 +29,8 @@
       "ip_address.not_matched": "Invalid IP",
       "password.not_matched": "Wrong password or encryption algorithm",
       "connection": "Failed to establish connection",
-      "router.not.supported": "The router is not supported. Detailed information has been sent to the notification center."
+      "router.not.supported": "The router is not supported. Detailed information has been sent to the notification center.",
+      "router.error_with_reason": "Error connecting to the router: {reason}"
     },
     "step": {
       "init": {
@@ -77,6 +79,12 @@
     "unsupported_router_message": "⚠️ Router at {ip} is not supported by the MiWiFi integration.",
     "device_blocked_message": "Device {name} has been automatically {status}.",
     "status_blocked": "BLOCKED",
-    "status_unblocked": "UNBLOCKED"
+    "status_unblocked": "UNBLOCKED",
+    "download_ready": "📦 Your logs are ready: <a href='{url}' target='_blank'>Click to download</a>",
+    "calc_passwd_message": "🔐 Your password is: <b>{passwd}</b>",
+    "self_check_title": "Router Compatibility Failed",
+    "self_check_message": "🔍 Incompatible methods detected on the router ({model}).",
+    "suggest_unsupported_title": "Unsupported Model Detected",
+    "suggest_unsupported_message": "🚫 This router failed some compatibility tests."
   }
 }

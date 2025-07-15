@@ -9,6 +9,8 @@ import homeassistant.components.persistent_notification as pn
 from .const import DOMAIN, NAME
 from .enum import Model, Mode
 from .logger import _LOGGER
+from .notifier import MiWiFiNotifier
+
 from homeassistant.loader import async_get_integration
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -82,11 +84,8 @@ async def suggest_unsupported_issue(
     else:
         HA_VERSION = "unknown"
 
-
-    # Block of code to suggest for UNSUPPORTED
-    code_lines = [
-        f'    "{feature}": [Model.{model_name.upper()}],' for feature in failed
-    ]
+    # Suggested code block
+    code_lines = [f'    "{feature}": [Model.{model_name.upper()}],' for feature in failed]
     code_block = "UNSUPPORTED = {\n" + "\n".join(code_lines) + "\n}"
 
     checklist = "\n".join(f" * {feature}: ❌" for feature in failed)
@@ -104,18 +103,28 @@ async def suggest_unsupported_issue(
     )
 
     issue_url = (
-        f"{integration.issue_tracker}/new?title="
-        + urllib.parse.quote_plus(f"Update UNSUPPORTED registry for model {model_name}")
-        + "&body="
-        + urllib.parse.quote_plus(body)
+        f"{integration.issue_tracker}/new?title=" +
+        urllib.parse.quote_plus(f"Update UNSUPPORTED registry for model {model_name}") +
+        "&body=" +
+        urllib.parse.quote_plus(body)
+    )
+
+    notifier = MiWiFiNotifier(hass)
+    translations = await notifier.get_translations()
+    notify = translations.get("notifications", {})
+
+    title = notify.get("suggest_unsupported_title", "Unsupported model detected")
+    message_template = notify.get(
+        "suggest_unsupported_message",
+        "🚫 This router failed some compatibility checks."
     )
 
     message = (
-        f"🚫 Detected unsupported features for model: {model_name} (mode: {mode_str})\n\n"
+        f"{message_template}\n\n"
         f"{checklist}\n\n"
         f"<a href=\"{issue_url}\" target=\"_blank\">\n"
         f"📬 Create a GitHub issue to update unsupported.py\n"
         f"</a>"
     )
 
-    pn.async_create(hass, message, NAME)
+    await notifier.notify(message, title=title, notification_id=f"miwifi_unsupported_{model_name.lower()}")

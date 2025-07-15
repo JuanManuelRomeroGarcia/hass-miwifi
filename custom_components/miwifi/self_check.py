@@ -9,6 +9,8 @@ from .logger import _LOGGER
 from .const import DOMAIN, NAME
 from .exceptions import LuciError
 from .luci import LuciClient
+from .notifier import MiWiFiNotifier
+
 
 import homeassistant.components.persistent_notification as pn
 from homeassistant.core import HomeAssistant
@@ -63,7 +65,7 @@ async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) 
             _LOGGER.warning("❌ Self check failed for %s: %s", path, e)
             results[path] = "🔴"
 
-    # Get versions safely
+    # Obtener versiones
     integration = await async_get_integration(hass, DOMAIN)
     ha_version = getattr(hass.config, "version", "unknown")
     try:
@@ -72,10 +74,19 @@ async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) 
         _LOGGER.warning("[MiWiFi] Could not read panel version: %s", e)
         panel_version = "unknown"
 
-    # Format message
-    title = f"Router not supported.\n\nModel: {model}"
-    checklist = "\n".join(f" * {method}: {icon}" for method, icon in results.items())
+    # Traducciones
+    notifier = MiWiFiNotifier(hass)
+    translations = await notifier.get_translations()
+    notify = translations.get("notifications", {})
 
+    title = notify.get("self_check_title", f"Router not supported ({model})")
+    message_intro = notify.get(
+        "self_check_message",
+        f"🔍 Some methods failed in router ({model})."
+    ).replace("{model}", model)
+
+    # Checklist y versiones
+    checklist = "\n".join(f" * {method}: {icon}" for method, icon in results.items())
     versions = (
         f"\n\nVersions:\n"
         f" * MiWiFi Integration: {integration.version}\n"
@@ -83,16 +94,16 @@ async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) 
         f" * Home Assistant: {ha_version}"
     )
 
-    message = f"{title}\n\nCheck list:\n{checklist}{versions}\n\n"
+    body = f"{message_intro}\n\nCheck list:\n{checklist}{versions}\n\n"
 
-    # GitHub issue link
+    # Enlace para crear issue
     issue_url = (
-        f"{integration.issue_tracker}/new?title="
-        + urllib.parse.quote_plus(f"Add support for {model}")
-        + "&body="
-        + urllib.parse.quote_plus(message)
+        f"{integration.issue_tracker}/new?title=" +
+        urllib.parse.quote_plus(f"Add support for {model}") +
+        "&body=" +
+        urllib.parse.quote_plus(body)
     )
 
-    message += f'<a href="{issue_url}" target="_blank">Create an issue with this data</a>'
+    body += f'<a href="{issue_url}" target="_blank">📬 Crear issue con estos datos</a>'
 
-    pn.async_create(hass, message, NAME)
+    await notifier.notify(body, title=title, notification_id="miwifi_self_check")

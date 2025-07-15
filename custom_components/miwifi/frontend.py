@@ -89,9 +89,14 @@ async def save_local_version(hass: HomeAssistant, version: str) -> None:
     path = hass.config.path(PANEL_STORAGE_FILE)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     await hass.async_add_executor_job(_write_json_file, path, {"version": version})
+    hass.data.pop("miwifi_cached_panel_version", None)
+
 
 
 async def read_local_version(hass: HomeAssistant) -> str:
+    if "miwifi_cached_panel_version" in hass.data:
+        return hass.data["miwifi_cached_panel_version"]
+
     path = hass.config.path(PANEL_STORAGE_FILE)
     if not os.path.exists(path):
         _LOGGER.info("[MiWiFi] First installation detected, fetching latest frontend panel version...")
@@ -103,13 +108,16 @@ async def read_local_version(hass: HomeAssistant) -> str:
                 await download_panel_files(hass, session, latest_version)
                 await hass.async_add_executor_job(_write_json_file, path, {"version": latest_version})
                 _LOGGER.info(f"[MiWiFi] Downloaded and saved latest panel version {latest_version}")
+                hass.data["miwifi_cached_panel_version"] = latest_version
                 return latest_version
             except Exception as e:
                 _LOGGER.error(f"[MiWiFi] Error downloading panel on first installation: {e}")
-                return DEFAULT_PANEL_VERSION  # Fallback to a known version
+                hass.data["miwifi_cached_panel_version"] = DEFAULT_PANEL_VERSION
+                return DEFAULT_PANEL_VERSION
 
     data = await hass.async_add_executor_job(_read_json_file, path)
     version = data.get("version", DEFAULT_PANEL_VERSION)
+    hass.data["miwifi_cached_panel_version"] = version
     _LOGGER.debug(f"[MiWiFi] Loaded local panel version: {version}")
     return version
 
@@ -210,14 +218,18 @@ async def async_start_panel_monitor(hass):
             local = await read_local_version(hass)
             async with aiohttp.ClientSession() as session:
                 remote = await read_remote_version(session)
+
             if local != remote:
                 _LOGGER.warning(f"[MiWiFi] New panel version available: {remote} (local: {local})")
             else:
-                _LOGGER.debug(f"[MiWiFi] Panel up-to-date: {local}")
+                last_logged = hass.data.get("miwifi_last_checked_version")
+                if last_logged != local:
+                    _LOGGER.debug(f"[MiWiFi] Panel up-to-date: {local}")
+                    hass.data["miwifi_last_checked_version"] = local
+
         except Exception as e:
             _LOGGER.warning(f"[MiWiFi] Panel monitor error: {e}")
 
-    # Register periodic execution outside the try block
     async_track_time_interval(hass, _check_panel_version, PANEL_MONITOR_INTERVAL)
 
 

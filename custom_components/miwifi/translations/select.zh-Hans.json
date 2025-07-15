@@ -1,0 +1,9 @@
+{
+  "state": {
+    "miwifi__signal_strength": {
+      "min": "节能",
+      "mid": "标准",
+      "max": "穿墙"
+    }
+  }
+}

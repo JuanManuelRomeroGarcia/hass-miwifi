@@ -5,7 +5,8 @@
       "ip_address.not_matched": "IP invalide",
       "password.not_matched": "Mauvais mot de passe ou algorithme de cryptage",
       "connection": "Impossible d'établir la connexion",
-      "router.not.supported": "Le routeur n'est pas pris en charge. Des informations détaillées ont été envoyées au centre de notification."
+      "router.not.supported": "Le routeur n'est pas pris en charge. Des informations détaillées ont été envoyées au centre de notification.",
+      "router.error_with_reason": "Erreur lors de la connexion au routeur : {reason}"
     },
     "step": {
       "discovery_confirm": {
@@ -28,7 +29,8 @@
       "ip_address.not_matched": "IP invalide",
       "password.not_matched": "Mauvais mot de passe ou algorithme de cryptage",
       "connection": "Impossible d'établir la connexion",
-      "router.not.supported": "Le routeur n'est pas pris en charge. Des informations détaillées ont été envoyées au centre de notification."
+      "router.not.supported": "Le routeur n'est pas pris en charge. Des informations détaillées ont été envoyées au centre de notification.",
+      "router.error_with_reason": "Erreur lors de la connexion au routeur : {reason}"
     },
     "step": {
       "init": {
@@ -77,6 +79,12 @@
     "unsupported_router_message": "⚠️ Le routeur à {ip} n'est pas pris en charge par l'intégration MiWiFi.",
     "device_blocked_message": "Le dispositif {name} a été automatiquement {status}.",
     "status_blocked": "BLOQUÉ",
-    "status_unblocked": "DÉBLOQUÉ"
+    "status_unblocked": "DÉBLOQUÉ",
+    "download_ready": "📦 Vos logs sont prêts : <a href='{url}' target='_blank'>Cliquez ici pour les télécharger</a>",
+    "calc_passwd_message": "🔐 Votre mot de passe est : <b>{passwd}</b>",
+    "self_check_title": "Compatibilité du routeur échouée",
+    "self_check_message": "🔍 Des méthodes incompatibles ont été détectées sur le routeur ({model}).",
+    "suggest_unsupported_title": "Modèle non pris en charge détecté",
+    "suggest_unsupported_message": "🚫 Ce routeur a échoué à certains tests de compatibilité."
   }
 }

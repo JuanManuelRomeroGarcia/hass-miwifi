@@ -7,6 +7,7 @@ import asyncio
 import aiohttp
 import contextlib
 from .logger import _LOGGER
+from .notifier import MiWiFiNotifier
 
 from .unsupported import UNSUPPORTED
 from datetime import datetime, timedelta
@@ -513,14 +514,23 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
 
-        translations = await async_get_translations(self.hass, self.hass.config.language, category="services")
-        title = translations.get("component.miwifi.notifications.unsupported_router_title", "Unsupported Router")
-        message = translations.get(
-            "component.miwifi.notifications.unsupported_router_message",
-            f"⚠️ Router at {self.ip} is not supported by the MiWiFi integration."
-        ).replace("{ip}", self.ip)
+        notifier = MiWiFiNotifier(self.hass)
+        translations = await notifier.get_translations()
 
-        pn.async_create(self.hass, message, title)
+        title = translations.get("notifications", {}).get(
+            "unsupported_router_title", "Unsupported Router"
+        )
+        message_template = translations.get("notifications", {}).get(
+            "unsupported_router_message",
+            f"⚠️ Router at {self.ip} is not supported by the MiWiFi integration."
+        )
+        message = message_template.replace("{ip}", self.ip)
+
+        await notifier.notify(
+            message=message,
+            title=title,
+            notification_id=f"miwifi_unsupported_router_{self.ip.replace('.', '_')}"
+        )
 
         if not self._is_only_login:
             raise LuciError(f"Router {self.ip} not supported")
@@ -1490,7 +1500,16 @@ class LuciUpdater(DataUpdateCoordinator):
                 checker.silent_mode = is_manual_main
 
                 self.capabilities = await checker.run() or {}
-                _LOGGER.info(f"[MiWiFi] ✅ Capabilities detected (final): {self.capabilities}")
+                
+                router_ip = graph.get("ip", "unknown")
+                router_model = self.data.get("model", self.data.get(ATTR_MODEL, "unknown"))
+
+                _LOGGER.info(
+                    "[MiWiFi] ✅ Capabilities detected (final) for %s (%s) → %s",
+                    router_ip,
+                    router_model,
+                    self.capabilities
+                )
 
 
                 if not is_manual_main and ATTR_MODEL in self.data:
@@ -1506,23 +1525,23 @@ class LuciUpdater(DataUpdateCoordinator):
                 _LOGGER.warning("[MiWiFi] Compatibility check failed (final): %s", e)
                 
     async def _async_notify_new_device(self, name: str, mac: str) -> None:
-        from homeassistant.helpers.translation import async_get_translations
-        import homeassistant.components.persistent_notification as pn
+        notifier = MiWiFiNotifier(self.hass)
+        translations = await notifier.get_translations()
 
-        translations = await async_get_translations(self.hass, self.hass.config.language, category="services")
-        title = translations.get("component.miwifi.notifications.new_device_title", "New Device Detected on MiWiFi")
-        message = translations.get(
-            "component.miwifi.notifications.new_device_message",
-            f"📶 New device connected: {name} ({mac})"
-        ).replace("{name}", name).replace("{mac}", mac)
+        notify_trans = translations.get("notifications", {})
+        title = notify_trans.get("new_device_title", "New Device Detected on MiWiFi")
 
-        pn.async_create(
-            self.hass,
+        message_template = notify_trans.get(
+            "new_device_message",
+            "📶 New device connected: {name} ({mac})"
+        )
+        message = message_template.replace("{name}", name).replace("{mac}", mac)
+
+        await notifier.notify(
             message,
             title=title,
-            notification_id=f"miwifi_new_{mac}",
+            notification_id=f"miwifi_new_{mac.replace(':', '_')}",
         )
-
 
 
 @callback

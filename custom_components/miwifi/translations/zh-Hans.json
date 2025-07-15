@@ -1,0 +1,95 @@
+{
+  "title": "MiWifi",
+  "config": {
+    "error": {
+      "ip_address.not_matched": "IP无效",
+      "password.not_matched": "密码或加密算法不正确",
+      "connection": "无法建立连接",
+      "router.not.supported": "路由器不受支持。详细信息已发送到通知中心。",
+      "router.error_with_reason": "连接路由器时出错：{reason}"
+    },
+    "step": {
+      "discovery_confirm": {
+        "title": "MiWiFi设置",
+        "description": "请输入您的MiWiFi路由器的IP地址和密码",
+        "data": {
+          "ip_address": "IP地址",
+          "password": "密码",
+          "encryption_algorithm": "密码加密算法",
+          "is_track_devices": "跟踪设备",
+          "stay_online": "最小在线停留时间（秒）",
+          "scan_interval": "扫描间隔（秒）[PRO]",
+          "timeout": "请求超时（秒）[PRO]",
+          "wan_speed_unit": "WAN速度单位",
+          "is_force_load": "强制在重复器模式下加载设备[PRO]",
+          "activity_days": "自上次活动以来允许的天数[PRO]",
+          "log_level": "日志级别（全局）",
+          "enable_panel": "启用控制面板"
+        }
+      }
+    }
+  },
+  "options": {
+    "error": {
+      "ip_address.not_matched": "IP无效",
+      "password.not_matched": "密码或加密算法不正确",
+      "connection": "无法建立连接",
+      "router.not.supported": "路由器不受支持。详细信息已发送到通知中心。",
+      "router.error_with_reason": "连接路由器时出错：{reason}"
+    },
+    "step": {
+      "init": {
+        "title": "MiWiFi设置",
+        "description": "请输入您的MiWiFi路由器的IP地址和密码",
+        "data": {
+          "ip_address": "IP地址",
+          "password": "密码",
+          "encryption_algorithm": "密码加密算法",
+          "is_track_devices": "跟踪设备",
+          "stay_online": "最小在线停留时间（秒）",
+          "scan_interval": "扫描间隔（秒）[PRO]",
+          "wan_speed_unit": "WAN速度单位",
+          "is_force_load": "强制在重复器模式下加载设备[PRO]",
+          "activity_days": "自上次活动以来允许的天数[PRO]",
+          "timeout": "请求超时（秒）[PRO]",
+          "log_level": "日志级别（全局）",
+          "enable_panel": "启用控制面板"
+        }
+      }
+    }
+  },
+  "system_health": {
+    "info": {
+      "version": "版本"
+    }
+  },
+  "panel_update": {
+    "title": "MiWiFi面板",
+    "update_title": "MiWiFi面板已更新",
+    "update_message": "✅ MiWiFi面板已更新到版本 <b>{version}</b>。<br>请 <b>刷新您的浏览器 (Ctrl+F5)</b> 以查看更改。",
+    "release_notes": "此面板是MiWiFi自定义集成的一部分。它提供了网络拓扑的可视化视图、设备控制和路由器统计信息。更新包括界面改进、性能提升和错误修复。"
+  },
+  "connection_type": {
+    "lan": "有线 (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "访客网络",
+    "wifi_5_0_game": "Wi-Fi 5G (游戏)",
+    "unknown": "未知"
+  },
+  "notifications": {
+    "new_device_title": "在MiWiFi中检测到新设备",
+    "new_device_message": "📶 新设备已连接: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 连接: `{conn}`",
+    "unsupported_router_title": "不支持的路由器",
+    "unsupported_router_message": "⚠️ {ip} 地址的路由器不受MiWiFi集成支持。",
+    "device_blocked_message": "设备 {name} 已被自动 {status}。",
+    "status_blocked": "已阻止",
+    "status_unblocked": "已解锁",
+    "download_ready": "📦 日志已准备好: <a href='{url}' target='_blank'>点击此处下载</a>",
+    "calc_passwd_message": "🔐 您的密码是: <b>{passwd}</b>",
+    "self_check_title": "路由器兼容性检查失败",
+    "self_check_message": "🔍 在路由器 ({model}) 中检测到不兼容的方法。",
+    "suggest_unsupported_title": "检测到不兼容的型号",
+    "suggest_unsupported_message": "🚫 该路由器未通过某些兼容性测试。"
+  }
+}

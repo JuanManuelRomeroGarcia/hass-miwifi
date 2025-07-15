@@ -1,0 +1,29 @@
+{
+  "state": {
+    "miwifi__mode": {
+      "default": "默认",
+      "repeater": "Repeater",
+      "access_point": "接入点",
+      "mesh": "Mesh"
+    },
+    "sensor.miwifi_nat_rules": "活动NAT规则"
+  },
+  "state_attributes": {
+    "ftype_1": "单独规则",
+    "ftype_2": "范围规则",
+    "total": "规则总数",
+    "source": "路由器IP"
+  },
+  
+  "error": {
+    "miwifi__error": {
+      "invalid_port": "无效端口",
+      "invalid_range": "无效范围",
+      "port_already_exists": "端口已存在",
+      "range_already_exists": "范围已存在",
+      "port_not_found": "未找到端口",
+      "range_not_found": "未找到范围",
+      "communication_error": "与路由器的通信错误"
+    }
+  }
+}

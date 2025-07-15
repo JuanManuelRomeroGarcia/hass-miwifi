@@ -5,7 +5,8 @@
       "ip_address.not_matched": "Geçersiz IP",
       "password.not_matched": "Yanlış parola veya şifreleme algoritması",
       "connection": "Bağlantı kurulamadı",
-      "router.not.supported": "Yönlendirici desteklenmiyor. Detaylı bilgi bildirim merkezine gönderilmiştir."
+      "router.not.supported": "Yönlendirici desteklenmiyor. Detaylı bilgi bildirim merkezine gönderilmiştir.",
+      "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}"
     },
     "step": {
       "discovery_confirm": {
@@ -28,7 +29,8 @@
       "ip_address.not_matched": "Geçersiz IP",
       "password.not_matched": "Yanlış parola veya şifreleme algoritması",
       "connection": "Bağlantı kurulamadı",
-      "router.not.supported": "Yönlendirici desteklenmiyor. Detaylı bilgi bildirim merkezine gönderilmiştir."
+      "router.not.supported": "Yönlendirici desteklenmiyor. Detaylı bilgi bildirim merkezine gönderilmiştir.",
+      "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}"
     },
     "step": {
       "init": {
@@ -77,6 +79,12 @@
     "unsupported_router_message": "⚠️ {ip} adresindeki yönlendirici MiWiFi entegrasyonu tarafından desteklenmiyor.",
     "device_blocked_message": "Cihaz {name} otomatik olarak {status} edildi.",
     "status_blocked": "BLOKE EDİLDİ",
-    "status_unblocked": "BLOKEDEN KALDIRILDI"
+    "status_unblocked": "BLOKEDEN KALDIRILDI",
+    "download_ready": "📦 Loglar hazır: <a href='{url}' target='_blank'>İndirmek için buraya tıklayın</a>",
+    "calc_passwd_message": "🔐 Parolanız: <b>{passwd}</b>",
+    "self_check_title": "Yönlendirici uyumluluğu başarısız",
+    "self_check_message": "🔍 Yönlendiricide uyumsuz yöntemler tespit edildi ({model}).",
+    "suggest_unsupported_title": "Uyumsuz model tespit edildi",
+    "suggest_unsupported_message": "🚫 Bu yönlendirici bazı uyumluluk testlerini geçemedi."
   }
 }

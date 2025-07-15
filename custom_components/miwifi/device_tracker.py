@@ -9,7 +9,7 @@ from functools import cached_property
 from typing import Any, Final
 from homeassistant.components.device_tracker import ENTITY_ID_FORMAT
 from .helper import map_signal_quality
-from .update import MiWiFiNotifier
+from .update import MiWiFiNewDeviceNotifier, MiWiFiNotifier
 
 SOURCE_TYPE_ROUTER = "router"
 
@@ -155,7 +155,7 @@ async def async_setup_entry(
 
         def notify_new_device(hass, router_ip, mac, new_device, notified_store):
             async def _notify():
-                notifier = MiWiFiNotifier(hass)
+                notifier = MiWiFiNewDeviceNotifier(hass)
                 await notifier.async_notify_new_device(router_ip, mac, new_device, notified_store)
                 
             hass.async_create_task(_notify())

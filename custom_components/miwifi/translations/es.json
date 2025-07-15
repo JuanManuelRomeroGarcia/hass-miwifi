@@ -5,7 +5,8 @@
       "ip_address.not_matched": "IP no válida",
       "password.not_matched": "Contraseña o algoritmo de cifrado incorrectos",
       "connection": "No se pudo establecer la conexión",
-      "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones."
+      "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones.",
+      "router.error_with_reason": "Error al conectar con el router: {reason}"
     },
     "step": {
       "discovery_confirm": {
@@ -33,7 +34,8 @@
       "ip_address.not_matched": "IP no válida",
       "password.not_matched": "Contraseña o algoritmo de cifrado incorrectos",
       "connection": "No se pudo establecer la conexión",
-      "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones."
+      "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones.",
+      "router.error_with_reason": "Error al conectar con el router: {reason}"
     },
     "step": {
       "init": {
@@ -82,6 +84,12 @@
     "unsupported_router_message": "⚠️ El router en {ip} no es compatible con la integración MiWiFi.",
     "device_blocked_message": "El dispositivo {name} ha sido {status} automáticamente.",
     "status_blocked": "BLOQUEADO",
-    "status_unblocked": "DESBLOQUEADO"  
+    "status_unblocked": "DESBLOQUEADO",
+    "download_ready": "📦 Los logs están listos: <a href='{url}' target='_blank'>Haz clic aquí para descargarlos</a>",
+    "calc_passwd_message": "🔐 Tu contraseña es: <b>{passwd}</b>",
+    "self_check_title": "Compatibilidad del router fallida",
+    "self_check_message": "🔍 Se han detectado métodos incompatibles en el router ({model}).",
+    "suggest_unsupported_title": "Modelo no compatible detectado",
+    "suggest_unsupported_message": "🚫 Este router falló algunas pruebas de compatibilidad."
    } 
   }

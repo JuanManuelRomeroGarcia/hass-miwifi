@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import datetime
 import hashlib
+import os
+import zipfile
 from .logger import _LOGGER
 from typing import Final
 from .sensor import MiWifiNATRulesSensor 
+from .logger import recreate_log_handlers
+from .notifier import MiWiFiNotifier
 
 
 import homeassistant.components.persistent_notification as pn
@@ -14,7 +19,7 @@ from homeassistant.const import CONF_DEVICE_ID, CONF_IP_ADDRESS, CONF_TYPE
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
-from homeassistant.util.json import load_json
+from homeassistant.helpers.network import get_url
 
 
 from .const import (
@@ -68,6 +73,8 @@ class MiWifiServiceCall:
         raise NotImplementedError
 
 
+from .notifier import MiWiFiNotifier
+
 class MiWifiCalcPasswdServiceCall(MiWifiServiceCall):
     """Calculate passwd."""
 
@@ -76,9 +83,24 @@ class MiWifiCalcPasswdServiceCall(MiWifiServiceCall):
 
     async def async_call_service(self, service: ServiceCall) -> None:
         updater: LuciUpdater = self.get_updater(service)
+
         if hw_version := updater.data.get(ATTR_DEVICE_HW_VERSION):
             _salt: str = hw_version + (self.salt_new if "/" in hw_version else self.salt_old)
-            return pn.async_create(self.hass, f"Your passwd: {hashlib.md5(_salt.encode()).hexdigest()[:8]}", NAME)
+            passwd = hashlib.md5(_salt.encode()).hexdigest()[:8]
+
+            notifier = MiWiFiNotifier(self.hass)
+            translations = await notifier.get_translations()
+            message_template = translations.get("notifications", {}).get(
+                "calc_passwd_message", "🔐 Your password is: <b>{passwd}</b>"
+            )
+            message = message_template.replace("{passwd}", passwd)
+
+            await notifier.notify(
+                message=message,
+                title=NAME,
+                notification_id="miwifi_calc_passwd"
+            )
+            return
 
         raise vol.Invalid(f"Integration with ip address: {updater.ip} does not support this service.")
 
@@ -192,18 +214,6 @@ class MiWifiBlockDeviceServiceCall:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
 
-    @staticmethod
-    def build_nested_translations(flat: dict[str, str]) -> dict:
-        """Converts flat keys with dots into nested structures."""
-        nested = {}
-        for key, value in flat.items():
-            parts = key.split(".")
-            d = nested
-            for part in parts[:-1]:
-                d = d.setdefault(part, {})
-            d[parts[-1]] = value
-        return nested
-
     async def async_call_service(self, service: ServiceCall) -> None:
         device_id: str = service.data[CONF_DEVICE_ID]
 
@@ -226,16 +236,13 @@ class MiWifiBlockDeviceServiceCall:
         _LOGGER.debug(f"[MiWiFi] Target MAC: {mac_address}")
 
         integrations = async_get_integrations(self.hass)
-        main_updater = None
+        main_updater = next(
+            (i[UPDATER] for i in integrations.values()
+             if (i[UPDATER].data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False)),
+            None
+        )
 
-        for integration in integrations.values():
-            updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
-            if topo_graph.get("is_main", False):
-                main_updater = updater
-                break
-
-        if main_updater is None:
+        if not main_updater:
             raise vol.Invalid("Main router not found (is_main).")
 
         if not (getattr(main_updater, "capabilities", {}) or {}).get("mac_filter", False):
@@ -256,48 +263,34 @@ class MiWifiBlockDeviceServiceCall:
                 _LOGGER.error("[MiWiFi] Error applying MAC filter: %s", e)
                 raise vol.Invalid(f"Failed to apply mac filter: {e}")
 
-        finally:
-            device_registry = dr.async_get(self.hass)
-            device_entry = device_registry.async_get(device_id)
-            friendly_name = device_entry.name_by_user or device_entry.name or mac_address
+        # Notificación final
+        device_registry = dr.async_get(self.hass)
+        device_entry = device_registry.async_get(device_id)
+        friendly_name = device_entry.name_by_user or device_entry.name or mac_address
 
-            lang = self.hass.config.language
-            translations = self.hass.data.get("translations", {}).get(lang, {}).get("component", {}).get(DOMAIN)
+        notifier = MiWiFiNotifier(self.hass)
+        translations = await notifier.get_translations()
 
-            if not translations:
-                try:
-                    translation_path = f"{self.hass.config.path('custom_components')}/{DOMAIN}/translations/{lang}.json"
-                    flat_translations = load_json(translation_path)
-                    nested = self.build_nested_translations(flat_translations)
-                    self.hass.data.setdefault("translations", {}).setdefault(lang, {}).setdefault("component", {})[DOMAIN] = nested
-                    translations = nested
-                    _LOGGER.debug("[MiWiFi] 📥 Service translations loaded from disk.")
-                except Exception as e:
-                    _LOGGER.warning("[MiWiFi] ❌ Could not load translations from disk: %s", e)
-                    translations = {}
+        notify = translations.get("notifications", {})
+        title = translations.get("title", "MiWiFi")
 
-            trans_notify = translations.get("notifications", {})
-            title = translations.get("title", "MiWiFi")
+        message_template = notify.get(
+            "device_blocked_message",
+            "Device {name} has been automatically {status}."
+        )
 
-            message_template = trans_notify.get(
-                "device_blocked_message",
-                "Device {name} has been automatically {status}."
-            )
+        status = notify.get(
+            "status_blocked" if allow else "status_unblocked",
+            "BLOCKED" if allow else "UNBLOCKED"
+        )
 
-            status = trans_notify.get(
-                "status_blocked" if allow else "status_unblocked",
-                "BLOCKED" if allow else "UNBLOCKED"
-            )
+        message = message_template.replace("{name}", friendly_name).replace("{status}", status)
 
-            message = message_template.replace("{name}", friendly_name).replace("{status}", status)
-
-            pn.async_create(
-                self.hass,
-                message,
-                title,
-                notification_id=f"miwifi_block_{mac_address.replace(':', '_')}",
-            )
-
+        await notifier.notify(
+            message,
+            title=title,
+            notification_id=f"miwifi_block_{mac_address.replace(':', '_')}",
+        )
 
 class MiWifiListPortsServiceCall:
     """List NAT port forwarding rules automatically from the main router."""
@@ -513,6 +506,64 @@ class MiWifiRefreshNATRulesServiceCall:
 
         _LOGGER.info("[MiWiFi] ✅ NAT rules successfully refreshed.")
         
+
+class MiWifiClearLogsService:
+    """Service to clear and recreate all MiWiFi log files."""
+
+    schema = vol.Schema({})  # No necesita parámetros
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        recreate_log_handlers()
+        
+class MiWifiDownloadLogsService:
+    """Service to zip logs and make them downloadable from the frontend or services."""
+
+    schema = vol.Schema({})
+
+    def __init__(self, hass):
+        self.hass = hass
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        log_dir = os.path.join(self.hass.config.config_dir, "miwifi", "logs")
+        www_export_dir = os.path.join(self.hass.config.config_dir, "www", "miwifi", "exports")
+        os.makedirs(www_export_dir, exist_ok=True)
+
+        now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        filename = f"logs_{now}.zip"
+        zip_path = os.path.join(www_export_dir, filename)
+
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+            for file in os.listdir(log_dir):
+                if file.startswith("miwifi_") and (file.endswith(".log") or ".log." in file):
+                    abs_path = os.path.join(log_dir, file)
+                    zipf.write(abs_path, arcname=file)
+
+        url = f"/local/miwifi/exports/{filename}"
+        _LOGGER.info("📦 MiWiFi logs zipped and available at: %s", url)
+
+        # Guardar la URL en memoria para acceso desde WebSocket/panel
+        self.hass.data.setdefault(DOMAIN, {})
+        self.hass.data[DOMAIN]["last_log_zip_url"] = url
+
+        # Generar notificación con traducción y enlace
+        base_url = get_url(self.hass)
+        full_url = f"{base_url}{url}"
+
+        notifier = MiWiFiNotifier(self.hass)
+        translations = await notifier.get_translations()
+
+        title = translations.get("title", "MiWiFi")
+        message_template = translations.get("notifications", {}).get(
+            "download_ready",
+            "📦 Logs listos: <a href='{url}' target='_blank'>Descargar</a>"
+        )
+        message = message_template.replace("{url}", full_url)
+
+        await notifier.notify(message, title=title, notification_id="miwifi_download_logs")
+        
         
 SERVICES: Final = (
     (SERVICE_CALC_PASSWD, MiWifiCalcPasswdServiceCall),
@@ -526,4 +577,6 @@ SERVICES: Final = (
     ("add_range_port", MiWifiAddRangePortServiceCall),
     ("delete_port", MiWifiDeletePortServiceCall),
     ("refresh_nat_rules", MiWifiRefreshNATRulesServiceCall),
+    ("clear_logs", MiWifiClearLogsService),
+    ("download_logs", MiWifiDownloadLogsService),
 )

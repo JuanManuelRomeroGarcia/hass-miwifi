@@ -14,6 +14,13 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from httpx import codes
 
+
+try:
+    from .logger import _LOGGER
+except Exception:
+    import logging
+    _LOGGER = logging.getLogger(__name__)
+
 from .const import (
     CONF_ACTIVITY_DAYS,
     CONF_ENCRYPTION_ALGORITHM,
@@ -47,7 +54,6 @@ from .helper import (
     set_global_panel_state,
 )
 
-from .logger import _LOGGER 
 from .updater import LuciUpdater, async_get_updater
 
 
@@ -86,7 +92,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(user_input[CONF_IP_ADDRESS])
                 self._abort_if_unique_id_configured()
 
-            code: codes = await async_verify_access(
+            code, reason = await async_verify_access(
                 self.hass,
                 user_input[CONF_IP_ADDRESS],
                 user_input[CONF_PASSWORD],
@@ -101,10 +107,19 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options={OPTION_IS_FROM_FLOW: True},
                 )
 
+            _LOGGER.warning("[MiWiFi] Access to router %s failed with code %s and reason: %s",
+                user_input[CONF_IP_ADDRESS], code, reason or "No details")
+
             errors["base"] = {
                 codes.CONFLICT: "router.not.supported",
                 codes.FORBIDDEN: "password.not_matched",
-            }.get(code, "ip_address.not_matched")
+            }.get(code)
+
+            if errors["base"] is None:
+                self._last_reason = reason or "Unknown"
+
+                _LOGGER.warning("[MiWiFi] Router access failed (%s): %s", user_input[CONF_IP_ADDRESS], self._last_reason)
+                errors["base"] = "router.error_with_reason"
 
         return await self._show_form(user_input, errors, step_id="discovery_confirm")
 
@@ -145,6 +160,12 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "local_user_documentation_url": await async_user_documentation_url(self.hass),
             }
 
+        if errors.get("base") == "router.error_with_reason":
+            description_placeholders = description_placeholders or {}
+            description_placeholders["reason"] = getattr(self, "_last_reason", "Unknown")
+
+
+
         return self.async_show_form(
             step_id=step_id,
             data_schema=schema,
@@ -162,14 +183,13 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            # Solo guardamos valores globales
             if CONF_LOG_LEVEL in user_input:
                 await set_global_log_level(self.hass, user_input[CONF_LOG_LEVEL])
 
             if CONF_ENABLE_PANEL in user_input:
                 await set_global_panel_state(self.hass, user_input[CONF_ENABLE_PANEL])
 
-            code: codes = await async_verify_access(
+            code, reason = await async_verify_access(
                 self.hass,
                 user_input[CONF_IP_ADDRESS],
                 user_input[CONF_PASSWORD],
@@ -181,12 +201,21 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
                 return self.async_create_entry(title=user_input[CONF_IP_ADDRESS], data=user_input)
 
+            _LOGGER.warning("[MiWiFi] Re-auth failed for %s with code %s and reason: %s",
+                user_input[CONF_IP_ADDRESS], code, reason or "No details")
+
             errors["base"] = {
                 codes.CONFLICT: "router.not.supported",
                 codes.FORBIDDEN: "password.not_matched",
-            }.get(code, "ip_address.not_matched")
+            }.get(code)
+
+            if errors["base"] is None:
+                self._last_reason = reason or "Unknown"
+                _LOGGER.warning("[MiWiFi] Router re-auth failed (%s): %s", user_input[CONF_IP_ADDRESS], self._last_reason)
+                errors["base"] = "router.error_with_reason"
 
         return self.async_show_form(step_id="init", data_schema=await self._get_options_schema(), errors=errors)
+
 
     async def async_update_unique_id(self, unique_id: str) -> None:
         if self._config_entry.unique_id == unique_id:

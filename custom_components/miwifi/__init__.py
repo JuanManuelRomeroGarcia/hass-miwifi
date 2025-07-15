@@ -6,6 +6,7 @@ import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.components import websocket_api
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
@@ -35,6 +36,7 @@ from .const import (
     UPDATER,
 )
 from .logger import _LOGGER
+from . import ws_api
 from .discovery import async_start_discovery
 from .enum import EncryptionAlgorithm
 from .helper import (
@@ -90,6 +92,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
     if not hass.services.has_service(DOMAIN, "apply_config"):
         hass.services.async_register(DOMAIN, "apply_config", handle_apply_config)
+        
+    # 📡 Websocket command for downloading logs
+    websocket_api.async_register_command(hass, ws_api.handle_get_download_url)
 
     return True
 

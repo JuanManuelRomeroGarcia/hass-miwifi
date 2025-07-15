@@ -5,7 +5,8 @@
       "ip_address.not_matched": "Ungültige IP Adresse",
       "password.not_matched": "Falsches Passwort oder Verschlüsselungsalgorithmus",
       "connection": "Fehler bei der Herstellung einer Verbindung",
-      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungszentrum gesendet."
+      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungszentrum gesendet.",
+      "router.error_with_reason": "Fehler bei der Verbindung zum Router: {reason}"
     },
     "step": {
       "discovery_confirm": {
@@ -28,7 +29,8 @@
       "ip_address.not_matched": "Ungültige IP Adresse",
       "password.not_matched": "Falsches Passwort oder Verschlüsselungsalgorithmus",
       "connection": "Fehler bei der Herstellung einer Verbindung",
-      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungszentrum gesendet."
+      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungszentrum gesendet.",
+      "router.error_with_reason": "Fehler bei der Verbindung zum Router: {reason}"
     },
     "step": {
       "init": {
@@ -74,7 +76,13 @@
     "unsupported_router_message": "⚠️ Router unter {ip} wird von der MiWiFi-Integration nicht unterstützt.",
     "device_blocked_message": "Gerät {name} wurde automatisch {status}.",
     "status_blocked": "BLOCKIERT",
-    "status_unblocked": "ENTBLOCKIERT"
+    "status_unblocked": "ENTBLOCKIERT",
+    "download_ready": "📦 Die Logs sind bereit: <a href='{url}' target='_blank'>Klicke hier, um sie herunterzuladen</a>",
+    "calc_passwd_message": "🔐 Dein Passwort ist: <b>{passwd}</b>",
+    "self_check_title": "Router-Kompatibilität fehlgeschlagen",
+    "self_check_message": "🔍 Inkompatible Methoden im Router ({model}) wurden erkannt.",
+    "suggest_unsupported_title": "Nicht unterstütztes Modell erkannt",
+    "suggest_unsupported_message": "🚫 Dieses Router-Modell hat einige Kompatibilitätstests nicht bestanden."
   }
 }
 

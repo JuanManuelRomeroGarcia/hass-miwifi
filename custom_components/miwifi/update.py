@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import aiohttp
 import httpx
 from .logger import _LOGGER
 from typing import Any, Final
-from datetime import datetime
 from .enum import Connection
-from homeassistant.util.json import load_json
 from homeassistant.util import dt as dt_util
-
+from .notifier import MiWiFiNotifier
 
 from homeassistant.components.update import (
     ATTR_IN_PROGRESS,
@@ -26,7 +23,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.components.persistent_notification import async_create
 from homeassistant.const import __name__ as ha_const_ns
 
 
@@ -328,39 +324,24 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
         self.async_write_ha_state()
         self._attr_available = True
 
-        translations = (
-            hass.data.get("translations", {})
-            .get(hass.config.language, {})
-            .get("component", {})
-            .get(DOMAIN, {})
-            .get("panel_update", {})
-        )
+        notifier = MiWiFiNotifier(hass)
+        translations = await notifier.get_translations()
+        panel_translations = translations.get("panel_update", {})
 
-        title = translations.get("update_title", "MiWiFi Panel Updated")
-        message_template = translations.get(
+        title = panel_translations.get("update_title", "MiWiFi Panel Updated")
+        message_template = panel_translations.get(
             "update_message",
             "✅ MiWiFi Panel has been updated to version <b>{version}</b>.<br>Please <b>refresh your browser (Ctrl+F5)</b> to see the changes."
         )
         message = message_template.replace("{version}", remote_version)
 
-        async_create(hass, message, title)
-        
+        await notifier.notify(message, title=title, notification_id="miwifi_panel_update")
+                
 
-class MiWiFiNotifier:
+class MiWiFiNewDeviceNotifier:
     def __init__(self, hass):
         self.hass = hass
-
-    @staticmethod
-    def build_nested_translations(flat: dict[str, str]) -> dict:
-        """Converts flat keys with dots into nested structures."""
-        nested = {}
-        for key, value in flat.items():
-            parts = key.split(".")
-            d = nested
-            for part in parts[:-1]:
-                d = d.setdefault(part, {})
-            d[parts[-1]] = value
-        return nested
+        self.translator = MiWiFiNotifier(hass, domain=DOMAIN)
 
     async def async_notify_new_device(self, router_ip: str, mac: str, new_device: dict, notified_store):
         stored = await notified_store[router_ip].async_load() or {}
@@ -373,33 +354,19 @@ class MiWiFiNotifier:
 
         try:
             conn_enum = Connection(int(conn_type))
-            conn_key = conn_enum.name.lower()  # e.g., wifi_24g
+            conn_key = conn_enum.name.lower()
             conn_phrase = conn_enum.phrase
         except (ValueError, TypeError):
             conn_key = "unknown"
             conn_phrase = "Unknown"
 
-        lang = self.hass.config.language
-        translations = self.hass.data.get("translations", {}).get(lang, {}).get("component", {}).get(DOMAIN)
-
-        # ⏳ If not exist yet, load from disk
-        if not translations:
-            try:
-                translation_path = f"{self.hass.config.path('custom_components')}/{DOMAIN}/translations/{lang}.json"
-                flat_translations = await self.hass.async_add_executor_job(load_json, translation_path)
-                _LOGGER.debug("[MiWiFi] 📥 Translations loaded from disk: %s", flat_translations)
-                nested = self.build_nested_translations(flat_translations)
-                self.hass.data.setdefault("translations", {}).setdefault(lang, {}).setdefault("component", {})[DOMAIN] = nested
-                translations = nested
-            except Exception as e:
-                _LOGGER.warning("[MiWiFi] ❌ Could not load translations from disk: %s", e)
-                translations = {}
+        translations = await self.translator.get_translations()
 
         translations_type = translations.get("connection_type", {})
         translations_notify = translations.get("notifications", {})
-
-        conn_str = translations_type.get(conn_key, conn_phrase)
         title = translations_notify.get("new_device_title", "New Device Detected on MiWiFi")
+        conn_str = translations_type.get(conn_key, conn_phrase)
+
         message_template = translations_notify.get(
             "new_device_message",
             "📶 New device connected: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Connection: `{conn}`"
@@ -415,12 +382,10 @@ class MiWiFiNotifier:
 
         message = message_template.format(name=name, mac=mac, ip=ip, conn=conn_str)
 
-        from homeassistant.components.persistent_notification import async_create
-        async_create(
-            self.hass,
+        await self.translator.notify(
             message,
             title=title,
-            notification_id=f"miwifi_new_device_{mac.replace(':','_')}"
+            notification_id=f"miwifi_new_device_{mac.replace(':', '_')}"
         )
 
         stored[mac] = True
