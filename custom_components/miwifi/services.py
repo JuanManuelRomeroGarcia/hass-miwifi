@@ -530,6 +530,20 @@ class MiWifiDownloadLogsService:
         log_dir = os.path.join(self.hass.config.config_dir, "miwifi", "logs")
         www_export_dir = os.path.join(self.hass.config.config_dir, "www", "miwifi", "exports")
         os.makedirs(www_export_dir, exist_ok=True)
+        
+        max_zip_files = 1
+        existing_zips = sorted(
+            (f for f in os.listdir(www_export_dir) if f.endswith(".zip")),
+            key=lambda x: os.path.getmtime(os.path.join(www_export_dir, x)),
+            reverse=True
+        )
+
+        for old_zip in existing_zips[max_zip_files:]:
+            try:
+                os.remove(os.path.join(www_export_dir, old_zip))
+                _LOGGER.debug("Removed old log archive: %s", old_zip)
+            except Exception as e:
+                _LOGGER.warning("Failed to remove old log archive %s: %s", old_zip, e)
 
         now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         filename = f"logs_{now}.zip"
@@ -548,9 +562,9 @@ class MiWifiDownloadLogsService:
         self.hass.data.setdefault(DOMAIN, {})
         self.hass.data[DOMAIN]["last_log_zip_url"] = url
 
-        # Generar notificación con traducción y enlace
-        base_url = get_url(self.hass)
-        full_url = f"{base_url}{url}"
+        url = f"/local/miwifi/exports/{filename}"
+        self.hass.data.setdefault(DOMAIN, {})
+        self.hass.data[DOMAIN]["last_log_zip_url"] = url
 
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
@@ -560,10 +574,10 @@ class MiWifiDownloadLogsService:
             "download_ready",
             "📦 Logs listos: <a href='{url}' target='_blank'>Descargar</a>"
         )
-        message = message_template.replace("{url}", full_url)
+        message = message_template.replace("{url}", url)  # Solo ruta relativa
 
         await notifier.notify(message, title=title, notification_id="miwifi_download_logs")
-        
+                
         
 SERVICES: Final = (
     (SERVICE_CALC_PASSWD, MiWifiCalcPasswdServiceCall),

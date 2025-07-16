@@ -65,6 +65,7 @@ class CompatibilityChecker:
             "wifi_config": self._check_wifi_config,
             "device_list": self._check_device_list,
             "topo_graph": self._check_topo_graph,
+            "portforward": self._check_portforward,
         }
 
         for feature, check_func in features.items():
@@ -168,4 +169,11 @@ class CompatibilityChecker:
             await self.client.topo_graph()
             return True
         except LuciError:
+            return False
+
+    async def _check_portforward(self) -> bool:
+        try:
+            await self.client.portforward(ftype=1)
+            return True
+        except Exception:
             return False
