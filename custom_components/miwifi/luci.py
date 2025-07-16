@@ -405,9 +405,14 @@ class LuciClient:
     async def portforward(self, ftype: int = 1) -> dict:
         """Get port forwarding rules (ftype 1 = single port, 2 = range)."""
         _LOGGER.debug("Requesting NAT rules with ftype=%s", ftype)
-        data = await self.get("xqnetwork/portforward", {"ftype": ftype})
-        _LOGGER.debug("NAT response for ftype=%s → %s", ftype, data)
-        return data
+        try:
+            data = await self.get("xqnetwork/portforward", {"ftype": ftype})
+            _LOGGER.debug("NAT response for ftype=%s → %s", ftype, data)
+            return data
+        except Exception as e:
+            _LOGGER.warning("[MiWiFi] Failed to retrieve NAT rules for ftype=%s: %s", ftype, e)
+            return {}  # Devolvemos diccionario vacío si falla
+
 
     async def add_redirect(self, name: str, proto: int, sport: int, ip: str, dport: int) -> dict:
         """Add a single port forwarding rule."""

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .luci import LuciClient
-from .exceptions import LuciError
+from .exceptions import LuciError, LuciConnectionError
 from .logger import _LOGGER
 from .enum import Mode, Model
 from .unsupported import UNSUPPORTED
@@ -175,5 +175,9 @@ class CompatibilityChecker:
         try:
             await self.client.portforward(ftype=1)
             return True
-        except Exception:
+        except LuciConnectionError:
+            _LOGGER.debug("[MiWiFi] Router does not support portforward endpoint.")
+            return False
+        except Exception as e:
+            _LOGGER.warning("[MiWiFi] Unexpected error during portforward check: %s", e)
             return False
