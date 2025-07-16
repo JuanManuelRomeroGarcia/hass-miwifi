@@ -340,26 +340,11 @@ class LuciUpdater(DataUpdateCoordinator):
             await self._async_prepare_new_status(self.data)
             
         await self._async_prepare_topo()
-        
-        if self.data.get("topo_graph", {}).get("graph", {}).get("is_main"):
-            try:
-                data1 = await self.luci.portforward(ftype=1)
-                data2 = await self.luci.portforward(ftype=2)
-                self.data["nat_rules"] = {
-                    "ftype_1": data1.get("list", []),
-                    "ftype_2": data2.get("list", []),
-                    "total": len(data1.get("list", [])) + len(data2.get("list", [])),
-                }
-                _LOGGER.debug("[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
-            except Exception as e:
-                _LOGGER.warning("[MiWiFi] Error while retrieving NAT rules for sensor: %s", e)
-                self.data["nat_rules"] = {
-                    "ftype_1": [],
-                    "ftype_2": [],
-                    "total": 0,
-                }
 
         await self._async_prepare_compatibility()
+        
+        if self.capabilities.get("portforward", False):
+            await self._async_prepare_nat_rules()
         
         # Panel frontend version check (local + remote)
         try:
@@ -1529,6 +1514,25 @@ class LuciUpdater(DataUpdateCoordinator):
 
             except Exception as e:
                 _LOGGER.warning("[MiWiFi] Compatibility check failed (final): %s", e)
+                
+    async def _async_prepare_nat_rules(self) -> None:
+        """Prepare NAT rules for the main router."""
+        try:
+            data1 = await self.luci.portforward(ftype=1)
+            data2 = await self.luci.portforward(ftype=2)
+            self.data["nat_rules"] = {
+                "ftype_1": data1.get("list", []),
+                "ftype_2": data2.get("list", []),
+                "total": len(data1.get("list", [])) + len(data2.get("list", [])),
+            }
+            _LOGGER.debug("[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
+        except Exception as e:
+            _LOGGER.warning("[MiWiFi] Error while retrieving NAT rules for sensor: %s", e)
+            self.data["nat_rules"] = {
+                "ftype_1": [],
+                "ftype_2": [],
+                "total": 0,
+            }
                 
     async def _async_notify_new_device(self, name: str, mac: str) -> None:
         notifier = MiWiFiNotifier(self.hass)
