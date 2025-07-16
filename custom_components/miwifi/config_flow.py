@@ -107,7 +107,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options={OPTION_IS_FROM_FLOW: True},
                 )
 
-            _LOGGER.warning("[MiWiFi] Access to router %s failed with code %s and reason: %s",
+            _LOGGER.error("[MiWiFi] Access to router %s failed with code %s and reason: %s",
                 user_input[CONF_IP_ADDRESS], code, reason or "No details")
 
             errors["base"] = {
@@ -116,10 +116,9 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }.get(code)
 
             if errors["base"] is None:
-                self._last_reason = reason or "Unknown"
-
-                _LOGGER.warning("[MiWiFi] Router access failed (%s): %s", user_input[CONF_IP_ADDRESS], self._last_reason)
-                errors["base"] = "router.error_with_reason"
+                final_reason = reason or "Unknown"
+                _LOGGER.error("[MiWiFi] Router access failed (%s): %s", user_input[CONF_IP_ADDRESS], final_reason)
+                errors["base"] = f"router.error_with_reason::{final_reason}"
 
         return await self._show_form(user_input, errors, step_id="discovery_confirm")
 
@@ -128,7 +127,6 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ip = defaults.get(CONF_IP_ADDRESS, "")
         model = defaults.get("model", "MiWiFi")
 
-        
         panel_state = await get_global_panel_state(self.hass)
         log_level = await get_global_log_level(self.hass)
 
@@ -144,7 +142,6 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
         }
 
-        
         if step_id == "discovery_confirm":
             schema_dict[vol.Optional(CONF_ENABLE_PANEL, default=panel_state)] = cv.boolean
             schema_dict[vol.Optional(CONF_WAN_SPEED_UNIT, default=DEFAULT_WAN_SPEED_UNIT)] = vol.In(WAN_SPEED_UNIT_OPTIONS)
@@ -160,10 +157,18 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "local_user_documentation_url": await async_user_documentation_url(self.hass),
             }
 
-        if errors.get("base") == "router.error_with_reason":
+        if "base" in errors and "::" in errors["base"]:
+            error_key, reason = errors["base"].split("::", 1)
+            errors["base"] = error_key
             description_placeholders = description_placeholders or {}
-            description_placeholders["reason"] = getattr(self, "_last_reason", "Unknown")
+            description_placeholders["reason"] = reason
+            _LOGGER.error("[MiWiFi] Placeholder de motivo final: %s", description_placeholders.get("reason"))
 
+            
+        if "base" in errors:
+            _LOGGER.error("[MiWiFi] Error base recibido: %s", errors["base"])
+            if "::" in errors["base"]:
+                _LOGGER.error("[MiWiFi] Separando clave y razón de error: %s", errors["base"])
 
 
         return self.async_show_form(

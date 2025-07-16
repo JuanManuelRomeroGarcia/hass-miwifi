@@ -287,14 +287,17 @@ class LuciUpdater(DataUpdateCoordinator):
 
         except LuciConnectionError as _e:
             _err = _e
-
             self._is_reauthorization = False
             self.code = codes.NOT_FOUND
+            _LOGGER.warning("[MiWiFi] LuciConnectionError en login: %s", _e)
+            
         except LuciRequestError as _e:
             _err = _e
-
             self._is_reauthorization = True
             self.code = codes.FORBIDDEN
+            _LOGGER.warning("[MiWiFi] LuciRequestError en login: %s", _e)
+
+
         else:
             self._is_reauthorization = False
 
@@ -368,6 +371,9 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.data["panel_remote_version"] = remote
         except Exception as e:
             _LOGGER.warning("[MiWiFi] The frontend panel version could not be updated: %s", e)
+
+        if self._is_only_login:
+            _LOGGER.debug("[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
 
         return self.data
 

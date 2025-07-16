@@ -50,6 +50,8 @@ async def async_verify_access(
     timeout: int = DEFAULT_TIMEOUT,
 ) -> tuple[codes, str]:
     """Verify IP and password against the router and return code + reason."""
+    from .logger import _LOGGER  # Asegura que _LOGGER esté disponible aquí
+
     updater = LuciUpdater(
         hass=hass,
         ip=ip,
@@ -62,13 +64,21 @@ async def async_verify_access(
     try:
         await updater.async_request_refresh()
         await updater.async_stop()
+        _LOGGER.debug("[MiWiFi] Login OK - código %s", updater.code)
         return updater.code, ""
+    
     except (ConnectError, TimeoutException) as e:
+        _LOGGER.error("[MiWiFi] Error de conexión o timeout con %s: %s", ip, str(e))
         return codes.REQUEST_TIMEOUT, str(e)
+
     except HTTPError as e:
+        _LOGGER.error("[MiWiFi] Error HTTP con %s: %s", ip, str(e))
         return codes.SERVICE_UNAVAILABLE, str(e)
+
     except Exception as e:
+        _LOGGER.exception("[MiWiFi] Error inesperado durante el login con %s", ip)
         return codes.INTERNAL_SERVER_ERROR, str(e)
+
 
 
 async def async_user_documentation_url(hass: HomeAssistant) -> str:
