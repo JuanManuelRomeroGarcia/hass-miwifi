@@ -35,7 +35,7 @@ from .const import (
     UPDATE_LISTENER,
     UPDATER,
 )
-from .logger import _LOGGER
+from .logger import _LOGGER, async_init_log_handlers
 from . import ws_api
 from .discovery import async_start_discovery
 from .enum import EncryptionAlgorithm
@@ -60,6 +60,8 @@ from .frontend import (
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Initialize domain level services."""
+    
+    await async_init_log_handlers(hass)
 
     async def handle_apply_config(service_call: ServiceCall) -> None:
         data = service_call.data
@@ -67,13 +69,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         speed_unit = data.get("speed_unit")
         panel_active = data.get("panel_active")
 
-        # Guardar valores globales
+        
         if log_level:
             await set_global_log_level(hass, log_level)
         if panel_active is not None:
             await set_global_panel_state(hass, panel_active)
 
-        # Aplicar cambios a todas las entradas
+        
         for entry in hass.config_entries.async_entries(DOMAIN):
             new_options = {**entry.options}
             if log_level:
@@ -84,7 +86,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 new_options[CONF_ENABLE_PANEL] = panel_active
             hass.config_entries.async_update_entry(entry, options=new_options)
 
-        # Recargar entradas para aplicar cambios
+
         await asyncio.gather(*[
             hass.config_entries.async_reload(entry.entry_id)
             for entry in hass.config_entries.async_entries(DOMAIN)
@@ -101,6 +103,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_start_discovery(hass)
+    
+    from .logger import async_init_log_handlers
+    await async_init_log_handlers(hass)
 
     # Config level log
     log_level = await get_global_log_level(hass)
@@ -113,13 +118,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             local_version = await read_local_version(hass)
             await async_register_panel(hass, local_version)
 
-            # ⬇ Aquí colocamos el monitor
             await async_start_panel_monitor(hass)
 
         else:
             await async_remove_miwifi_panel(hass)
     except Exception as e:
-        _LOGGER.warning(f"[MiWiFi] Error managing the panel: {e}")
+        await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] Error managing the panel: {e}")
+
 
     is_new = get_config_value(entry, OPTION_IS_FROM_FLOW, False)
     if is_new:
@@ -148,6 +153,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id][UPDATE_LISTENER] = entry.add_update_listener(
         async_update_options
     )
+    from .logger import async_init_log_handlers, async_warmup_log_handlers
+    
+    await async_init_log_handlers(hass)
+    await async_warmup_log_handlers(hass)
 
     await _updater.async_config_entry_first_refresh()
     if not _updater.last_update_success:
@@ -190,7 +199,7 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
         else:
             await async_remove_miwifi_panel(hass)
     except Exception as e:
-        _LOGGER.warning(f"[MiWiFi] Error managing the panel: {e}")
+         await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] Error managing the panel: {e}")
 
     await asyncio.gather(*[
         hass.config_entries.async_reload(e.entry_id)

@@ -34,16 +34,16 @@ async def async_download_panel_if_needed(hass: HomeAssistant) -> str:
             local_version = await read_local_version(hass)
 
             if remote_version != local_version:
-                _LOGGER.info(f"[MiWiFi] New panel version detected: {remote_version}, updating files...")
+                await hass.async_add_executor_job(_LOGGER.info, f"[MiWiFi] New panel version detected: {remote_version}, updating files...")
                 await download_panel_files(hass, session, remote_version)
                 await save_local_version(hass, remote_version)
             else:
-                _LOGGER.info(f"[MiWiFi] Version {remote_version} detected, checking files...")
+                await hass.async_add_executor_job(_LOGGER.info, f"[MiWiFi] Version {remote_version} detected, checking files...")
                 await download_panel_files(hass, session, remote_version)
 
             return remote_version
         except Exception as e:
-            _LOGGER.error(f"[MiWiFi] Error checking/downloading frontend panel: {e}")
+            await hass.async_add_executor_job(_LOGGER.error, f"[MiWiFi] Error checking/downloading frontend panel: {e}")
             return "0.0"
         finally:
             hass.data["_miwifi_panel_updating"] = False
@@ -94,12 +94,15 @@ async def save_local_version(hass: HomeAssistant, version: str) -> None:
 
 
 async def read_local_version(hass: HomeAssistant) -> str:
+    from .logger import async_init_log_handlers
+    await async_init_log_handlers(hass)  # Inicializar handlers no bloqueantes
+
     if "miwifi_cached_panel_version" in hass.data:
         return hass.data["miwifi_cached_panel_version"]
 
     path = hass.config.path(PANEL_STORAGE_FILE)
     if not os.path.exists(path):
-        _LOGGER.info("[MiWiFi] First installation detected, fetching latest frontend panel version...")
+        await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] First installation detected, fetching latest frontend panel version...")
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
         async with aiohttp.ClientSession() as session:
@@ -107,26 +110,27 @@ async def read_local_version(hass: HomeAssistant) -> str:
                 latest_version = await read_remote_version(session)
                 await download_panel_files(hass, session, latest_version)
                 await hass.async_add_executor_job(_write_json_file, path, {"version": latest_version})
-                _LOGGER.info(f"[MiWiFi] Downloaded and saved latest panel version {latest_version}")
+                await hass.async_add_executor_job(_LOGGER.info, f"[MiWiFi] Downloaded and saved latest panel version {latest_version}")
                 hass.data["miwifi_cached_panel_version"] = latest_version
                 return latest_version
             except Exception as e:
-                _LOGGER.error(f"[MiWiFi] Error downloading panel on first installation: {e}")
+                await hass.async_add_executor_job(_LOGGER.error, f"[MiWiFi] Error downloading panel on first installation: {e}")
                 hass.data["miwifi_cached_panel_version"] = DEFAULT_PANEL_VERSION
                 return DEFAULT_PANEL_VERSION
 
     data = await hass.async_add_executor_job(_read_json_file, path)
     version = data.get("version", DEFAULT_PANEL_VERSION)
     hass.data["miwifi_cached_panel_version"] = version
-    _LOGGER.debug(f"[MiWiFi] Loaded local panel version: {version}")
+    await hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Loaded local panel version: {version}")
     return version
+
 
 
 async def download_panel_files(hass: HomeAssistant, session: aiohttp.ClientSession, remote_version: str) -> None:
     try:
         files = await read_remote_files(session)
     except Exception as e:
-        _LOGGER.error(f"[MiWiFi] Error reading files.json: {e}")
+        await hass.async_add_executor_job(_LOGGER.error, f"[MiWiFi] Error reading files.json: {e}")
         return
 
     for file in files:
@@ -137,7 +141,7 @@ async def download_panel_files(hass: HomeAssistant, session: aiohttp.ClientSessi
 
         async with session.get(remote_url) as resp:
             if resp.status != 200:
-                _LOGGER.warning(f"[MiWiFi] Could not download {file} (status {resp.status})")
+                await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] Could not download {file} (status {resp.status})")
                 continue
 
             remote_content = await resp.read()
@@ -152,29 +156,25 @@ async def download_panel_files(hass: HomeAssistant, session: aiohttp.ClientSessi
                     continue
 
             await hass.async_add_executor_job(_write_binary_file, local_path, remote_content)
-            _LOGGER.debug(f"[MiWiFi] File updated: {file}")
+            await hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] File updated: {file}")
+
 
 
 async def async_register_panel(hass: HomeAssistant, version: str) -> None:
-    """Register the MiWiFi panel in Home Assistant, only once if needed."""
-    panel_data = hass.data.get(DATA_PANELS, {}).get("miwifi")
-    if isinstance(panel_data, Panel):
-        config = getattr(panel_data, "config", {})
-        current_url = config.get("_panel_custom", {}).get("module_url", "")
-        expected_url = f"/local/miwifi/panel-frontend.js?v={version}"
-
-        if current_url == expected_url:
-            _LOGGER.debug("[MiWiFi] The panel is already registered with the current version.")
-            return
-
-    if panel_data is not None:
-        try:
-            await async_remove_panel(hass, "miwifi")
-            _LOGGER.debug("[MiWiFi] Panel 'miwifi' deleted before registering a new one.")
-        except Exception as e:
-            _LOGGER.debug(f"[MiWiFi] Could not delete panel: {e}")
-    else:
-        _LOGGER.debug("[MiWiFi] The 'miwifi' panel was not registered, deletion skipped.")
+    """Register the MiWiFi panel in Home Assistant, replacing any existing one."""
+    try:
+        if "miwifi" in hass.data.get(DATA_PANELS, {}):
+            async_remove_panel(hass, "miwifi")
+            hass.data[DATA_PANELS].pop("miwifi", None)
+            await hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Existing panel 'miwifi' removed before re-registering."
+            )
+    except Exception as e:
+        await hass.async_add_executor_job(
+            _LOGGER.warning,
+            f"[MiWiFi] Failed to remove existing panel before re-registering: {e}"
+        )
 
     async_register_built_in_panel(
         hass,
@@ -192,7 +192,11 @@ async def async_register_panel(hass: HomeAssistant, version: str) -> None:
         },
         require_admin=True,
     )
-    _LOGGER.info(f"[MiWiFi] Panel successfully registered with version: {version}")
+
+    await hass.async_add_executor_job(
+        _LOGGER.info,
+        f"[MiWiFi] Panel successfully registered with version: {version}"
+    )
 
 
 async def async_remove_miwifi_panel(hass: HomeAssistant) -> None:
@@ -200,14 +204,25 @@ async def async_remove_miwifi_panel(hass: HomeAssistant) -> None:
     panels = hass.data.get(DATA_PANELS)
 
     if not panels or "miwifi" not in panels:
-        _LOGGER.debug("[MiWiFi] Panel 'miwifi' not registered — skipping removal.")
+        await hass.async_add_executor_job(
+            _LOGGER.debug,
+            "[MiWiFi] Panel 'miwifi' not registered — skipping removal."
+        )
         return
 
     try:
-        await async_remove_panel(hass, "miwifi")
-        _LOGGER.info("[MiWiFi] Panel successfully removed.")
+        async_remove_panel(hass, "miwifi")
+        hass.data[DATA_PANELS].pop("miwifi", None)
+        await hass.async_add_executor_job(
+            _LOGGER.info,
+            "[MiWiFi] Panel successfully removed."
+        )
     except Exception as e:
-        _LOGGER.debug(f"[MiWiFi] Error deleting panel: {e}")
+        await hass.async_add_executor_job(
+            _LOGGER.warning,
+            f"[MiWiFi] Error deleting panel: {e}"
+        )
+
         
 
 async def async_start_panel_monitor(hass):
@@ -220,17 +235,18 @@ async def async_start_panel_monitor(hass):
                 remote = await read_remote_version(session)
 
             if local != remote:
-                _LOGGER.warning(f"[MiWiFi] New panel version available: {remote} (local: {local})")
+                await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] New panel version available: {remote} (local: {local})")
             else:
                 last_logged = hass.data.get("miwifi_last_checked_version")
                 if last_logged != local:
-                    _LOGGER.debug(f"[MiWiFi] Panel up-to-date: {local}")
+                    await hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Panel up-to-date: {local}")
                     hass.data["miwifi_last_checked_version"] = local
 
         except Exception as e:
-            _LOGGER.warning(f"[MiWiFi] Panel monitor error: {e}")
+            await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] Panel monitor error: {e}")
 
     async_track_time_interval(hass, _check_panel_version, PANEL_MONITOR_INTERVAL)
+
 
 
 # ------- Persistence for Main Router Manual -------
@@ -241,28 +257,28 @@ async def async_save_manual_main_mac(hass: HomeAssistant, mac: str):
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         await hass.async_add_executor_job(_write_json_file, path, {"manual_main_mac": mac})
-        _LOGGER.info("[MiWiFi] ✅ MAC Manual saved correctly in %s", path)
+        await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ MAC Manual saved correctly in %s", path)
     except Exception as e:
-        _LOGGER.error("[MiWiFi] ❌ Error saving file from manual MAC: %s", e)
+        await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error saving file from manual MAC: %s", e)
 
 
 async def async_load_manual_main_mac(hass: HomeAssistant) -> str | None:
     """Load manually selected MAC from file."""
     path = hass.config.path(MAIN_ROUTER_STORE_FILE)
     if not os.path.exists(path):
-        _LOGGER.debug("[MiWiFi] No manual MAC file found at %s", path)
+        await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] No manual MAC file found at %s", path)
         return None
     try:
         data = await hass.async_add_executor_job(_read_json_file, path)
         if isinstance(data, dict):
             mac = data.get("manual_main_mac")
-            _LOGGER.debug("[MiWiFi] ✅ MAC loaded from file: %s", mac)
+            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] ✅ MAC loaded from file: %s", mac)
             return mac
         else:
-            _LOGGER.warning("[MiWiFi] ❌ Unexpected format in file: %s (expected: dict, received: %s)", path, type(data).__name__)
+            await hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] ❌ Unexpected format in file: %s (expected: dict, received: %s)", path, type(data).__name__)
             return None
     except Exception as e:
-        _LOGGER.error("[MiWiFi] ❌ Error reading manual MAC: %s", e)
+        await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error reading manual MAC: %s", e)
         return None
 
 
@@ -272,8 +288,7 @@ async def async_clear_manual_main_mac(hass: HomeAssistant):
     try:
         if os.path.exists(path):
             await hass.async_add_executor_job(os.remove, path)
-            _LOGGER.info("[MiWiFi] 🗑️Manual MAC file deleted: %s", path)
+            await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🗑️Manual MAC file deleted: %s", path)
     except Exception as e:
-        _LOGGER.error("[MiWiFi] ❌ Error deleting file from MAC manually: %s", e)
-
+        await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error deleting file from MAC manually: %s", e)
 

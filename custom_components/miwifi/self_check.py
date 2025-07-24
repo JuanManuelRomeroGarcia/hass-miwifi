@@ -62,16 +62,16 @@ async def async_self_check(hass: HomeAssistant, client: LuciClient, model: str) 
             else:
                 results[path] = "❓"
         except LuciError as e:
-            _LOGGER.warning("❌ Self check failed for %s: %s", path, e)
+            await hass.async_add_executor_job(_LOGGER.warning,"❌ Self check failed for %s: %s", path, e)
             results[path] = "🔴"
 
-    # Obtener versiones
+    
     integration = await async_get_integration(hass, DOMAIN)
     ha_version = getattr(hass.config, "version", "unknown")
     try:
         panel_version = await read_local_version(hass)
     except Exception as e:
-        _LOGGER.warning("[MiWiFi] Could not read panel version: %s", e)
+        await hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Could not read panel version: %s", e)
         panel_version = "unknown"
 
     # Traducciones

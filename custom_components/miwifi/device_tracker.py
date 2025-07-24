@@ -492,7 +492,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
                 writer.close()
                 await writer.wait_closed()
                 self._configuration_port = port
-                # _LOGGER.debug("Found open port %s: %s", self.ip_address, port)
+                # await hass.async_add_executor_job(_LOGGER.debug, "Found open port %s: %s", self.ip_address, port)
                 break
             except (asyncio.TimeoutError, ConnectionRefusedError, OSError):
                 continue

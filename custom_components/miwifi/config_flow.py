@@ -107,7 +107,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options={OPTION_IS_FROM_FLOW: True},
                 )
 
-            _LOGGER.error("[MiWiFi] Access to router %s failed with code %s and reason: %s",
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Access to router %s failed with code %s and reason: %s",
                 user_input[CONF_IP_ADDRESS], code, reason or "No details")
 
             errors["base"] = {
@@ -117,7 +117,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             if errors["base"] is None:
                 final_reason = reason or "Unknown"
-                _LOGGER.error("[MiWiFi] Router access failed (%s): %s", user_input[CONF_IP_ADDRESS], final_reason)
+                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Router access failed (%s): %s", user_input[CONF_IP_ADDRESS], final_reason)
                 errors["base"] = f"router.error_with_reason::{final_reason}"
 
         return await self._show_form(user_input, errors, step_id="discovery_confirm")
@@ -162,13 +162,18 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = error_key
             description_placeholders = description_placeholders or {}
             description_placeholders["reason"] = reason
-            _LOGGER.error("[MiWiFi] Placeholder de motivo final: %s", description_placeholders.get("reason"))
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Placeholder de motivo final: %s", description_placeholders.get("reason"))
+        
+        elif errors.get("base") == "router.error_with_reason":
+            description_placeholders = description_placeholders or {}
+            description_placeholders.setdefault("reason", "Unknown error")
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Añadido motivo por defecto para error_with_reason")
 
             
         if "base" in errors:
-            _LOGGER.error("[MiWiFi] Error base recibido: %s", errors["base"])
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error base recibido: %s", errors["base"])
             if "::" in errors["base"]:
-                _LOGGER.error("[MiWiFi] Separando clave y razón de error: %s", errors["base"])
+                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Separando clave y razón de error: %s", errors["base"])
 
 
         return self.async_show_form(
@@ -206,7 +211,7 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
                 return self.async_create_entry(title=user_input[CONF_IP_ADDRESS], data=user_input)
 
-            _LOGGER.warning("[MiWiFi] Re-auth failed for %s with code %s and reason: %s",
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Re-auth failed for %s with code %s and reason: %s",
                 user_input[CONF_IP_ADDRESS], code, reason or "No details")
 
             errors["base"] = {
@@ -216,7 +221,7 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
             if errors["base"] is None:
                 self._last_reason = reason or "Unknown"
-                _LOGGER.warning("[MiWiFi] Router re-auth failed (%s): %s", user_input[CONF_IP_ADDRESS], self._last_reason)
+                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Router re-auth failed (%s): %s", user_input[CONF_IP_ADDRESS], self._last_reason)
                 errors["base"] = "router.error_with_reason"
 
         return self.async_show_form(step_id="init", data_schema=await self._get_options_schema(), errors=errors)
@@ -232,7 +237,7 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
         self.hass.config_entries.async_update_entry(self._config_entry, unique_id=unique_id)
 
-    async def _get_options_schema(self) -> vol.Schema:
+    async def _get_options_schema(self, hass) -> vol.Schema:
             try:
 
                 panel_state = await get_global_panel_state(self.hass)
@@ -266,5 +271,5 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
                 return vol.Schema(schema)
             except Exception as e:
-                _LOGGER.exception("[MiWiFi] Error generating the options form: %s", e)
+                await hass.async_add_executor_job(_LOGGER.exception,"[MiWiFi] Error generating the options form: %s", e)
                 raise   

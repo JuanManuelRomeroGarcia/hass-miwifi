@@ -76,7 +76,7 @@ async def suggest_unsupported_issue(
     model_name = model.name if isinstance(model, Model) else str(model)
 
     if not model_name.isidentifier():
-        _LOGGER.warning("[MiWiFi] Model name '%s' may not be valid for enum entry.", model_name)
+        await hass.async_add_executor_job(_LOGGER.warning,"[MiWiFi] Model name '%s' may not be valid for enum entry.", model_name)
 
     integration = await async_get_integration(hass, DOMAIN)
     if "homeassistant.const" in sys.modules:

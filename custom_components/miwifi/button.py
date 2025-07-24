@@ -97,7 +97,7 @@ class MiWifiButton(MiWifiEntity, ButtonEntity):
         try:
             await self._updater.luci.reboot()
         except LuciError as _e:
-            _LOGGER.debug("Reboot error: %r", _e)
+            await self.hass.async_add_executor_job(_LOGGER.debug, "Reboot error: %r", _e)
 
     async def async_press(self) -> None:
         """Async press action."""

@@ -6,10 +6,9 @@ import datetime
 import hashlib
 import os
 import zipfile
-from .logger import _LOGGER
+from .logger import _LOGGER, async_recreate_log_handlers
 from typing import Final
 from .sensor import MiWifiNATRulesSensor 
-from .logger import recreate_log_handlers
 from .notifier import MiWiFiNotifier
 
 
@@ -144,9 +143,9 @@ class MiWifiGetTopologyGraphServiceCall(MiWifiServiceCall):
         await updater._async_prepare_topo()
 
         if updater.data.get("topo_graph"):
-            _LOGGER.info("[MiWiFi] Topology graph retrieved successfully.")
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Topology graph retrieved successfully.")
         else:
-            _LOGGER.warning("[MiWiFi] Topology graph could not be retrieved or is empty.")
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Topology graph could not be retrieved or is empty.")
 
 
 class MiWifiLogPanelServiceCall:
@@ -165,13 +164,13 @@ class MiWifiLogPanelServiceCall:
         message = service.data.get("message", "")
 
         if level == "debug":
-            _LOGGER.debug("[PanelJS] %s", message)
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[PanelJS] %s", message)
         elif level == "warning":
-            _LOGGER.warning("[PanelJS] %s", message)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[PanelJS] %s", message)
         elif level == "error":
-            _LOGGER.error("[PanelJS] %s", message)
+            await self.hass.async_add_executor_job(_LOGGER.error, "[PanelJS] %s", message)
         else:
-            _LOGGER.info("[PanelJS] %s", message)
+            await self.hass.async_add_executor_job(_LOGGER.info, "[PanelJS] %s", message)
 
 
 from .updater import async_get_integrations
@@ -186,17 +185,17 @@ class MiWifiSelectMainNodeServiceCall(MiWifiServiceCall):
 
     async def async_call_service(self, service: ServiceCall) -> None:
         selected_mac = service.data["mac"]
-        _LOGGER.info("[MiWiFi] 📥 Service 'select_main_router' invoked with MAC: %s", selected_mac)
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 📥 Service 'select_main_router' invoked with MAC: %s", selected_mac)
 
         integrations = async_get_integrations(self.hass)
         routers = [entry[UPDATER] for entry in integrations.values()]
 
         if selected_mac:
             await async_save_manual_main_mac(self.hass, selected_mac)
-            _LOGGER.info("[MiWiFi] ✅ Manual MAC saved successfully: %s", selected_mac)
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ Manual MAC saved successfully: %s", selected_mac)
         else:
             await async_clear_manual_main_mac(self.hass)
-            _LOGGER.info("[MiWiFi] 🧹 Cleared manual selection of main router.")
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🧹 Cleared manual selection of main router.")
 
         for router in routers:
             await router._async_prepare_topo()
@@ -233,7 +232,7 @@ class MiWifiBlockDeviceServiceCall:
         if not mac_address:
             raise vol.Invalid("MAC not found in entity attributes.")
 
-        _LOGGER.debug(f"[MiWiFi] Target MAC: {mac_address}")
+        await self.hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Target MAC: {mac_address}")
 
         integrations = async_get_integrations(self.hass)
         main_updater = next(
@@ -255,12 +254,12 @@ class MiWifiBlockDeviceServiceCall:
             await main_updater.luci.set_mac_filter(mac_address, not allow)
             await main_updater._async_prepare_devices(main_updater.data)
 
-            _LOGGER.info(f"[MiWiFi] MAC Filter applied: mac={mac_address}, WAN={'Blocked' if allow else 'Allowed'}")
+            await self.hass.async_add_executor_job(_LOGGER.info, f"[MiWiFi] MAC Filter applied: mac={mac_address}, WAN={'Blocked' if allow else 'Allowed'}")
         except LuciError as e:
             if "Connection error" in str(e):
-                _LOGGER.info("[MiWiFi] Connection dropped after applying MAC filter (likely successfully applied): %s", e)
+                await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Connection dropped after applying MAC filter (likely successfully applied): %s", e)
             else:
-                _LOGGER.error("[MiWiFi] Error applying MAC filter: %s", e)
+                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error applying MAC filter: %s", e)
                 raise vol.Invalid(f"Failed to apply mac filter: {e}")
 
         # Notificación final
@@ -318,14 +317,14 @@ class MiWifiListPortsServiceCall:
             raise vol.Invalid("No main router detected (is_main).")
 
         await main_updater.luci.login()
-        _LOGGER.info("[MiWiFi] 📡 Main router detected (IP: %s). Requesting NAT rules (ftype=%s)", main_updater.ip, ftype)
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 📡 Main router detected (IP: %s). Requesting NAT rules (ftype=%s)", main_updater.ip, ftype)
 
         try:
             data = await main_updater.luci.portforward(ftype)
-            _LOGGER.info("[MiWiFi] 🔁 NAT rules fetched (ftype=%s): %s", ftype, data)
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🔁 NAT rules fetched (ftype=%s): %s", ftype, data)
             return data
         except LuciError as e:
-            _LOGGER.error("[MiWiFi] ❌ Error fetching NAT rules: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error fetching NAT rules: %s", e)
             raise vol.Invalid(f"Error communicating with the main router: {e}")
 
 
@@ -363,17 +362,17 @@ class MiWifiAddPortServiceCall:
         if main_updater is None:
             raise vol.Invalid("No main router detected (is_main).")
 
-        _LOGGER.info("[MiWiFi] ➕ Adding NAT rule ftype=1: %s:%s → %s:%s (%s)", sport, name, ip, dport, proto)
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ➕ Adding NAT rule ftype=1: %s:%s → %s:%s (%s)", sport, name, ip, dport, proto)
 
         try:
             await main_updater.luci.login()
             response = await main_updater.luci.add_redirect(name, proto, sport, ip, dport)
-            _LOGGER.info("[MiWiFi] ✅ Rule successfully added: %s", response)
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ Rule successfully added: %s", response)
 
             await main_updater.luci.redirect_apply()
-            _LOGGER.info("[MiWiFi] 🔄 NAT changes applied after adding rule.")
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🔄 NAT changes applied after adding rule.")
         except LuciError as e:
-            _LOGGER.error("[MiWiFi] ❌ Error adding NAT rule: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error adding NAT rule: %s", e)
             raise vol.Invalid(f"Failed to add rule: {e}")
 
 
@@ -411,17 +410,17 @@ class MiWifiAddRangePortServiceCall:
         if main_updater is None:
             raise vol.Invalid("No main router detected (is_main).")
 
-        _LOGGER.info("[MiWiFi] ➕ Adding NAT rule ftype=2: %s:%s-%s (%s)", name, fport, tport, proto)
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ➕ Adding NAT rule ftype=2: %s:%s-%s (%s)", name, fport, tport, proto)
 
         try:
             await main_updater.luci.login()
             response = await main_updater.luci.add_range_redirect(name, proto, fport, tport, ip)
-            _LOGGER.info("[MiWiFi] ✅ Range rule successfully added: %s", response)
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ Range rule successfully added: %s", response)
 
             await main_updater.luci.redirect_apply()
-            _LOGGER.info("[MiWiFi] 🔄 NAT changes applied after adding range rule.")
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🔄 NAT changes applied after adding range rule.")
         except LuciError as e:
-            _LOGGER.error("[MiWiFi] ❌ Error adding NAT range rule: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error adding NAT range rule: %s", e)
             raise vol.Invalid(f"Failed to add range rule: {e}")
 
 
@@ -453,20 +452,20 @@ class MiWifiDeletePortServiceCall:
         if main_updater is None:
             raise vol.Invalid("No main router detected (is_main).")
 
-        _LOGGER.info("[MiWiFi] 🗑️ Deleting NAT rule: proto=%s, port=%s", proto, port)
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🗑️ Deleting NAT rule: proto=%s, port=%s", proto, port)
 
         try:
             await main_updater._async_prepare_topo()
             await main_updater.luci.login()
 
             response = await main_updater.luci.delete_redirect(port, proto)
-            _LOGGER.info("[MiWiFi] ✅ Rule successfully deleted: %s", response)
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ Rule successfully deleted: %s", response)
 
             await main_updater.luci.redirect_apply()
-            _LOGGER.info("[MiWiFi] 🔄 NAT changes applied after rule deletion.")
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🔄 NAT changes applied after rule deletion.")
 
         except LuciError as e:
-            _LOGGER.error("[MiWiFi] ❌ Error deleting NAT rule: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error deleting NAT rule: %s", e)
             raise vol.Invalid(f"Failed to delete rule: {e}")
 
 
@@ -492,7 +491,7 @@ class MiWifiRefreshNATRulesServiceCall:
         if main_updater is None:
             raise vol.Invalid("No main router detected (is_main).")
 
-        _LOGGER.info("[MiWiFi] 🔄 Forcing NAT rules refresh...")
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🔄 Forcing NAT rules refresh...")
 
         await main_updater._async_prepare_topo()
         await main_updater.update()
@@ -501,23 +500,25 @@ class MiWifiRefreshNATRulesServiceCall:
         for entity_id in self.hass.states.async_entity_ids("sensor"):
             entity = self.hass.data["entity_components"]["sensor"].get_entity(entity_id)
             if isinstance(entity, MiWifiNATRulesSensor) and getattr(entity, "_updater", None) == main_updater:
-                _LOGGER.debug("[MiWiFi] 🔁 Forcing update of NAT sensor: %s", entity_id)
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 🔁 Forcing update of NAT sensor: %s", entity_id)
                 entity.async_update_from_updater()
 
-        _LOGGER.info("[MiWiFi] ✅ NAT rules successfully refreshed.")
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ NAT rules successfully refreshed.")
         
 
 class MiWifiClearLogsService:
     """Service to clear and recreate all MiWiFi log files."""
 
-    schema = vol.Schema({})  # No necesita parámetros
+    schema = vol.Schema({}) 
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
 
     async def async_call_service(self, service: ServiceCall) -> None:
-        recreate_log_handlers()
+        await async_recreate_log_handlers(self.hass)
         
+from functools import partial
+
 class MiWifiDownloadLogsService:
     """Service to zip logs and make them downloadable from the frontend or services."""
 
@@ -529,55 +530,60 @@ class MiWifiDownloadLogsService:
     async def async_call_service(self, service: ServiceCall) -> None:
         log_dir = os.path.join(self.hass.config.config_dir, "miwifi", "logs")
         www_export_dir = os.path.join(self.hass.config.config_dir, "www", "miwifi", "exports")
-        os.makedirs(www_export_dir, exist_ok=True)
-        
-        max_zip_files = 1
-        existing_zips = sorted(
-            (f for f in os.listdir(www_export_dir) if f.endswith(".zip")),
-            key=lambda x: os.path.getmtime(os.path.join(www_export_dir, x)),
-            reverse=True
-        )
 
-        for old_zip in existing_zips[max_zip_files:]:
-            try:
-                os.remove(os.path.join(www_export_dir, old_zip))
-                _LOGGER.debug("Removed old log archive: %s", old_zip)
-            except Exception as e:
-                _LOGGER.warning("Failed to remove old log archive %s: %s", old_zip, e)
+        # Crear carpeta de exportación de forma segura
+        await self.hass.async_add_executor_job(partial(os.makedirs, www_export_dir, exist_ok=True))
+
+        max_zip_files = 1
+
+        def _list_existing():
+            return sorted(
+                (f for f in os.listdir(www_export_dir) if f.endswith(".zip")),
+                key=lambda x: os.path.getmtime(os.path.join(www_export_dir, x)),
+                reverse=True
+            )
+
+        existing_zips = await self.hass.async_add_executor_job(_list_existing)
+
+        def _remove_old():
+            for old_zip in existing_zips[max_zip_files:]:
+                try:
+                    os.remove(os.path.join(www_export_dir, old_zip))
+                    _LOGGER.debug("Removed old log archive: %s", old_zip)
+                except Exception as e:
+                    _LOGGER.warning("Failed to remove old log archive %s: %s", old_zip, e)
+
+        await self.hass.async_add_executor_job(_remove_old)
 
         now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         filename = f"logs_{now}.zip"
         zip_path = os.path.join(www_export_dir, filename)
 
-        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for file in os.listdir(log_dir):
-                if file.startswith("miwifi_") and (file.endswith(".log") or ".log." in file):
-                    abs_path = os.path.join(log_dir, file)
-                    zipf.write(abs_path, arcname=file)
+        def _zip_logs():
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                for file in os.listdir(log_dir):
+                    if file.startswith("miwifi_") and (file.endswith(".log") or ".log." in file):
+                        abs_path = os.path.join(log_dir, file)
+                        zipf.write(abs_path, arcname=file)
+
+        await self.hass.async_add_executor_job(_zip_logs)
 
         url = f"/local/miwifi/exports/{filename}"
         _LOGGER.info("📦 MiWiFi logs zipped and available at: %s", url)
 
-        # Guardar la URL en memoria para acceso desde WebSocket/panel
-        self.hass.data.setdefault(DOMAIN, {})
-        self.hass.data[DOMAIN]["last_log_zip_url"] = url
-
-        url = f"/local/miwifi/exports/{filename}"
         self.hass.data.setdefault(DOMAIN, {})
         self.hass.data[DOMAIN]["last_log_zip_url"] = url
 
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
-
         title = translations.get("title", "MiWiFi")
         message_template = translations.get("notifications", {}).get(
             "download_ready",
             "📦 Logs listos: <a href='{url}' target='_blank'>Descargar</a>"
         )
-        message = message_template.replace("{url}", url)  # Solo ruta relativa
-
+        message = message_template.replace("{url}", url)
         await notifier.notify(message, title=title, notification_id="miwifi_download_logs")
-                
+
         
 SERVICES: Final = (
     (SERVICE_CALC_PASSWD, MiWifiCalcPasswdServiceCall),

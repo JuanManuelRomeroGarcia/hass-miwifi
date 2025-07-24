@@ -115,9 +115,9 @@ async def async_setup_entry(
             panel_entity = MiWifiPanelUpdate(f"{config_entry.entry_id}_miwifi_panel", updater)
             entities.append(panel_entity)
         except Exception as e:
-            _LOGGER.warning(f"[MiWiFi] The panel update entity could not be created: {e}")
+            await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] The panel update entity could not be created: {e}")
     else:
-        _LOGGER.debug("[MiWiFi] Panel update entity not created because this router is not the main one.")
+        await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Panel update entity not created because this router is not the main one.")
 
     if entities:
         async_add_entities(entities)
@@ -183,7 +183,7 @@ class MiWifiUpdate(MiWifiEntity, UpdateEntity):
         try:
             await self._updater.luci.flash_permission()
         except LuciError as e:
-            _LOGGER.error("Clear permission error: %r", e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "Clear permission error: %r", e)
 
         await asyncio.sleep(FIRMWARE_UPDATE_WAIT)
         for _ in range(1, FIRMWARE_UPDATE_RETRY):
@@ -233,6 +233,11 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
         self._attr_available = local != remote
 
     def _handle_coordinator_update(self) -> None:
+        """Handle updates from coordinator (sync wrapper)."""
+        self.hass.async_create_task(self._async_handle_coordinator_update())
+
+    async def _async_handle_coordinator_update(self) -> None:
+        """Async logic for coordinator updates."""
         prev_local = self._attr_installed_version
         prev_remote = self._attr_latest_version
 
@@ -242,7 +247,8 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
             prev_local != self._attr_installed_version
             or prev_remote != self._attr_latest_version
         ):
-            _LOGGER.info(
+            await self.hass.async_add_executor_job(
+                _LOGGER.info,
                 f"[MiWiFi] Panel update check → local: {self._attr_installed_version}, remote: {self._attr_latest_version}"
             )
             self.async_write_ha_state()
@@ -296,11 +302,11 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
                 data = response.json()
                 return data.get("body", f"No release notes found for v{version}")
             else:
-                _LOGGER.warning(f"GitHub release not found for v{version}: {response.status_code}")
+                await self.hass.async_add_executor_job(_LOGGER.warning, f"GitHub release not found for v{version}: {response.status_code}")
                 return None
 
         except Exception as e:
-            _LOGGER.error(f"Error fetching GitHub release notes for v{version}: {e}")
+            await self.hass.async_add_executor_job(_LOGGER.error, f"Error fetching GitHub release notes for v{version}: {e}")
             return None
 
     async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:

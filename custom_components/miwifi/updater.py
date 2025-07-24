@@ -289,13 +289,13 @@ class LuciUpdater(DataUpdateCoordinator):
             _err = _e
             self._is_reauthorization = False
             self.code = codes.NOT_FOUND
-            _LOGGER.warning("[MiWiFi] LuciConnectionError en login: %s", _e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] LuciConnectionError en login: %s", _e)
             
         except LuciRequestError as _e:
             _err = _e
             self._is_reauthorization = True
             self.code = codes.FORBIDDEN
-            _LOGGER.warning("[MiWiFi] LuciRequestError en login: %s", _e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] LuciRequestError en login: %s", _e)
 
 
         else:
@@ -322,7 +322,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 raise _err
 
             if retry <= DEFAULT_RETRY:
-                _LOGGER.warning(
+                await self.hass.async_add_executor_job(_LOGGER.warning, 
                     "Error connecting to router (attempt #%s of %s): %r",
                     retry,
                     DEFAULT_RETRY,
@@ -355,10 +355,10 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.data["panel_local_version"] = local
                 self.data["panel_remote_version"] = remote
         except Exception as e:
-            _LOGGER.warning("[MiWiFi] The frontend panel version could not be updated: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] The frontend panel version could not be updated: %s", e)
 
         if self._is_only_login:
-            _LOGGER.debug("[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
 
         return self.data
 
@@ -449,7 +449,7 @@ class LuciUpdater(DataUpdateCoordinator):
             method in UNSUPPORTED
             and data.get(ATTR_MODEL, Model.NOT_KNOWN) in UNSUPPORTED[method]
         ):
-            _LOGGER.debug("[MiWiFi] Skipping '%s' for model '%s' (unsupported)", method, data.get(ATTR_MODEL))
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping '%s' for model '%s' (unsupported)", method, data.get(ATTR_MODEL))
             
             return
 
@@ -664,14 +664,14 @@ class LuciUpdater(DataUpdateCoordinator):
         try:
             response: dict = await self.luci.wan_info()
             
-            _LOGGER.debug("WAN info response: %s", response)
+            await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info response: %s", response)
             
             info = response.get("info") if isinstance(response, dict) else {}
             if not isinstance(info, dict):
-                _LOGGER.debug("WAN info['info'] is not a dict, got: %s", type(info))
+                await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info['info'] is not a dict, got: %s", type(info))
                 info = {}
             elif not info:
-                _LOGGER.debug("WAN info['info'] is empty.")
+                await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info['info'] is empty.")
 
 
             # WAN State (based on uptime)
@@ -695,7 +695,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 data[ATTR_SENSOR_WAN_TYPE] = "unknown"
 
         except Exception as e:
-            _LOGGER.error("Error while preparing WAN info: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "Error while preparing WAN info: %s", e)
             data[ATTR_BINARY_SENSOR_WAN_STATE] = False
             data[ATTR_BINARY_SENSOR_WAN_LINK] = False
             data[ATTR_SENSOR_WAN_IP] = None
@@ -852,7 +852,7 @@ class LuciUpdater(DataUpdateCoordinator):
         try:
             macfilter_info = await self.luci.macfilter_info()
         except Exception as e:
-            _LOGGER.warning("[MiWiFi] macfilter_info failed for %s: %s", self.ip, e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] macfilter_info failed for %s: %s", self.ip, e)
         filter_macs: dict[str, int] = {}
 
         for entry in macfilter_info.get("flist", []):
@@ -900,7 +900,7 @@ class LuciUpdater(DataUpdateCoordinator):
                         else:
                             device[ATTR_TRACKER_TOTAL_USAGE] = None
 
-                        self.add_device(device, action=action)
+                        await self.add_device(device, action=action)
 
     async def _async_prepare_device_list(self, data: dict) -> None:
         """Prepare device list"""
@@ -922,7 +922,7 @@ class LuciUpdater(DataUpdateCoordinator):
         try:
             macfilter_info = await self.luci.macfilter_info()
         except Exception as e:
-            _LOGGER.warning("[MiWiFi] macfilter_info failed for %s (device_list): %s", self.ip, e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] macfilter_info failed for %s (device_list): %s", self.ip, e)
         filter_macs: dict[str, int] = {}
 
         for entry in macfilter_info.get("flist", []):
@@ -1005,7 +1005,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 else:
                     device[ATTR_TRACKER_INTERNET_BLOCKED] = False
 
-                self.add_device(device, action=action, integrations=integrations)
+                await self.add_device(device, action=action, integrations=integrations)
 
         if not add_to:
             return
@@ -1018,7 +1018,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
             for device in devices.values():
                 if ATTR_TRACKER_MAC in device[0]:
-                    integrations[_ip][UPDATER].add_device(device[0], True, device[1], integrations)
+                    await integrations[_ip][UPDATER].add_device(device[0], True, device[1], integrations)
 
 
     async def _async_prepare_device_restore(self, data: dict) -> None:
@@ -1104,11 +1104,11 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.hass, SIGNAL_NEW_DEVICE, device | {ATTR_TRACKER_IS_RESTORED: True}
             )
 
-            #_LOGGER.debug("Restore device: %s, %s", mac, device)
+            #await self.hass.async_add_executor_job(_LOGGER.debug, "Restore device: %s, %s", mac, device)
 
         self._clean_devices()
 
-    def add_device(
+    async def add_device(
         self,
         device: dict,
         is_from_parent: bool = False,
@@ -1155,7 +1155,7 @@ class LuciUpdater(DataUpdateCoordinator):
             async_dispatcher_send(
                 self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
             )
-            _LOGGER.debug("Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
+            await self.hass.async_add_executor_job(_LOGGER.debug, "Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
 
             if ATTR_TRACKER_FIRST_SEEN not in self.devices[device[ATTR_TRACKER_MAC]]:
                 self.hass.async_create_task(
@@ -1166,7 +1166,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
 
         elif action == DeviceAction.MOVE:
-            _LOGGER.debug("Move device: %s", device[ATTR_TRACKER_MAC])
+            await self.hass.async_add_executor_job(_LOGGER.debug, "Move device: %s", device[ATTR_TRACKER_MAC])
 
         if device[ATTR_TRACKER_MAC] in self._moved_devices or (
             self.is_repeater and self.is_force_load
@@ -1269,20 +1269,20 @@ class LuciUpdater(DataUpdateCoordinator):
         """
 
         if not self.is_force_load:
-            #_LOGGER.warning("⚠️ [new_status] is_force_load is False. Skipping new_status.")
+            #await self.hass.async_add_executor_job(_LOGGER.warning, "⚠️ [new_status] is_force_load is False. Skipping new_status.")
             return
 
         response: dict = await self.luci.new_status()
-        #_LOGGER.warning("📶 [new_status] Raw response: %s", response)
+        #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 [new_status] Raw response: %s", response)
 
         if "count" in response:
             data[ATTR_SENSOR_DEVICES] = response["count"]
-            #_LOGGER.warning("📶 Total devices count: %s", response["count"])
+            #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Total devices count: %s", response["count"])
 
         for key, attr in NEW_STATUS_MAP.items():
             if key in response and "online_sta_count" in response[key]:
                 data[attr] = response[key]["online_sta_count"]
-                #_LOGGER.warning("📶 Set %s = %s", attr, response[key]["online_sta_count"])
+                #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Set %s = %s", attr, response[key]["online_sta_count"])
 
         _other_devices = sum(
             int(data[attr]) for attr in NEW_STATUS_MAP.values() if attr in data
@@ -1291,7 +1291,7 @@ class LuciUpdater(DataUpdateCoordinator):
         if _other_devices > 0 and ATTR_SENSOR_DEVICES in data:
             _other_devices = int(data[ATTR_SENSOR_DEVICES]) - _other_devices
             data[ATTR_SENSOR_DEVICES_LAN] = max(_other_devices, 0)
-            #_LOGGER.warning("📶 Calculated LAN devices: %s", data[ATTR_SENSOR_DEVICES_LAN])
+            #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Calculated LAN devices: %s", data[ATTR_SENSOR_DEVICES_LAN])
 
 
     def _clean_devices(self) -> None:
@@ -1377,27 +1377,27 @@ class LuciUpdater(DataUpdateCoordinator):
             topo_data = await self.luci.topo_graph()
 
             if not topo_data or not isinstance(topo_data, dict) or "graph" not in topo_data:
-                _LOGGER.info("[MiWiFi] No topology graph data available for router at %s", self.ip)
+                await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] No topology graph data available for router at %s", self.ip)
                 self.data["topo_graph"] = None
                 return
 
             graph = topo_data["graph"]
 
             if not isinstance(graph, dict):
-                _LOGGER.error("[MiWiFi] ❌ Invalid topology graph format (not dict): %s", graph)
+                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Invalid topology graph format (not dict): %s", graph)
                 self.data["topo_graph"] = None
                 return
 
             if self.data.get(ATTR_DEVICE_MAC_ADDRESS):
                 graph["mac"] = self.data[ATTR_DEVICE_MAC_ADDRESS]
-                _LOGGER.debug("[MiWiFi] MAC added to topo_graph: %s", graph["mac"])
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] MAC added to topo_graph: %s", graph["mac"])
 
             auto_main = False
             try:
                 show = int(topo_data.get("show", -1))
                 mode = int(graph.get("mode", -1))
                 assoc = graph.get("assoc", None)
-                _LOGGER.debug("[MiWiFi] Topo debug – show=%s, mode=%s, assoc=%s", show, mode, assoc)
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Topo debug – show=%s, mode=%s, assoc=%s", show, mode, assoc)
 
                 if assoc is not None:
                     assoc = int(assoc)
@@ -1408,7 +1408,7 @@ class LuciUpdater(DataUpdateCoordinator):
                     graph["is_main"] = True
                     auto_main = True
             except Exception as e:
-                _LOGGER.warning("[MiWiFi] Error interpreting topology: %s", e)
+                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error interpreting topology: %s", e)
 
             if not auto_main:
                 from custom_components.miwifi.frontend import async_load_manual_main_mac
@@ -1416,19 +1416,19 @@ class LuciUpdater(DataUpdateCoordinator):
                 if manual_mac:
                     if manual_mac == graph.get("mac"):
                         graph["is_main"] = True
-                        _LOGGER.info("[MiWiFi] Main router restored from saved MAC: %s", manual_mac)
+                        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Main router restored from saved MAC: %s", manual_mac)
                     else:
                         graph.pop("is_main", None)
                 else:
                     graph.pop("is_main", None)
-                    _LOGGER.debug("[MiWiFi] No manual MAC found, removed is_main from graph")
+                    await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] No manual MAC found, removed is_main from graph")
             else:
                 graph["is_main"] = True
 
             graph["is_main_auto"] = auto_main
 
             self.data["topo_graph"] = topo_data
-            _LOGGER.debug("[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
 
             for entity in self.hass.states.async_all("sensor"):
                 if entity.entity_id.startswith("sensor.topologia_miwifi"):
@@ -1455,14 +1455,14 @@ class LuciUpdater(DataUpdateCoordinator):
                         node_mac = node.get("mac")
                         if node_ip and node_ip != self.ip:
                             if node_ip not in self.hass.data.get(DOMAIN, {}):
-                                _LOGGER.warning("[MiWiFi] 🆕 Non-integrated Mesh Node: IP=%s, MAC=%s", node_ip, node_mac)
+                                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] 🆕 Non-integrated Mesh Node: IP=%s, MAC=%s", node_ip, node_mac)
 
         except LuciError as e:
-            _LOGGER.warning("[MiWiFi] Failed to get topology graph for router at %s: %s", self.ip, e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Failed to get topology graph for router at %s: %s", self.ip, e)
             self.data["topo_graph"] = None
 
         except Exception as e:
-            _LOGGER.error("[MiWiFi] Unexpected error while getting topology graph for router at %s: %s", self.ip, e)
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Unexpected error while getting topology graph for router at %s: %s", self.ip, e)
             self.data["topo_graph"] = None
 
     @property
@@ -1471,50 +1471,54 @@ class LuciUpdater(DataUpdateCoordinator):
         return self._entry_id
     
     async def _async_prepare_compatibility(self) -> None:
-            """Run compatibility detection if main and not already checked."""
+        """Run compatibility detection if main and not already checked."""
 
-            graph = self.data.get("topo_graph", {}).get("graph", {})
-            if not graph.get("is_main"):
-                _LOGGER.debug("[MiWiFi] Skipping compatibility: not main router")
-                return
+        graph = self.data.get("topo_graph", {}).get("graph", {})
+        if not graph.get("is_main"):
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping compatibility: not main router")
+            return
 
-            is_manual_main = not graph.get("is_main_auto", False)
+        
+        if self._is_first_update:
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping compatibility: first update still in progress")
+            return
 
-            if getattr(self, "capabilities", None):
-                _LOGGER.debug("[MiWiFi] Capabilities already detected, skipping")
-                return
+        is_manual_main = not graph.get("is_main_auto", False)
 
-            try:
-                from .compatibility import CompatibilityChecker
-                checker = CompatibilityChecker(self.luci)
+        if getattr(self, "capabilities", None):
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Capabilities already detected, skipping")
+            return
 
-                checker.silent_mode = is_manual_main
+        try:
+            from .compatibility import CompatibilityChecker
+            checker = CompatibilityChecker(self.hass, self.luci)
+            checker.silent_mode = is_manual_main
 
-                self.capabilities = await checker.run() or {}
-                
-                router_ip = graph.get("ip", "unknown")
-                router_model = self.data.get("model", self.data.get(ATTR_MODEL, "unknown"))
+            self.capabilities = await checker.run() or {}
+            
+            router_ip = graph.get("ip", "unknown")
+            router_model = self.data.get("model", self.data.get(ATTR_MODEL, "unknown"))
 
-                _LOGGER.info(
-                    "[MiWiFi] ✅ Capabilities detected (final) for %s (%s) → %s",
-                    router_ip,
-                    router_model,
-                    self.capabilities
+            await self.hass.async_add_executor_job(_LOGGER.info,
+                "[MiWiFi] ✅ Capabilities detected (final) for %s (%s) → %s",
+                router_ip,
+                router_model,
+                self.capabilities
+            )
+
+            if not is_manual_main and ATTR_MODEL in self.data:
+                from .diagnostics import suggest_unsupported_issue
+                await suggest_unsupported_issue(
+                    self.hass,
+                    self.data[ATTR_MODEL],
+                    self.capabilities,
+                    getattr(checker, "mode", None),
                 )
 
+        except Exception as e:
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Compatibility check failed (final): %s", e)
 
-                if not is_manual_main and ATTR_MODEL in self.data:
-                    from .diagnostics import suggest_unsupported_issue
-                    await suggest_unsupported_issue(
-                        self.hass,
-                        self.data[ATTR_MODEL],
-                        self.capabilities,
-                        getattr(checker, "mode", None),
-                    )
-
-            except Exception as e:
-                _LOGGER.warning("[MiWiFi] Compatibility check failed (final): %s", e)
-                
+                    
     async def _async_prepare_nat_rules(self) -> None:
         """Prepare NAT rules for the main router."""
         try:
@@ -1525,9 +1529,9 @@ class LuciUpdater(DataUpdateCoordinator):
                 "ftype_2": data2.get("list", []),
                 "total": len(data1.get("list", [])) + len(data2.get("list", [])),
             }
-            _LOGGER.debug("[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
         except Exception as e:
-            _LOGGER.warning("[MiWiFi] Error while retrieving NAT rules for sensor: %s", e)
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error while retrieving NAT rules for sensor: %s", e)
             self.data["nat_rules"] = {
                 "ftype_1": [],
                 "ftype_2": [],
@@ -1622,14 +1626,14 @@ async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, a
     if is_main:
         source = "auto" if is_auto else "manual"
         if not entry and async_add_entities:
-            _LOGGER.debug("[MiWiFi] 🟢 Creating update panel (%s main selection)", source)
+            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 🟢 Creating update panel (%s main selection)", source)
             panel_entity = MiWifiPanelUpdate(f"{updater.entry_id}_miwifi_panel", updater)
             async_add_entities([panel_entity])
         elif not entry:
-            _LOGGER.debug("[MiWiFi] ⚠ Cannot create update panel (%s main) because async_add_entities is not available", source)
+            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] ⚠ Cannot create update panel (%s main) because async_add_entities is not available", source)
     else:
         if entry:
-            _LOGGER.debug("[MiWiFi] 🔴 Removing update panel because it is no longer main")
+            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 🔴 Removing update panel because it is no longer main")
             entity_registry.async_remove(entity_id)
 
 

@@ -34,10 +34,10 @@ class MiWiFiNotifier:
                 nested = self.build_nested_translations(flat_translations)
 
                 self.hass.data.setdefault("translations", {}).setdefault(lang, {}).setdefault("component", {})[self.domain] = nested
-                _LOGGER.debug("[MiWiFi] 📥 Translations for '%s' loaded from disk.", lang)
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 📥 Translations for '%s' loaded from disk.", lang)
                 translations = nested
             except Exception as e:
-                _LOGGER.warning("[MiWiFi] ❌ Could not load translations for '%s': %s", lang, e)
+                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] ❌ Could not load translations for '%s': %s", lang, e)
                 translations = {}
 
         return translations

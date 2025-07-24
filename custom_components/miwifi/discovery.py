@@ -48,7 +48,8 @@ def async_start_discovery(hass: HomeAssistant) -> None:
         """
 
         async_trigger_discovery(
-            hass, await async_discover_devices(get_async_client(hass, False))
+            hass, await async_discover_devices(hass, get_async_client(hass, False))
+
         )
 
     # Do not block startup since discovery takes 31s or more
@@ -57,7 +58,7 @@ def async_start_discovery(hass: HomeAssistant) -> None:
     async_track_time_interval(hass, _async_discovery, DISCOVERY_INTERVAL)
 
 
-async def async_discover_devices(client: AsyncClient) -> list:
+async def async_discover_devices(client: AsyncClient, hass: HomeAssistant) -> list:
     """Discover devices.
 
     :param client: AsyncClient: Async Client object
@@ -89,7 +90,7 @@ async def async_discover_devices(client: AsyncClient) -> list:
     if "leafs" in response["graph"]:
         devices = await async_prepare_leafs(client, devices, response["graph"]["leafs"])
 
-    _LOGGER.debug("Found devices: %s", devices)
+    await hass.async_add_executor_job(_LOGGER.debug, "Found devices: %s", devices)
 
     return devices
 
@@ -104,7 +105,7 @@ def async_trigger_discovery(hass: HomeAssistant, discovered_devices: list) -> No
                 client = get_async_client(hass)
                 luci = LuciClient(client, ip_address)
                 response = await luci.topo_graph()
-                _LOGGER.debug("[MiWiFi] topo_graph for %s: %s", ip_address, response)
+                await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] topo_graph for %s: %s", ip_address, response)
 
                 model = (
                     response.get("hardware") or
@@ -114,7 +115,7 @@ def async_trigger_discovery(hass: HomeAssistant, discovered_devices: list) -> No
                     "MiWiFi"
                 )
             except Exception as e:
-                _LOGGER.warning("[MiWiFi] Failed to get model from %s: %s", ip_address, e)
+                 await hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Failed to get model from %s: %s", ip_address, e)
 
             hass.async_create_task(
                 hass.config_entries.flow.async_init(

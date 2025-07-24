@@ -1,10 +1,8 @@
 """Sensor component."""
 
 from __future__ import annotations
-
 import asyncio
-
-from .logger import _LOGGER
+from datetime import datetime
 from enum import Enum
 from typing import Any, Final
 
@@ -20,8 +18,6 @@ from homeassistant.const import PERCENTAGE, UnitOfInformation, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.entity import Entity
-from datetime import datetime
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -59,12 +55,15 @@ from .const import (
     ATTR_SENSOR_WAN_IP_NAME,
     ATTR_SENSOR_WAN_TYPE,
     ATTR_SENSOR_WAN_TYPE_NAME,
-    ATTR_SENSOR_NAT_ENTITY,
     ATTR_STATE,
     CONF_WAN_SPEED_UNIT,
+    DEFAULT_WAN_SPEED_UNIT,
+    DOMAIN,
+    UPDATER,
 )
 from .entity import MiWifiEntity
 from .enum import DeviceClass
+from .logger import _LOGGER
 from .updater import LuciUpdater, async_get_updater
 
 PARALLEL_UPDATES = 0
@@ -80,8 +79,6 @@ ONLY_WAN: Final = (
 )
 
 PCS: Final = "pcs"
-BS: Final = "B/s"
-MBPS: Final = "Mb/s"
 
 MIWIFI_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
@@ -234,16 +231,8 @@ async def async_setup_entry(
     )
 
 
-
-from .const import (
-    ATTR_SENSOR_WAN_DOWNLOAD_SPEED,
-    ATTR_SENSOR_WAN_UPLOAD_SPEED,
-    CONF_WAN_SPEED_UNIT,
-    DEFAULT_WAN_SPEED_UNIT,
-)
-
 class MiWifiSensor(MiWifiEntity, SensorEntity):
-    """MiWifi sensor entity."""
+    """MiWiFi sensor entity."""
 
     def __init__(
         self,
@@ -309,7 +298,8 @@ class MiWifiSensor(MiWifiEntity, SensorEntity):
             return "Mb/s" if unit == "Mbps" else "B/s"
 
         return self.entity_description.native_unit_of_measurement
-    
+
+
 class MiWifiTopologyGraphSensor(SensorEntity):
     """Sensor to represent the network topology graph."""
 
@@ -330,20 +320,23 @@ class MiWifiTopologyGraphSensor(SensorEntity):
         """Return the topology graph as attributes."""
         return self._updater.data.get("topo_graph", {})
 
-
     async def async_update(self) -> None:
         """No polling, data is pushed from coordinator."""
         pass
-    
-class MiWifiNATRulesSensor(SensorEntity):
+
+
+class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
     """Sensor to represent the NAT rules of the main router."""
 
     def __init__(self, updater: LuciUpdater) -> None:
+        super().__init__(updater)
         self._updater = updater
         self._attr_unique_id = f"{updater.entry_id}_nat_rules"
         self._attr_name = "MiWiFi NAT Rules"
         self._attr_icon = "mdi:router-network"
         self._attr_should_poll = False
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def native_value(self) -> int:
@@ -356,10 +349,12 @@ class MiWifiNATRulesSensor(SensorEntity):
             if isinstance(rules, list):
                 total += len(rules)
             else:
-               _LOGGER.warning("[MyWiFi] NAT Sensor: Expected a list on '%s', but received: %s", key, type(rules))
-
+                _LOGGER.warning(
+                    "[MiWiFi] NAT Sensor: Expected a list on '%s', but received: %s",
+                    key,
+                    type(rules)
+                )
         return total
-
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -372,15 +367,7 @@ class MiWifiNATRulesSensor(SensorEntity):
             "total": sum(len(r) for r in nat_data.values() if isinstance(r, list)),
         }
 
-    async def async_update(self) -> None:
-        """No polling, data is pushed from coordinator."""
-        pass
 
-    def async_update_from_updater(self) -> None:
-        """Update the sensor state from the updater data."""
-        self._attr_native_value = self.native_value 
-        self._attr_extra_state_attributes = self.extra_state_attributes
-        self.async_write_ha_state()
 class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
     """Sensor to represent the MiWiFi configuration."""
 
@@ -436,7 +423,6 @@ async def _async_add_all_sensors_later(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Add all sensors after a short delay to avoid blocking startup."""
-
     await asyncio.sleep(0)
 
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
