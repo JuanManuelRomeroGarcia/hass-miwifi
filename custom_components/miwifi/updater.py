@@ -1473,11 +1473,18 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_compatibility(self) -> None:
         """Run compatibility detection if main and not already checked."""
 
+        if not isinstance(self.data, dict):
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] Skipping compatibility: updater data is not ready (likely after router reboot)"
+            )
+            return
+
         graph_data = self.data.get("topo_graph")
         if not graph_data or not isinstance(graph_data, dict):
             await self.hass.async_add_executor_job(
                 _LOGGER.debug,
-                "[MiWiFi] Skipping compatibility: no topology graph data"
+                "[MiWiFi] Skipping compatibility: no topology graph data (router may be rebooting)"
             )
             return
 
