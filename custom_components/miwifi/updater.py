@@ -1473,20 +1473,43 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_compatibility(self) -> None:
         """Run compatibility detection if main and not already checked."""
 
-        graph = self.data.get("topo_graph", {}).get("graph", {})
-        if not graph.get("is_main"):
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping compatibility: not main router")
+        graph_data = self.data.get("topo_graph")
+        if not graph_data or not isinstance(graph_data, dict):
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Skipping compatibility: no topology graph data"
+            )
             return
 
-        
+        graph = graph_data.get("graph")
+        if not graph or not isinstance(graph, dict):
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Skipping compatibility: invalid graph data"
+            )
+            return
+
+        if not graph.get("is_main"):
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Skipping compatibility: not main router"
+            )
+            return
+
         if self._is_first_update:
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping compatibility: first update still in progress")
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Skipping compatibility: first update still in progress"
+            )
             return
 
         is_manual_main = not graph.get("is_main_auto", False)
 
         if getattr(self, "capabilities", None):
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Capabilities already detected, skipping")
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Capabilities already detected, skipping"
+            )
             return
 
         try:
@@ -1495,11 +1518,12 @@ class LuciUpdater(DataUpdateCoordinator):
             checker.silent_mode = is_manual_main
 
             self.capabilities = await checker.run() or {}
-            
+
             router_ip = graph.get("ip", "unknown")
             router_model = self.data.get("model", self.data.get(ATTR_MODEL, "unknown"))
 
-            await self.hass.async_add_executor_job(_LOGGER.info,
+            await self.hass.async_add_executor_job(
+                _LOGGER.info,
                 "[MiWiFi] ✅ Capabilities detected (final) for %s (%s) → %s",
                 router_ip,
                 router_model,
@@ -1516,7 +1540,12 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
 
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Compatibility check failed (final): %s", e)
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] Compatibility check failed (final): %s",
+                e
+            )
+
 
                     
     async def _async_prepare_nat_rules(self) -> None:

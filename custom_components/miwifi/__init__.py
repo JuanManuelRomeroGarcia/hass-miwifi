@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import traceback
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import websocket_api
@@ -35,7 +36,7 @@ from .const import (
     UPDATE_LISTENER,
     UPDATER,
 )
-from .logger import _LOGGER, async_init_log_handlers
+from .logger import _LOGGER
 from . import ws_api
 from .discovery import async_start_discovery
 from .enum import EncryptionAlgorithm
@@ -61,7 +62,8 @@ from .frontend import (
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Initialize domain level services."""
     
-    await async_init_log_handlers(hass)
+    from .logger import async_init_log_handlers
+    await async_init_log_handlers(hass) 
 
     async def handle_apply_config(service_call: ServiceCall) -> None:
         data = service_call.data
@@ -103,9 +105,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_start_discovery(hass)
-    
-    from .logger import async_init_log_handlers
-    await async_init_log_handlers(hass)
 
     # Config level log
     log_level = await get_global_log_level(hass)
@@ -153,10 +152,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data[DOMAIN][entry.entry_id][UPDATE_LISTENER] = entry.add_update_listener(
         async_update_options
     )
-    from .logger import async_init_log_handlers, async_warmup_log_handlers
-    
-    await async_init_log_handlers(hass)
-    await async_warmup_log_handlers(hass)
 
     await _updater.async_config_entry_first_refresh()
     if not _updater.last_update_success:
@@ -193,7 +188,6 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
             local_version = await read_local_version(hass)
             await async_register_panel(hass, local_version)
 
-            # ⬇ Aquí colocamos el monitor
             await async_start_panel_monitor(hass)
 
         else:

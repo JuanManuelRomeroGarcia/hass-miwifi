@@ -94,8 +94,6 @@ async def save_local_version(hass: HomeAssistant, version: str) -> None:
 
 
 async def read_local_version(hass: HomeAssistant) -> str:
-    from .logger import async_init_log_handlers
-    await async_init_log_handlers(hass)  # Inicializar handlers no bloqueantes
 
     if "miwifi_cached_panel_version" in hass.data:
         return hass.data["miwifi_cached_panel_version"]
@@ -161,21 +159,36 @@ async def download_panel_files(hass: HomeAssistant, session: aiohttp.ClientSessi
 
 
 async def async_register_panel(hass: HomeAssistant, version: str) -> None:
-    """Register the MiWiFi panel in Home Assistant, replacing any existing one."""
-    try:
-        if "miwifi" in hass.data.get(DATA_PANELS, {}):
-            async_remove_panel(hass, "miwifi")
+    """Register the MiWiFi panel in Home Assistant, only if needed."""
+    panel_data = hass.data.get(DATA_PANELS, {}).get("miwifi")
+    expected_url = f"/local/miwifi/panel-frontend.js?v={version}"
+
+    if isinstance(panel_data, Panel):
+        config = getattr(panel_data, "config", {})
+        current_url = config.get("_panel_custom", {}).get("module_url", "")
+        if current_url == expected_url:
+            await hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Panel already registered with current version, skipping."
+            )
+            return
+
+    # Remove old panel if exists
+    if "miwifi" in hass.data.get(DATA_PANELS, {}):
+        try:
+            await async_remove_panel(hass, "miwifi")
             hass.data[DATA_PANELS].pop("miwifi", None)
             await hass.async_add_executor_job(
                 _LOGGER.debug,
                 "[MiWiFi] Existing panel 'miwifi' removed before re-registering."
             )
-    except Exception as e:
-        await hass.async_add_executor_job(
-            _LOGGER.warning,
-            f"[MiWiFi] Failed to remove existing panel before re-registering: {e}"
-        )
+        except Exception as e:
+            await hass.async_add_executor_job(
+                _LOGGER.warning,
+                f"[MiWiFi] Failed to remove existing panel before re-registering: {e}"
+            )
 
+    # Register new panel
     async_register_built_in_panel(
         hass,
         component_name="custom",
@@ -185,14 +198,13 @@ async def async_register_panel(hass: HomeAssistant, version: str) -> None:
         config={
             "_panel_custom": {
                 "name": "miwifi-panel",
-                "module_url": f"/local/miwifi/panel-frontend.js?v={version}",
+                "module_url": expected_url,
                 "embed_iframe": False,
                 "trust_external_script": False,
             }
         },
         require_admin=True,
     )
-
     await hass.async_add_executor_job(
         _LOGGER.info,
         f"[MiWiFi] Panel successfully registered with version: {version}"
