@@ -90,6 +90,8 @@
     "self_check_title": "路由器兼容性检查失败",
     "self_check_message": "🔍 在路由器 ({model}) 中检测到不兼容的方法。",
     "suggest_unsupported_title": "检测到不兼容的型号",
-    "suggest_unsupported_message": "🚫 该路由器未通过某些兼容性测试。"
+    "suggest_unsupported_message": "🚫 该路由器未通过某些兼容性测试。",
+    "add_unsupported": "➕ 已将 {model} 添加到 unsupported_user.py 中的 {feature} 功能",
+    "already_in_unsupported": "⚠️ {model} 已存在于 {feature} 功能中。"
   }
 }

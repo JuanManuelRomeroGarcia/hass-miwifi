@@ -82,7 +82,9 @@
     "self_check_title": "Router-Kompatibilität fehlgeschlagen",
     "self_check_message": "🔍 Inkompatible Methoden im Router ({model}) wurden erkannt.",
     "suggest_unsupported_title": "Nicht unterstütztes Modell erkannt",
-    "suggest_unsupported_message": "🚫 Dieses Router-Modell hat einige Kompatibilitätstests nicht bestanden."
+    "suggest_unsupported_message": "🚫 Dieses Router-Modell hat einige Kompatibilitätstests nicht bestanden.",
+    "add_unsupported": "➕ {model} zu Feature {feature} in unsupported_user.py hinzugefügt",
+    "already_in_unsupported": "⚠️ {model} ist bereits in Feature {feature} vorhanden."
   }
 }
 

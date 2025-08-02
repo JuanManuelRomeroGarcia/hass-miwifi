@@ -411,7 +411,7 @@ class LuciClient:
             return data
         except Exception as e:
             _LOGGER.warning("[MiWiFi] Failed to retrieve NAT rules for ftype=%s: %s", ftype, e)
-            return {}  # Devolvemos diccionario vacío si falla
+            return {} 
 
 
     async def add_redirect(self, name: str, proto: int, sport: int, ip: str, dport: int) -> dict:

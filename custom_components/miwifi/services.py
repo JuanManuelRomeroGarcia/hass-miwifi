@@ -583,6 +583,126 @@ class MiWifiDownloadLogsService:
         )
         message = message_template.replace("{url}", url)
         await notifier.notify(message, title=title, notification_id="miwifi_download_logs")
+        
+class MiWifiAddUnsupportedService:
+    """Service to add unsupported features to unsupported_user.py."""
+
+    schema = vol.Schema({
+        vol.Required("feature"): str,
+        vol.Required("model"): str,
+    })
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+        self.user_file = os.path.join(os.path.dirname(__file__), "unsupported_user.py")
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        feature = service.data.get("feature")
+        model_name = service.data.get("model")
+
+        if not feature or not model_name:
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] Missing feature or model in add_unsupported service call."
+            )
+            return
+
+        from .enum import Model
+        try:
+            model_enum = Model[model_name.upper()]
+        except KeyError:
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] Invalid model name: %s",
+                model_name
+            )
+            return
+
+        user_data = {}
+        if os.path.exists(self.user_file):
+            try:
+                import importlib.util
+                spec = importlib.util.spec_from_file_location("custom_components.miwifi.unsupported_user", self.user_file)
+                user_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(user_module)
+                user_data = getattr(user_module, "UNSUPPORTED", {})
+                if not isinstance(user_data, dict):
+                    user_data = {}
+            except Exception as e:
+                await self.hass.async_add_executor_job(
+                    _LOGGER.warning,
+                    "[MiWiFi] Could not read unsupported_user.py: %s",
+                    e
+                )
+                user_data = {}
+
+        from .unsupported import UNSUPPORTED as BASE_UNSUPPORTED
+
+        already_exists = (
+            (feature in user_data and model_enum in user_data[feature]) or
+            (feature in BASE_UNSUPPORTED and model_enum in BASE_UNSUPPORTED[feature])
+        )
+
+
+        from .notifier import MiWiFiNotifier
+        notifier = MiWiFiNotifier(self.hass)
+        translations = await notifier.get_translations()
+        title = translations.get("title", "MiWiFi")
+
+        if not already_exists:
+            if feature not in user_data:
+                user_data[feature] = []
+            user_data[feature].append(model_enum)
+
+            new_content = "from .enum import Model\n\nUNSUPPORTED = {\n"
+            for k, v in user_data.items():
+                models = ", ".join(f"Model.{m.name}" for m in v)
+                new_content += f'    "{k}": [{models}],\n'
+            new_content += "}\n"
+
+            def _write_file():
+                with open(self.user_file, "w", encoding="utf-8") as f:
+                    f.write(new_content)
+
+            try:
+                await self.hass.async_add_executor_job(_write_file)
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] Added %s to feature '%s' in unsupported_user.py",
+                    model_enum.name, feature
+                )
+
+                message_template = translations.get("notifications", {}).get(
+                    "add_unsupported",
+                    "➕ Added {model} to feature {feature} in unsupported_user.py"
+                )
+            except Exception as e:
+                await self.hass.async_add_executor_job(
+                    _LOGGER.warning,
+                    "[MiWiFi] Failed to write unsupported_user.py: %s",
+                    e
+                )
+                return
+        else:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Model %s already exists in feature '%s' of unsupported_user.py",
+                model_enum.name, feature
+            )
+            message_template = translations.get("notifications", {}).get(
+                "already_in_unsupported",
+                "⚠️ {model} is already in feature {feature} of unsupported_user.py"
+            )
+
+        # Preparar mensaje y notificar
+        message = message_template.replace("{model}", model_enum.name).replace("{feature}", feature)
+        await notifier.notify(
+            message,
+            title=title,
+            notification_id="miwifi_add_unsupported"
+        )
+
+
 
         
 SERVICES: Final = (
@@ -599,4 +719,5 @@ SERVICES: Final = (
     ("refresh_nat_rules", MiWifiRefreshNATRulesServiceCall),
     ("clear_logs", MiWifiClearLogsService),
     ("download_logs", MiWifiDownloadLogsService),
+    ("add_unsupported", MiWifiAddUnsupportedService),
 )

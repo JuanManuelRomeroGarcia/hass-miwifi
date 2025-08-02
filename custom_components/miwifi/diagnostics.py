@@ -90,6 +90,7 @@ async def suggest_unsupported_issue(
 
     checklist = "\n".join(f" * {feature}: ❌" for feature in failed)
     mode_str = mode.name if isinstance(mode, Mode) else str(mode or "unknown")
+    
 
     body = (
         f"Model: {model_name}\n"
@@ -118,13 +119,20 @@ async def suggest_unsupported_issue(
         "suggest_unsupported_message",
         "🚫 This router failed some compatibility checks."
     )
+    
+    service_links = "\n".join(
+        f"<a href=\"/api/services/{DOMAIN}/add_unsupported?feature={urllib.parse.quote_plus(feature)}&model={urllib.parse.quote_plus(model_name)}\">"
+        f"➕ Add '{feature}' for {model_name} to unsupported_user.py</a>"
+        for feature in failed
+    )
 
     message = (
         f"{message_template}\n\n"
         f"{checklist}\n\n"
         f"<a href=\"{issue_url}\" target=\"_blank\">\n"
         f"📬 Create a GitHub issue to update unsupported.py\n"
-        f"</a>"
+        f"</a>\n\n"
+        f"{service_links}"
     )
 
     await notifier.notify(message, title=title, notification_id=f"miwifi_unsupported_{model_name.lower()}")

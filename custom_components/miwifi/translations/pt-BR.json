@@ -88,7 +88,9 @@
     "self_check_title": "Compatibilidade do roteador falhou",
     "self_check_message": "🔍 Métodos incompatíveis foram detectados no roteador ({model}).",
     "suggest_unsupported_title": "Modelo não suportado detectado",
-    "suggest_unsupported_message": "🚫 Este roteador falhou em alguns testes de compatibilidade."
+    "suggest_unsupported_message": "🚫 Este roteador falhou em alguns testes de compatibilidade.",
+    "add_unsupported": "➕ {model} adicionado à funcionalidade {feature} em unsupported_user.py",
+    "already_in_unsupported": "⚠️ {model} já está presente na funcionalidade {feature}."
   }
 }
 

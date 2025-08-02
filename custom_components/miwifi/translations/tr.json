@@ -85,6 +85,8 @@
     "self_check_title": "Yönlendirici uyumluluğu başarısız",
     "self_check_message": "🔍 Yönlendiricide uyumsuz yöntemler tespit edildi ({model}).",
     "suggest_unsupported_title": "Uyumsuz model tespit edildi",
-    "suggest_unsupported_message": "🚫 Bu yönlendirici bazı uyumluluk testlerini geçemedi."
+    "suggest_unsupported_message": "🚫 Bu yönlendirici bazı uyumluluk testlerini geçemedi.",
+    "add_unsupported": "➕ {model} {feature} özelliğine unsupported_user.py dosyasına eklendi",
+    "already_in_unsupported": "⚠️ {model} zaten {feature} özelliğinde mevcut."
   }
 }

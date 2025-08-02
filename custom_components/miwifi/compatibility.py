@@ -5,7 +5,7 @@ from .luci import LuciClient
 from .exceptions import LuciError, LuciConnectionError
 from .logger import _LOGGER
 from .enum import Mode, Model
-from .unsupported import UNSUPPORTED
+from .unsupported import get_combined_unsupported
 from homeassistant.core import HomeAssistant
 
 class CompatibilityChecker:
@@ -42,7 +42,7 @@ class CompatibilityChecker:
         # Detect mode
         try:
             raw_mode = await self.client.mode()
-            await self.hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Raw mode response from client: {raw_mode}")
+            await self.hass.async_add_executor_job(_LOGGER.debug,f"[MiWiFi] Raw mode response from client: {raw_mode}")
 
             if isinstance(raw_mode, dict):
                 raw_mode = raw_mode.get("netmode") or raw_mode.get("mode", "default")
@@ -59,10 +59,10 @@ class CompatibilityChecker:
             }
 
             self.mode = MODE_MAP.get(str(raw_mode).lower(), Mode.DEFAULT)
-            await self.hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Parsed mode: {self.mode}")
+            await self.hass.async_add_executor_job(_LOGGER.debug,f"[MiWiFi] Parsed mode: {self.mode}")
 
         except (LuciError, KeyError, ValueError, AttributeError) as e:
-            await self.hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Could not detect mode: {e}")
+            await self.hass.async_add_executor_job(_LOGGER.debug,f"[MiWiFi] Could not detect mode: {e}")
             self.mode = None
 
         # Detect model
@@ -71,8 +71,11 @@ class CompatibilityChecker:
             if "hardware" in info:
                 self.model = Model(info["hardware"].lower())
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Could not detect model: {e}")
+            await self.hass.async_add_executor_job(_LOGGER.debug,f"[MiWiFi] Could not detect model: {e}")
             self.model = None
+
+        # Get combined unsupported (base + user)
+        combined_unsupported = await get_combined_unsupported(self.hass)
 
         # Feature checks
         features: dict[str, callable] = {
@@ -90,12 +93,11 @@ class CompatibilityChecker:
         }
 
         for feature, func in features.items():
-            unsupported_models = UNSUPPORTED.get(feature, [])
+            unsupported_models = combined_unsupported.get(feature, [])
             if self.model and self.model in unsupported_models:
                 await self.hass.async_add_executor_job(_LOGGER.debug,
                     "[MiWiFi] ⏭️ Skipping '%s' check for model '%s' (predefined unsupported)",
-                    feature, self.model
-                )
+                    feature, self.model)
                 continue
 
             supported = await self._safe_call(func, feature)
@@ -103,10 +105,10 @@ class CompatibilityChecker:
 
             if supported is False and not self.silent_mode:
                 await self.hass.async_add_executor_job(_LOGGER.warning,
-                    "[MiWiFi] ❌ Feature '%s' failed after %d attempts for model %s (mode %s).",
-                    feature, self.max_retries, self.model, self.mode
-                )
-                await self.hass.async_add_executor_job(_LOGGER.warning, "➡️ Please add it to unsupported.py if confirmed unsupported.")
+                                                       "[MiWiFi] ❌ Feature '%s' failed after %d attempts for model %s (mode %s).",
+                                                       feature, self.max_retries, self.model, self.mode)
+                await self.hass.async_add_executor_job(_LOGGER.warning,
+                                                       "➡️ Please add it to unsupported.py if confirmed unsupported.")
 
         return self.result
 

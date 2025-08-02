@@ -85,6 +85,8 @@
     "self_check_title": "Compatibilité du routeur échouée",
     "self_check_message": "🔍 Des méthodes incompatibles ont été détectées sur le routeur ({model}).",
     "suggest_unsupported_title": "Modèle non pris en charge détecté",
-    "suggest_unsupported_message": "🚫 Ce routeur a échoué à certains tests de compatibilité."
+    "suggest_unsupported_message": "🚫 Ce routeur a échoué à certains tests de compatibilité.",
+    "add_unsupported": "➕ {model} ajouté à la fonctionnalité {feature} dans unsupported_user.py",
+    "already_in_unsupported": "⚠️ {model} est déjà présent dans la fonctionnalité {feature}."
   }
 }
