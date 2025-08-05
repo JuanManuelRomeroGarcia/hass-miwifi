@@ -533,19 +533,18 @@ class MiWifiDownloadLogsService:
         log_dir = os.path.join(self.hass.config.config_dir, "miwifi", "logs")
         www_export_dir = os.path.join(self.hass.config.config_dir, "www", "miwifi", "exports")
 
-        # Crear carpeta de exportación de forma segura
         await self.hass.async_add_executor_job(partial(os.makedirs, www_export_dir, exist_ok=True))
 
         max_zip_files = 1
 
-        def _list_existing():
+        def _list_existing_logs():
             return sorted(
-                (f for f in os.listdir(www_export_dir) if f.endswith(".zip")),
+                (f for f in os.listdir(www_export_dir) if f.startswith("logs_") and f.endswith(".zip")),
                 key=lambda x: os.path.getmtime(os.path.join(www_export_dir, x)),
                 reverse=True
             )
+        existing_zips = await self.hass.async_add_executor_job(_list_existing_logs)
 
-        existing_zips = await self.hass.async_add_executor_job(_list_existing)
 
         def _remove_old():
             for old_zip in existing_zips[max_zip_files:]:
@@ -707,7 +706,6 @@ class MiWifiAddUnsupportedService:
 class MiWifiDumpRouterDataService:
     """Dump router data into a JSON file with selectable blocks."""
 
-    
     schema = vol.Schema({
         vol.Optional("system", default=True, description="service_fields.dump_router_data.system"): selector({"boolean": {}}),
         vol.Optional("network", default=True, description="service_fields.dump_router_data.network"): selector({"boolean": {}}),
@@ -797,31 +795,56 @@ class MiWifiDumpRouterDataService:
                     "guest_wifi": await luci.set_guest_wifi({}),
                 }
 
-            # Mask sensitive data if requested
+         
             if opts.get("hide_sensitive", True):
                 dump_data = self._mask_sensitive(dump_data)
 
-            # Save raw JSON
-            log_dir = os.path.join(self.hass.config.path(), "www", "miwifi", "exports")
-            os.makedirs(log_dir, exist_ok=True)
+           
+            export_dir = os.path.join(self.hass.config.path(), "www", "miwifi", "exports")
+            await self.hass.async_add_executor_job(partial(os.makedirs, export_dir, exist_ok=True))
+
+            
+            def _clean_old_dumps():
+                dumps = sorted(
+                    (f for f in os.listdir(export_dir) if f.startswith("dump_") and f.endswith(".zip")),
+                    key=lambda x: os.path.getmtime(os.path.join(export_dir, x)),
+                    reverse=True
+                )
+                
+                max_files = 1
+
+                for old in dumps[max_files:]:
+                    try:
+                        os.remove(os.path.join(export_dir, old))
+                        json_name = old.replace(".zip", ".json")
+                        json_path = os.path.join(export_dir, json_name)
+                        if os.path.exists(json_path):
+                            os.remove(json_path)
+                        _LOGGER.debug("Removed old dump archive and JSON: %s", old)
+                    except Exception as e:
+                        _LOGGER.warning("Failed to remove old dump archive %s: %s", old, e)
+            await self.hass.async_add_executor_job(_clean_old_dumps)
+
+
+      
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             json_filename = f"dump_{timestamp}.json"
-            json_path = os.path.join(log_dir, json_filename)
-
-            with open(json_path, "w", encoding="utf-8") as f:
-                json.dump(dump_data, f, indent=4, ensure_ascii=False, sort_keys=False)
-
-            # Create ZIP with JSON inside
             zip_filename = f"dump_{timestamp}.zip"
-            zip_path = os.path.join(log_dir, zip_filename)
-            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                zipf.write(json_path, arcname=json_filename)
+            json_path = os.path.join(export_dir, json_filename)
+            zip_path = os.path.join(export_dir, zip_filename)
 
-            # URL for download
+            def _write_and_zip():
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(dump_data, f, indent=4, ensure_ascii=False, sort_keys=False)
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                    zipf.write(json_path, arcname=json_filename)
+            await self.hass.async_add_executor_job(_write_and_zip)
+
+         
             url = f"/local/miwifi/exports/{zip_filename}"
-            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Dump creado en: %s", zip_path)
+            _LOGGER.info("[MiWiFi] Dump creado en: %s", zip_path)
 
-            # Notify user with link to ZIP
+       
             message_template = translations.get("notifications", {}).get(
                 "dump_ready",
                 "📄 Dump generado: <a href='{url}' target='_blank'>Descargar</a>"
@@ -830,7 +853,7 @@ class MiWifiDumpRouterDataService:
             await notifier.notify(message, title=title, notification_id="miwifi_dump_router_data")
 
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error creando dump: %s", e)
+            _LOGGER.error("[MiWiFi] Error creando dump: %s", e)
             await notifier.notify(
                 translations.get("notifications", {}).get("dump_error", "❌ Error generando el dump"),
                 title=title,

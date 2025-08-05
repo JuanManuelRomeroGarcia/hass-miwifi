@@ -8,14 +8,15 @@ import aiohttp
 import contextlib
 from .logger import _LOGGER
 from .notifier import MiWiFiNotifier
+from .miwifi_utils import parse_memory_to_mb
 
 from .unsupported import UNSUPPORTED
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import Any, Final
+
 from homeassistant.util import dt as dt_util
 
-import os
 import homeassistant.components.persistent_notification as pn
 from homeassistant.const import CONF_IP_ADDRESS
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
@@ -551,14 +552,11 @@ class LuciUpdater(DataUpdateCoordinator):
 
         if "mem" in response and isinstance(response["mem"], dict):
             if "usage" in response["mem"]:
-                data[ATTR_SENSOR_MEMORY_USAGE] = int(
-                    float(response["mem"]["usage"]) * 100
-                )
+                data[ATTR_SENSOR_MEMORY_USAGE] = int(float(response["mem"]["usage"]) * 100)
 
             if "total" in response["mem"]:
-                data[ATTR_SENSOR_MEMORY_TOTAL] = int(
-                    "".join(i for i in response["mem"]["total"] if i.isdigit())
-                )
+                data[ATTR_SENSOR_MEMORY_TOTAL] = parse_memory_to_mb(response["mem"]["total"])
+                
 
         if "temperature" in response:
             data[ATTR_SENSOR_TEMPERATURE] = float(response["temperature"])

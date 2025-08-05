@@ -211,8 +211,13 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
                 return self.async_create_entry(title=user_input[CONF_IP_ADDRESS], data=user_input)
 
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Re-auth failed for %s with code %s and reason: %s",
-                user_input[CONF_IP_ADDRESS], code, reason or "No details")
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] Re-auth failed for %s with code %s and reason: %s",
+                user_input[CONF_IP_ADDRESS],
+                code,
+                reason or "No details"
+            )
 
             errors["base"] = {
                 codes.CONFLICT: "router.not.supported",
@@ -221,11 +226,19 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
             if errors["base"] is None:
                 self._last_reason = reason or "Unknown"
-                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Router re-auth failed (%s): %s", user_input[CONF_IP_ADDRESS], self._last_reason)
+                await self.hass.async_add_executor_job(
+                    _LOGGER.warning,
+                    "[MiWiFi] Router re-auth failed (%s): %s",
+                    user_input[CONF_IP_ADDRESS],
+                    self._last_reason
+                )
                 errors["base"] = "router.error_with_reason"
 
-        return self.async_show_form(step_id="init", data_schema=await self._get_options_schema(), errors=errors)
-
+        return self.async_show_form(
+            step_id="init",
+            data_schema=await self._get_options_schema(),
+            errors=errors
+        )
 
     async def async_update_unique_id(self, unique_id: str) -> None:
         if self._config_entry.unique_id == unique_id:
@@ -237,39 +250,39 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
         self.hass.config_entries.async_update_entry(self._config_entry, unique_id=unique_id)
 
-    async def _get_options_schema(self, hass) -> vol.Schema:
-            try:
+    async def _get_options_schema(self) -> vol.Schema:
+        """Generate the schema for the options form."""
+        try:
+            panel_state = await get_global_panel_state(self.hass)
+            log_level = await get_global_log_level(self.hass)
 
-                panel_state = await get_global_panel_state(self.hass)
-                log_level = await get_global_log_level(self.hass)
+            schema: dict = {
+                vol.Required(CONF_IP_ADDRESS, default=get_config_value(self._config_entry, CONF_IP_ADDRESS, "")): str,
+                vol.Required(CONF_PASSWORD, default=get_config_value(self._config_entry, CONF_PASSWORD, "")): str,
+                vol.Required(CONF_ENCRYPTION_ALGORITHM, default=get_config_value(
+                    self._config_entry, CONF_ENCRYPTION_ALGORITHM, EncryptionAlgorithm.SHA1
+                )): vol.In([EncryptionAlgorithm.SHA1, EncryptionAlgorithm.SHA256]),
+                vol.Optional(CONF_ENABLE_PANEL, default=panel_state): cv.boolean,
+                vol.Required(CONF_IS_TRACK_DEVICES, default=get_config_value(self._config_entry, CONF_IS_TRACK_DEVICES, True)): cv.boolean,
+                vol.Required(CONF_STAY_ONLINE, default=get_config_value(self._config_entry, CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE)): cv.positive_int,
+                vol.Required(CONF_SCAN_INTERVAL, default=get_config_value(self._config_entry, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=10)),
+                vol.Optional(CONF_ACTIVITY_DAYS, default=get_config_value(self._config_entry, CONF_ACTIVITY_DAYS, DEFAULT_ACTIVITY_DAYS)): cv.positive_int,
+                vol.Optional(CONF_TIMEOUT, default=get_config_value(self._config_entry, CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(vol.Coerce(int), vol.Range(min=10)),
+                vol.Optional(CONF_WAN_SPEED_UNIT, default=get_config_value(self._config_entry, CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)): vol.In(WAN_SPEED_UNIT_OPTIONS),
+            }
 
-                schema: dict = {
-                    vol.Required(CONF_IP_ADDRESS, default=get_config_value(self._config_entry, CONF_IP_ADDRESS, "")): str,
-                    vol.Required(CONF_PASSWORD, default=get_config_value(self._config_entry, CONF_PASSWORD, "")): str,
-                    vol.Required(CONF_ENCRYPTION_ALGORITHM, default=get_config_value(
-                        self._config_entry, CONF_ENCRYPTION_ALGORITHM, EncryptionAlgorithm.SHA1
-                    )): vol.In([EncryptionAlgorithm.SHA1, EncryptionAlgorithm.SHA256]),
-                    vol.Optional(CONF_ENABLE_PANEL, default=panel_state): cv.boolean,
-                    vol.Required(CONF_IS_TRACK_DEVICES, default=get_config_value(self._config_entry, CONF_IS_TRACK_DEVICES, True)): cv.boolean,
-                    vol.Required(CONF_STAY_ONLINE, default=get_config_value(self._config_entry, CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE)): cv.positive_int,
-                    vol.Required(CONF_SCAN_INTERVAL, default=get_config_value(self._config_entry, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=10)),
-                    vol.Optional(CONF_ACTIVITY_DAYS, default=get_config_value(self._config_entry, CONF_ACTIVITY_DAYS, DEFAULT_ACTIVITY_DAYS)): cv.positive_int,
-                    vol.Optional(CONF_TIMEOUT, default=get_config_value(self._config_entry, CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(vol.Coerce(int), vol.Range(min=10)),
-                    vol.Optional(CONF_WAN_SPEED_UNIT, default=get_config_value(self._config_entry, CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)): vol.In(WAN_SPEED_UNIT_OPTIONS),
-                }
+            with contextlib.suppress(ValueError):
+                updater: LuciUpdater = async_get_updater(self.hass, self._config_entry.entry_id)
+                if not updater.is_repeater:
+                    schema[vol.Optional(CONF_LOG_LEVEL, default=log_level)] = vol.In(LOG_LEVEL_OPTIONS)
+                    return vol.Schema(schema)
 
-                with contextlib.suppress(ValueError):
-                    updater: LuciUpdater = async_get_updater(self.hass, self._config_entry.entry_id)
-                    if not updater.is_repeater:
-                        schema[vol.Optional(CONF_LOG_LEVEL, default=log_level)] = vol.In(LOG_LEVEL_OPTIONS)
-                        return vol.Schema(schema)
+            schema |= {
+                vol.Optional(CONF_IS_FORCE_LOAD, default=get_config_value(self._config_entry, CONF_IS_FORCE_LOAD, False)): cv.boolean,
+                vol.Optional(CONF_LOG_LEVEL, default=log_level): vol.In(LOG_LEVEL_OPTIONS),
+            }
 
-                schema |= {
-                    vol.Optional(CONF_IS_FORCE_LOAD, default=get_config_value(self._config_entry, CONF_IS_FORCE_LOAD, False)): cv.boolean,
-                    vol.Optional(CONF_LOG_LEVEL, default=log_level): vol.In(LOG_LEVEL_OPTIONS),
-                }
-
-                return vol.Schema(schema)
-            except Exception as e:
-                await hass.async_add_executor_job(_LOGGER.exception,"[MiWiFi] Error generating the options form: %s", e)
-                raise   
+            return vol.Schema(schema)
+        except Exception as e:
+            await self.hass.async_add_executor_job(_LOGGER.exception, "[MiWiFi] Error generating the options form: %s", e)
+            raise
