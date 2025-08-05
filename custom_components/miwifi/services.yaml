@@ -47,3 +47,51 @@ block_device:
       required: true
       selector:
         boolean:
+
+
+dump_router_data:
+  name: Dump Router Data
+  description: Generate a JSON file with router information.
+  fields:
+    system:
+      name: Include system data
+      description: Include system information.
+      default: true
+      selector:
+        boolean: {}
+    network:
+      name: Include network data
+      description: Include WAN, Wi-Fi and topology details.
+      default: true
+      selector:
+        boolean: {}
+    devices:
+      name: Include connected devices
+      description: Include list of connected devices.
+      default: true
+      selector:
+        boolean: {}
+    nat_rules:
+      name: Include NAT rules
+      description: Include port forwarding rules.
+      default: true
+      selector:
+        boolean: {}
+    qos:
+      name: Include QoS configuration
+      description: Include QoS bandwidth settings.
+      default: true
+      selector:
+        boolean: {}
+    wifi_config:
+      name: Include Wi-Fi configuration
+      description: Include Wi-Fi network settings (may contain sensitive data).
+      default: false
+      selector:
+        boolean: {}
+    hide_sensitive:
+      name: Hide sensitive data
+      description: Hide passwords and MAC addresses.
+      default: true
+      selector:
+        boolean: {}

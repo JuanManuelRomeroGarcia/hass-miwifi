@@ -87,6 +87,26 @@
     "suggest_unsupported_title": "Unsupported Model Detected",
     "suggest_unsupported_message": "🚫 This router failed some compatibility tests.",
     "add_unsupported": "➕ Added {model} to feature {feature} in unsupported_user.py",
-    "already_in_unsupported": "⚠️ {model} is already present in feature {feature}."
+    "already_in_unsupported": "⚠️ {model} is already present in feature {feature}.",
+    "dump_ready": "📄 Dump generated: <a href='{url}' target='_blank'>Download</a>",
+    "dump_error": "❌ Error generating the dump"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "Generate router dump",
+      "description": "Generates a JSON file with information from the main router.",
+      "fields": {
+        "system": { "name": "Include system data", "description": "Include general system information." },
+        "network": { "name": "Include network data", "description": "Include WAN, Wi-Fi, and topology details." },
+        "devices": { "name": "Include connected devices", "description": "Include list of connected devices and their information." },
+        "nat_rules": { "name": "Include NAT rules", "description": "Include port forwarding rules." },
+        "qos": { "name": "Include QoS configuration", "description": "Include QoS configuration details." },
+        "wifi_config": { "name": "Include Wi-Fi configuration", "description": "Include Wi-Fi network settings (may contain sensitive data)." },
+        "hide_sensitive": { "name": "Hide sensitive data", "description": "Hide passwords and MAC addresses." }
+      }
+    }
   }
+
+
 }

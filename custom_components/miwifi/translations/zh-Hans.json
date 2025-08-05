@@ -92,6 +92,26 @@
     "suggest_unsupported_title": "检测到不兼容的型号",
     "suggest_unsupported_message": "🚫 该路由器未通过某些兼容性测试。",
     "add_unsupported": "➕ 已将 {model} 添加到 unsupported_user.py 中的 {feature} 功能",
-    "already_in_unsupported": "⚠️ {model} 已存在于 {feature} 功能中。"
+    "already_in_unsupported": "⚠️ {model} 已存在于 {feature} 功能中。",
+    "dump_ready": "📄 已生成转储: <a href='{url}' target='_blank'>下载</a>",
+    "dump_error": "❌ 生成转储时出错"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "生成路由器转储",
+      "description": "生成包含主路由器信息的 JSON 文件。",
+      "fields": {
+        "system": { "name": "包括系统数据", "description": "包括系统的常规信息。" },
+        "network": { "name": "包括网络数据", "description": "包括 WAN、Wi-Fi 和拓扑结构的详细信息。" },
+        "devices": { "name": "包括已连接设备", "description": "包括已连接设备及其信息的列表。" },
+        "nat_rules": { "name": "包括 NAT 规则", "description": "包括端口转发规则。" },
+        "qos": { "name": "包括 QoS 配置", "description": "包括 QoS 配置的详细信息。" },
+        "wifi_config": { "name": "包括 Wi-Fi 配置", "description": "包括 Wi-Fi 网络设置（可能包含敏感数据）。" },
+        "hide_sensitive": { "name": "隐藏敏感数据", "description": "隐藏密码和 MAC 地址。" }
+      }
+    }
   }
+
+
 }

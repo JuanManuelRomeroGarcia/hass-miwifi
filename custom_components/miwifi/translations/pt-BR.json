@@ -90,8 +90,27 @@
     "suggest_unsupported_title": "Modelo não suportado detectado",
     "suggest_unsupported_message": "🚫 Este roteador falhou em alguns testes de compatibilidade.",
     "add_unsupported": "➕ {model} adicionado à funcionalidade {feature} em unsupported_user.py",
-    "already_in_unsupported": "⚠️ {model} já está presente na funcionalidade {feature}."
+    "already_in_unsupported": "⚠️ {model} já está presente na funcionalidade {feature}.",
+    "dump_ready": "📄 Dump gerado: <a href='{url}' target='_blank'>Baixar</a>",
+    "dump_error": "❌ Erro ao gerar o dump"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "Gerar dump do roteador",
+      "description": "Gera um arquivo JSON com informações do roteador principal.",
+      "fields": {
+        "system": { "name": "Incluir dados do sistema", "description": "Incluir informações gerais do sistema." },
+        "network": { "name": "Incluir dados de rede", "description": "Incluir detalhes de WAN, Wi-Fi e topologia." },
+        "devices": { "name": "Incluir dispositivos conectados", "description": "Incluir lista de dispositivos conectados e suas informações." },
+        "nat_rules": { "name": "Incluir regras NAT", "description": "Incluir regras de redirecionamento de portas." },
+        "qos": { "name": "Incluir configuração QoS", "description": "Incluir detalhes da configuração de QoS." },
+        "wifi_config": { "name": "Incluir configuração Wi-Fi", "description": "Incluir configurações das redes Wi-Fi (pode conter dados sensíveis)." },
+        "hide_sensitive": { "name": "Ocultar dados sensíveis", "description": "Ocultar senhas e endereços MAC." }
+      }
+    }
   }
+
 }
 
   

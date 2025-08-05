@@ -87,6 +87,25 @@
     "suggest_unsupported_title": "Modèle non pris en charge détecté",
     "suggest_unsupported_message": "🚫 Ce routeur a échoué à certains tests de compatibilité.",
     "add_unsupported": "➕ {model} ajouté à la fonctionnalité {feature} dans unsupported_user.py",
-    "already_in_unsupported": "⚠️ {model} est déjà présent dans la fonctionnalité {feature}."
+    "already_in_unsupported": "⚠️ {model} est déjà présent dans la fonctionnalité {feature}.",
+    "dump_ready": "📄 Dump généré : <a href='{url}' target='_blank'>Télécharger</a>",
+    "dump_error": "❌ Erreur lors de la génération du dump"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "Générer un dump du routeur",
+      "description": "Génère un fichier JSON avec les informations du routeur principal.",
+      "fields": {
+        "system": { "name": "Inclure les données système", "description": "Inclure les informations générales du système." },
+        "network": { "name": "Inclure les données réseau", "description": "Inclure les détails du WAN, du Wi-Fi et de la topologie." },
+        "devices": { "name": "Inclure les appareils connectés", "description": "Inclure la liste des appareils connectés et leurs informations." },
+        "nat_rules": { "name": "Inclure les règles NAT", "description": "Inclure les règles de redirection de port." },
+        "qos": { "name": "Inclure la configuration QoS", "description": "Inclure les détails de la configuration QoS." },
+        "wifi_config": { "name": "Inclure la configuration Wi-Fi", "description": "Inclure les paramètres Wi-Fi (peut contenir des données sensibles)." },
+        "hide_sensitive": { "name": "Masquer les données sensibles", "description": "Masquer les mots de passe et les adresses MAC." }
+      }
+    }
   }
+
 }

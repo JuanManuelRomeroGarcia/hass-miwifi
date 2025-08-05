@@ -84,7 +84,27 @@
     "suggest_unsupported_title": "Nicht unterstütztes Modell erkannt",
     "suggest_unsupported_message": "🚫 Dieses Router-Modell hat einige Kompatibilitätstests nicht bestanden.",
     "add_unsupported": "➕ {model} zu Feature {feature} in unsupported_user.py hinzugefügt",
-    "already_in_unsupported": "⚠️ {model} ist bereits in Feature {feature} vorhanden."
+    "already_in_unsupported": "⚠️ {model} ist bereits in Feature {feature} vorhanden.",
+    "dump_ready": "📄 Dump generiert: <a href='{url}' target='_blank'>Herunterladen</a>",
+    "dump_error": "❌ Fehler beim Generieren des Dumps"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "Router-Dump erstellen",
+      "description": "Erstellt eine JSON-Datei mit Informationen des Hauptrouters.",
+      "fields": {
+        "system": { "name": "Systemdaten einschließen", "description": "Allgemeine Systeminformationen einschließen." },
+        "network": { "name": "Netzwerkdaten einschließen", "description": "WAN-, Wi-Fi- und Topologie-Details einschließen." },
+        "devices": { "name": "Verbundene Geräte einschließen", "description": "Liste der verbundenen Geräte und deren Informationen einschließen." },
+        "nat_rules": { "name": "NAT-Regeln einschließen", "description": "Portweiterleitungsregeln einschließen." },
+        "qos": { "name": "QoS-Konfiguration einschließen", "description": "Details zur QoS-Konfiguration einschließen." },
+        "wifi_config": { "name": "Wi-Fi-Konfiguration einschließen", "description": "Wi-Fi-Netzwerkeinstellungen einschließen (kann sensible Daten enthalten)." },
+        "hide_sensitive": { "name": "Sensible Daten ausblenden", "description": "Passwörter und MAC-Adressen ausblenden." }
+      }
+    }
   }
+
+
 }
 

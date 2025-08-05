@@ -87,6 +87,25 @@
     "suggest_unsupported_title": "Uyumsuz model tespit edildi",
     "suggest_unsupported_message": "🚫 Bu yönlendirici bazı uyumluluk testlerini geçemedi.",
     "add_unsupported": "➕ {model} {feature} özelliğine unsupported_user.py dosyasına eklendi",
-    "already_in_unsupported": "⚠️ {model} zaten {feature} özelliğinde mevcut."
+    "already_in_unsupported": "⚠️ {model} zaten {feature} özelliğinde mevcut.",
+    "dump_ready": "📄 Döküm oluşturuldu: <a href='{url}' target='_blank'>İndir</a>",
+    "dump_error": "❌ Döküm oluşturulurken hata oluştu"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "Yönlendirici dökümü oluştur",
+      "description": "Ana yönlendiriciden bilgi içeren bir JSON dosyası oluşturur.",
+      "fields": {
+        "system": { "name": "Sistem verilerini dahil et", "description": "Genel sistem bilgilerini dahil et." },
+        "network": { "name": "Ağ verilerini dahil et", "description": "WAN, Wi-Fi ve topoloji detaylarını dahil et." },
+        "devices": { "name": "Bağlı cihazları dahil et", "description": "Bağlı cihazların listesini ve bilgilerini dahil et." },
+        "nat_rules": { "name": "NAT kurallarını dahil et", "description": "Port yönlendirme kurallarını dahil et." },
+        "qos": { "name": "QoS yapılandırmasını dahil et", "description": "QoS yapılandırma detaylarını dahil et." },
+        "wifi_config": { "name": "Wi-Fi yapılandırmasını dahil et", "description": "Wi-Fi ağ ayarlarını dahil et (hassas bilgiler içerebilir)." },
+        "hide_sensitive": { "name": "Hassas verileri gizle", "description": "Parolaları ve MAC adreslerini gizle." }
+      }
+    }
   }
+
 }

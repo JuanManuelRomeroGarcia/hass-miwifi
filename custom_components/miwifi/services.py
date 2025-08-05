@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 import hashlib
+import json
 import os
 import zipfile
 from .logger import _LOGGER, async_recreate_log_handlers
@@ -19,6 +20,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.network import get_url
+from homeassistant.helpers.selector import selector
 
 
 from .const import (
@@ -702,6 +704,140 @@ class MiWifiAddUnsupportedService:
             notification_id="miwifi_add_unsupported"
         )
 
+class MiWifiDumpRouterDataService:
+    """Dump router data into a JSON file with selectable blocks."""
+
+    
+    schema = vol.Schema({
+        vol.Optional("system", default=True, description="service_fields.dump_router_data.system"): selector({"boolean": {}}),
+        vol.Optional("network", default=True, description="service_fields.dump_router_data.network"): selector({"boolean": {}}),
+        vol.Optional("devices", default=True, description="service_fields.dump_router_data.devices"): selector({"boolean": {}}),
+        vol.Optional("nat_rules", default=True, description="service_fields.dump_router_data.nat_rules"): selector({"boolean": {}}),
+        vol.Optional("qos", default=True, description="service_fields.dump_router_data.qos"): selector({"boolean": {}}),
+        vol.Optional("wifi_config", default=False, description="service_fields.dump_router_data.wifi_config"): selector({"boolean": {}}),
+        vol.Optional("hide_sensitive", default=True, description="service_fields.dump_router_data.hide_sensitive"): selector({"boolean": {}}),
+    })
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    def _mask_sensitive(self, data: dict) -> dict:
+        """Hide MAC addresses and passwords."""
+        import re
+        data_str = json.dumps(data)
+        data_str = re.sub(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", "XX:XX:XX:XX:XX:XX", data_str)
+        data_str = re.sub(r"\"pwd\" ?: ?\".*?\"", "\"pwd\": \"***\"", data_str)
+        data_str = re.sub(r"\"password\" ?: ?\".*?\"", "\"password\": \"***\"", data_str)
+        return json.loads(data_str)
+
+    async def async_call_service(self, service: ServiceCall) -> None:
+        opts = service.data
+        from .updater import async_get_integrations
+        integrations = async_get_integrations(self.hass)
+        main_updater = None
+
+        for integration in integrations.values():
+            updater = integration[UPDATER]
+            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            if topo_graph.get("is_main", False):
+                main_updater = updater
+                break
+
+        if main_updater is None:
+            raise vol.Invalid("No main router detected (is_main).")
+
+        luci = main_updater.luci
+        notifier = MiWiFiNotifier(self.hass)
+        translations = await notifier.get_translations()
+        title = translations.get("title", "MiWiFi")
+
+        try:
+            await luci.login()
+            dump_data = {
+                "timestamp": datetime.datetime.now().isoformat(),
+                "router_ip": main_updater.ip
+            }
+
+            if opts.get("system"):
+                dump_data["system"] = {
+                    "status": await luci.status(),
+                    "new_status": await luci.new_status(),
+                    "init_info": await luci.init_info(),
+                    "rom_update": await luci.rom_update(),
+                    "flash_permission": await luci.flash_permission(),
+                    "vpn_status": await luci.vpn_status(),
+                }
+            if opts.get("network"):
+                dump_data["network"] = {
+                    "wan": await luci.wan_info(),
+                    "mode": await luci.mode(),
+                    "topology": await luci.topo_graph(),
+                    "wifi": {
+                        "signal": await luci.wifi_ap_signal(),
+                        "details": await luci.wifi_detail_all(),
+                        "diagnostics": await luci.wifi_diag_detail_all(),
+                    }
+                }
+            if opts.get("devices"):
+                dump_data["devices"] = {
+                    "connected": await luci.device_list(),
+                    "wifi_clients": await luci.wifi_connect_devices(),
+                    "macfilter": await luci.macfilter_info(),
+                }
+            if opts.get("nat_rules"):
+                dump_data["nat_rules"] = {
+                    "single": await luci.portforward(ftype=1),
+                    "ranges": await luci.portforward(ftype=2),
+                }
+            if opts.get("qos"):
+                dump_data["qos"] = await luci.qos_info()
+            if opts.get("wifi_config"):
+                dump_data["wifi_config"] = {
+                    "wifi": await luci.set_wifi({}),
+                    "guest_wifi": await luci.set_guest_wifi({}),
+                }
+
+            # Mask sensitive data if requested
+            if opts.get("hide_sensitive", True):
+                dump_data = self._mask_sensitive(dump_data)
+
+            # Save raw JSON
+            log_dir = os.path.join(self.hass.config.path(), "www", "miwifi", "exports")
+            os.makedirs(log_dir, exist_ok=True)
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            json_filename = f"dump_{timestamp}.json"
+            json_path = os.path.join(log_dir, json_filename)
+
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(dump_data, f, indent=4, ensure_ascii=False, sort_keys=False)
+
+            # Create ZIP with JSON inside
+            zip_filename = f"dump_{timestamp}.zip"
+            zip_path = os.path.join(log_dir, zip_filename)
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                zipf.write(json_path, arcname=json_filename)
+
+            # URL for download
+            url = f"/local/miwifi/exports/{zip_filename}"
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Dump creado en: %s", zip_path)
+
+            # Notify user with link to ZIP
+            message_template = translations.get("notifications", {}).get(
+                "dump_ready",
+                "📄 Dump generado: <a href='{url}' target='_blank'>Descargar</a>"
+            )
+            message = message_template.replace("{url}", url)
+            await notifier.notify(message, title=title, notification_id="miwifi_dump_router_data")
+
+        except Exception as e:
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error creando dump: %s", e)
+            await notifier.notify(
+                translations.get("notifications", {}).get("dump_error", "❌ Error generando el dump"),
+                title=title,
+                notification_id="miwifi_dump_router_data"
+            )
+            raise vol.Invalid(f"Failed to create router dump: {e}")
+
 
 
         
@@ -720,4 +856,5 @@ SERVICES: Final = (
     ("clear_logs", MiWifiClearLogsService),
     ("download_logs", MiWifiDownloadLogsService),
     ("add_unsupported", MiWifiAddUnsupportedService),
+    ("dump_router_data", MiWifiDumpRouterDataService),
 )

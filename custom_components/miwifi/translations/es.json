@@ -92,6 +92,25 @@
     "suggest_unsupported_title": "Modelo no compatible detectado",
     "suggest_unsupported_message": "🚫 Este router falló algunas pruebas de compatibilidad.",
     "add_unsupported": "➕ {model} añadido a la característica {feature} en unsupported_user.py",
-    "already_in_unsupported": "⚠️ {model} ya está presente en la característica {feature}."
-   } 
+    "already_in_unsupported": "⚠️ {model} ya está presente en la característica {feature}.",
+    "dump_ready": "📄 Volcado generado: <a href='{url}' target='_blank'>Descargar</a>",
+    "dump_error": "❌ Error al generar el volcado"
+  },
+
+  "services": {
+    "dump_router_data": {
+      "name": "Generar dump del router",
+      "description": "Genera un archivo JSON con información del router principal.",
+      "fields": {
+        "system": { "name": "Incluir datos del sistema", "description": "Incluye información general del sistema." },
+        "network": { "name": "Incluir datos de red", "description": "Incluye detalles de WAN, Wi-Fi y topología." },
+        "devices": { "name": "Incluir dispositivos conectados", "description": "Incluye lista de dispositivos conectados y su información." },
+        "nat_rules": { "name": "Incluir reglas NAT", "description": "Incluye reglas de reenvío de puertos." },
+        "qos": { "name": "Incluir configuración QoS", "description": "Incluye la configuración de QoS." },
+        "wifi_config": { "name": "Incluir configuración Wi-Fi", "description": "Incluye configuración de redes Wi-Fi (puede contener datos sensibles)." },
+        "hide_sensitive": { "name": "Ocultar datos sensibles", "description": "Oculta contraseñas y direcciones MAC." }
+      }
+    }
   }
+  
+}
