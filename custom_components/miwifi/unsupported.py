@@ -36,6 +36,28 @@ async def get_combined_unsupported(hass: HomeAssistant) -> dict[str, list[Model]
     return combined
 
 
+async def is_feature_unsupported(hass: HomeAssistant, feature: str, model: str) -> bool:
+    """Check if a feature is unsupported for a given model."""
+    unsupported = await get_combined_unsupported(hass)
+    return model in unsupported.get(feature, [])
+
+
+async def safe_call_with_support(hass, luci, feature: str, coro, model: str):
+    """Safely call a Luci API, skipping unsupported features and returning placeholders."""
+    if await is_feature_unsupported(hass, feature, model):
+        _LOGGER.info("⚠️ [MiWiFi] Skipping unsupported feature '%s' for model '%s'", feature, model)
+        return {"error": "unsupported"}
+    try:
+        result = await coro
+        if not result:
+            _LOGGER.warning("❌ [MiWiFi] No data returned for '%s' on model '%s'", feature, model)
+            return {"error": "no data"}
+        return result
+    except Exception as e:
+        _LOGGER.warning("❌ [MiWiFi] Failed to get '%s' on model '%s': %s", feature, model, e)
+        return {"error": "no data"}
+
+
 
 UNSUPPORTED: dict[str, list[Model]] = {
     "new_status": [

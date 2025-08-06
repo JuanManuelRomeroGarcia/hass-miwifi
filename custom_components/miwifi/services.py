@@ -41,6 +41,8 @@ from .const import (
 from .exceptions import LuciError
 from .updater import LuciUpdater, async_get_updater, async_update_panel_entity
 from .frontend import async_save_manual_main_mac, async_clear_manual_main_mac
+from .unsupported import safe_call_with_support
+
 
 
 class MiWifiServiceCall:
@@ -726,6 +728,7 @@ class MiWifiDumpRouterDataService:
         data_str = re.sub(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", "XX:XX:XX:XX:XX:XX", data_str)
         data_str = re.sub(r"\"pwd\" ?: ?\".*?\"", "\"pwd\": \"***\"", data_str)
         data_str = re.sub(r"\"password\" ?: ?\".*?\"", "\"password\": \"***\"", data_str)
+        data_str = re.sub(r"\"passwd\" ?: ?\".*?\"", "\"passwd\": \"***\"", data_str)
         return json.loads(data_str)
 
     async def async_call_service(self, service: ServiceCall) -> None:
@@ -745,6 +748,8 @@ class MiWifiDumpRouterDataService:
             raise vol.Invalid("No main router detected (is_main).")
 
         luci = main_updater.luci
+        model = main_updater.data.get("model", "unknown")
+
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
         title = translations.get("title", "MiWiFi")
@@ -758,61 +763,71 @@ class MiWifiDumpRouterDataService:
 
             if opts.get("system"):
                 dump_data["system"] = {
-                    "status": await luci.status(),
-                    "new_status": await luci.new_status(),
-                    "init_info": await luci.init_info(),
-                    "rom_update": await luci.rom_update(),
-                    "flash_permission": await luci.flash_permission(),
-                    "vpn_status": await luci.vpn_status(),
+                    "status": await safe_call_with_support(self.hass, luci, "status", luci.status(), model),
+                    "new_status": await safe_call_with_support(self.hass, luci, "new_status", luci.new_status(), model),
+                    "init_info": await safe_call_with_support(self.hass, luci, "init_info", luci.init_info(), model),
+                    "rom_update": await safe_call_with_support(self.hass, luci, "rom_update", luci.rom_update(), model),
+                    "flash_permission": await safe_call_with_support(self.hass, luci, "flash_permission", luci.flash_permission(), model),
+                    "vpn_status": await safe_call_with_support(self.hass, luci, "vpn_status", luci.vpn_status(), model),
                 }
             if opts.get("network"):
                 dump_data["network"] = {
-                    "wan": await luci.wan_info(),
-                    "mode": await luci.mode(),
-                    "topology": await luci.topo_graph(),
+                    "wan": await safe_call_with_support(self.hass, luci, "wan_info", luci.wan_info(), model),
+                    "mode": await safe_call_with_support(self.hass, luci, "mode", luci.mode(), model),
+                    "topology": await safe_call_with_support(self.hass, luci, "topo_graph", luci.topo_graph(), model),
                     "wifi": {
-                        "signal": await luci.wifi_ap_signal(),
-                        "details": await luci.wifi_detail_all(),
-                        "diagnostics": await luci.wifi_diag_detail_all(),
+                        "signal": await safe_call_with_support(self.hass, luci, "wifi_ap_signal", luci.wifi_ap_signal(), model),
+                        "details": await safe_call_with_support(self.hass, luci, "wifi_detail_all", luci.wifi_detail_all(), model),
+                        "diagnostics": await safe_call_with_support(self.hass, luci, "wifi_diag_detail_all", luci.wifi_diag_detail_all(), model),
                     }
                 }
             if opts.get("devices"):
                 dump_data["devices"] = {
-                    "connected": await luci.device_list(),
-                    "wifi_clients": await luci.wifi_connect_devices(),
-                    "macfilter": await luci.macfilter_info(),
+                    "connected": await safe_call_with_support(self.hass, luci, "device_list", luci.device_list(), model),
+                    "wifi_clients": await safe_call_with_support(self.hass, luci, "wifi_connect_devices", luci.wifi_connect_devices(), model),
+                    "macfilter": await safe_call_with_support(self.hass, luci, "mac_filter_info", luci.macfilter_info(), model),
                 }
             if opts.get("nat_rules"):
                 dump_data["nat_rules"] = {
-                    "single": await luci.portforward(ftype=1),
-                    "ranges": await luci.portforward(ftype=2),
+                    "single": await safe_call_with_support(self.hass, luci, "portforward", luci.portforward(ftype=1), model),
+                    "ranges": await safe_call_with_support(self.hass, luci, "portforward", luci.portforward(ftype=2), model),
                 }
             if opts.get("qos"):
-                dump_data["qos"] = await luci.qos_info()
+                dump_data["qos"] = await safe_call_with_support(self.hass, luci, "qos_info", luci.qos_info(), model)
             if opts.get("wifi_config"):
                 dump_data["wifi_config"] = {
-                    "wifi": await luci.set_wifi({}),
-                    "guest_wifi": await luci.set_guest_wifi({}),
+                    "wifi": await safe_call_with_support(self.hass, luci, "wifi_config", luci.set_wifi({}), model),
+                    "guest_wifi": await safe_call_with_support(self.hass, luci, "wifi_config", luci.set_guest_wifi({}), model),
                 }
 
-         
             if opts.get("hide_sensitive", True):
                 dump_data = self._mask_sensitive(dump_data)
+                
+            
+            errors = []
+            def _find_errors(prefix, data):
+                if isinstance(data, dict) and "error" in data:
+                    errors.append(prefix)
+                elif isinstance(data, dict):
+                    for k, v in data.items():
+                        _find_errors(f"{prefix}.{k}", v)
 
-           
+            for key, value in dump_data.items():
+                _find_errors(key, value)
+
+            dump_data["status"] = "partial" if errors else "ok"
+            dump_data["errors"] = errors
+
             export_dir = os.path.join(self.hass.config.path(), "www", "miwifi", "exports")
             await self.hass.async_add_executor_job(partial(os.makedirs, export_dir, exist_ok=True))
 
-            
             def _clean_old_dumps():
                 dumps = sorted(
                     (f for f in os.listdir(export_dir) if f.startswith("dump_") and f.endswith(".zip")),
                     key=lambda x: os.path.getmtime(os.path.join(export_dir, x)),
                     reverse=True
                 )
-                
                 max_files = 1
-
                 for old in dumps[max_files:]:
                     try:
                         os.remove(os.path.join(export_dir, old))
@@ -825,8 +840,6 @@ class MiWifiDumpRouterDataService:
                         _LOGGER.warning("Failed to remove old dump archive %s: %s", old, e)
             await self.hass.async_add_executor_job(_clean_old_dumps)
 
-
-      
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
             json_filename = f"dump_{timestamp}.json"
             zip_filename = f"dump_{timestamp}.zip"
@@ -840,11 +853,9 @@ class MiWifiDumpRouterDataService:
                     zipf.write(json_path, arcname=json_filename)
             await self.hass.async_add_executor_job(_write_and_zip)
 
-         
             url = f"/local/miwifi/exports/{zip_filename}"
             _LOGGER.info("[MiWiFi] Dump creado en: %s", zip_path)
 
-       
             message_template = translations.get("notifications", {}).get(
                 "dump_ready",
                 "📄 Dump generado: <a href='{url}' target='_blank'>Descargar</a>"
@@ -860,7 +871,6 @@ class MiWifiDumpRouterDataService:
                 notification_id="miwifi_dump_router_data"
             )
             raise vol.Invalid(f"Failed to create router dump: {e}")
-
 
 
         
