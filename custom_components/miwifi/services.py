@@ -726,9 +726,7 @@ class MiWifiDumpRouterDataService:
         import re
         data_str = json.dumps(data)
         data_str = re.sub(r"([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}", "XX:XX:XX:XX:XX:XX", data_str)
-        data_str = re.sub(r"\"pwd\" ?: ?\".*?\"", "\"pwd\": \"***\"", data_str)
-        data_str = re.sub(r"\"password\" ?: ?\".*?\"", "\"password\": \"***\"", data_str)
-        data_str = re.sub(r"\"passwd\" ?: ?\".*?\"", "\"passwd\": \"***\"", data_str)
+        data_str = re.sub(r'("([^"]*(pass|pwd)[^"]*)"\s*:\s*)"[^"]*"', r'\1"***"', data_str)
         return json.loads(data_str)
 
     async def async_call_service(self, service: ServiceCall) -> None:
