@@ -1394,25 +1394,50 @@ class LuciUpdater(DataUpdateCoordinator):
             try:
                 show = int(topo_data.get("show", -1))
                 mode = int(graph.get("mode", -1))
-                assoc = graph.get("assoc", None)
-                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Topo debug – show=%s, mode=%s, assoc=%s", show, mode, assoc)
+
+                # Normaliza assoc de forma segura
+                assoc_raw = graph.get("assoc", None)
+                assoc = None
+                if assoc_raw is not None and str(assoc_raw).strip() != "":
+                    try:
+                        assoc = int(str(assoc_raw).strip())
+                    except Exception:
+                        assoc = None
+
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] Topo debug – show=%s, mode=%s, assoc=%s",
+                    show, mode, assoc if assoc is not None else assoc_raw
+                )
 
                 if assoc is not None:
-                    assoc = int(assoc)
-                    if show == 1 and assoc == 1:
+                    if assoc == 1 and (
+                        (show == 1) or
+                        (show == 0 and mode in (0, 3))
+                    ):
                         graph["is_main"] = True
                         auto_main = True
-                elif show == 1 and mode in (0, 4):
-                    graph["is_main"] = True
-                    auto_main = True
+                else:
+                    if show == 1 and mode in (0, 4):
+                        graph["is_main"] = True
+                        auto_main = True
+
+                graph["is_main_auto"] = auto_main
+                graph["auto_reason"] = f"show={show}, mode={mode}, assoc={assoc}"
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug, "[MiWiFi] Auto-main => %s (%s)", auto_main, graph["auto_reason"]
+                )
+
             except Exception as e:
-                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error interpreting topology: %s", e)
+                await self.hass.async_add_executor_job(
+                    _LOGGER.warning, "[MiWiFi] Error interpreting topology: %s", e
+                )
 
             if not auto_main:
                 from custom_components.miwifi.frontend import async_load_manual_main_mac
                 manual_mac = await async_load_manual_main_mac(self.hass)
                 if manual_mac:
-                    if manual_mac == graph.get("mac"):
+                    if (manual_mac or "").lower() == (graph.get("mac") or "").lower():
                         graph["is_main"] = True
                         await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Main router restored from saved MAC: %s", manual_mac)
                     else:
@@ -1429,16 +1454,19 @@ class LuciUpdater(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
 
             for entity in self.hass.states.async_all("sensor"):
-                if entity.entity_id.startswith("sensor.topologia_miwifi"):
-                    g = entity.attributes.get("graph", {})
-                    if g.get("mac") == graph.get("mac"):
+                eid = entity.entity_id or ""
+                if eid.startswith("sensor.topologia_miwifi") or eid.startswith("sensor.miwifi_topology"):
+                    g = entity.attributes.get("graph", {}) or {}
+                    mac_entity = (g.get("mac") or "").lower()
+                    mac_graph  = (graph.get("mac") or "").lower()
+                    if mac_entity and mac_entity == mac_graph:
                         clean_attributes = {
                             "graph": dict(graph),
                             "code": entity.attributes.get("code", 0),
                             "icon": entity.attributes.get("icon", "mdi:network"),
                             "friendly_name": entity.attributes.get("friendly_name", "Topología MiWiFi"),
                         }
-                        self.hass.states.async_set(entity.entity_id, entity.state, clean_attributes)
+                        self.hass.states.async_set(eid, entity.state, clean_attributes)
 
             try:
                 self.async_set_updated_data(self.data)
@@ -1636,7 +1664,10 @@ def async_get_updater(hass: HomeAssistant, identifier: str) -> LuciUpdater:
     if integrations := [
         integration[UPDATER]
         for integration in hass.data[DOMAIN].values()
-        if isinstance(integration, dict) and integration[CONF_IP_ADDRESS] == identifier
+        if isinstance(integration, dict)
+        and CONF_IP_ADDRESS in integration
+        and UPDATER in integration
+        and integration[CONF_IP_ADDRESS] == identifier
     ]:
         return integrations[0]
 

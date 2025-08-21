@@ -223,7 +223,7 @@ async def async_remove_miwifi_panel(hass: HomeAssistant) -> None:
         return
 
     try:
-        async_remove_panel(hass, "miwifi")
+        await async_remove_panel(hass, "miwifi")
         hass.data[DATA_PANELS].pop("miwifi", None)
         await hass.async_add_executor_job(
             _LOGGER.info,
@@ -270,6 +270,15 @@ async def async_save_manual_main_mac(hass: HomeAssistant, mac: str):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         await hass.async_add_executor_job(_write_json_file, path, {"manual_main_mac": mac})
         await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ MAC Manual saved correctly in %s", path)
+        
+        from .updater import async_get_integrations
+        integrations = async_get_integrations(hass)
+        for integ in integrations.values():
+            try:
+                await integ["updater"].coordinator.async_request_refresh()
+            except Exception:
+                pass
+
     except Exception as e:
         await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error saving file from manual MAC: %s", e)
 

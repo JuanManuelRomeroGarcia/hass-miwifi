@@ -19,7 +19,12 @@
           "is_track_devices": "Cihazları takip edin",
           "stay_online": "En az çevrimiçi kalma süresi (saniye)",
           "scan_interval": "Tarama aralığı (saniye) [PRO]",
-          "timeout": "İstek zaman aşımı (saniye) [PRO]"
+          "timeout": "İstek zaman aşımı (saniye) [PRO]",
+          "wan_speed_unit": "WAN hız birimi",
+          "is_force_load": "Cihazların tekrarlayıcı modunda zorunlu olarak başlatılması [PRO]",
+          "activity_days": "Son aktiviteden sonra beklenmesi gereken süre (gün) [PRO]",
+          "log_level": "Günlük seviyesi (genel)",
+          "enable_panel": "Kontrol panelini etkinleştir"
         }
       }
     }
@@ -105,7 +110,41 @@
         "wifi_config": { "name": "Wi-Fi yapılandırmasını dahil et", "description": "Wi-Fi ağ ayarlarını dahil et (hassas bilgiler içerebilir)." },
         "hide_sensitive": { "name": "Hassas verileri gizle", "description": "Parolaları ve MAC adreslerini gizle." }
       }
-    }
+    },
+    "get_wifis": { "name": "Wi-Fi yapılandırmasını al (panel)" },
+    "set_guest_wifi": { "name": "Misafir Wi-Fi'sini yapılandır" },
+    "test_guest_wifi": { "name": "Misafir Wi-Fi'sini test et" },
+    "set_wifis": { "name": "Wi-Fi'yi yapılandır (2.4G/5G/Oyun)" }
+  },
+
+  "service_fields": {
+    "common": {
+      "device_id": "MiWiFi yönlendiricisi, eylemin uygulanacağı"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Sonuçta parolaları gizle (önerilir)"
+    },
+    "set_guest_wifi": {
+        "enable": "Misafir ağını etkinleştir veya devre dışı bırak",
+        "ssid": "Ağ adı (SSID)",
+        "password": "Parola (8–63 karakter, eğer psk2 ise)",
+        "encryption": "Şifreleme (psk2 önerilir; none = açık)",
+        "hidden": "SSID'yi gizle (0 = görünür, 1 = gizli)"
+      },
+      "set_wifis": {
+        "wifi2g": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})",
+        "wifi5g": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})",
+        "wifi5g_game": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})"
+      }
+    },
+
+  "errors": {
+    "password_length_simple": "Parola 8 ile 63 karakter arasında olmalıdır.",
+    "password_length_role": "[{role}] Parola 8 ile 63 karakter arasında olmalıdır.",
+    "no_blocks": "Hiçbir blok belirtilmedi (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "{role} üzerinde değişiklik uygulanırken hata oluştu.",
+    "router_error": "Yönlendirici bir hata döndürdü.",
+    "password_length_error": "Parola 8 ile 63 karakter arasında olmalıdır."
   }
 
 }

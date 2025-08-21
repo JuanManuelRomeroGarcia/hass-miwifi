@@ -95,3 +95,112 @@ dump_router_data:
       default: true
       selector:
         boolean: {}
+
+
+test_guest_wifi:
+  name: Test Guest Wi-Fi
+  description: Quick status read of the guest network. If no router is selected, the main (is_main) router is used.
+  fields:
+    device_id:
+      name: Router (optional)
+      description: MiWiFi router to target
+      required: false
+      selector:
+        device:
+          integration: miwifi
+          multiple: false
+
+get_wifis:
+  name: Get Wi-Fi configuration (for the panel)
+  description: Returns Guest, 2.4G, 5G and 5G Game in response_data for prefill.
+  fields:
+    device_id:
+      name: Router (optional)
+      description: MiWiFi router to target
+      required: false
+      selector:
+        device:
+          integration: miwifi
+          multiple: false
+    hide_sensitive:
+      name: Hide passwords
+      description: Hide passwords in the returned data
+      default: true
+      selector:
+        boolean: {}
+
+set_guest_wifi:
+  name: Configure Guest Wi-Fi
+  description: Check = ON, unchecked = OFF. Optionally change SSID / password / encryption. No forced restart.
+  fields:
+    device_id:
+      name: Router (optional)
+      description: MiWiFi router to target
+      required: false
+      selector:
+        device:
+          integration: miwifi
+          multiple: false
+    enable:
+      name: Enable (ON) / Disable (OFF)
+      description: Explicit ON/OFF state for the guest network
+      required: true
+      selector:
+        boolean: {}
+    ssid:
+      name: SSID
+      description: New SSID (leave empty to keep current)
+      required: false
+      selector:
+        text: {}
+    password:
+      name: Password
+      description: New password (8–63 chars if psk2; leave empty to keep current)
+      required: false
+      selector:
+        text:
+          type: password
+    encryption:
+      name: Encryption
+      description: psk2 recommended; none = open network
+      required: false
+      selector:
+        select:
+          options:
+            - psk2
+            - none
+    hidden:
+      name: Hide SSID (0/1)
+      description: 0 = visible, 1 = hidden
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 1
+          step: 1
+          mode: box
+
+set_wifis:
+  name: Configure Wi-Fi (2.4G / 5G / 5G Game)
+  description: Change multiple bands at once. If no router is selected, the main (is_main) router is used.
+  fields:
+    device_id:
+      name: Router (optional)
+      description: MiWiFi router to target
+      required: false
+      selector:
+        device:
+          integration: miwifi
+          multiple: false
+    wifi2g:
+      name: 2.4 G
+      description: Object with fields to change (e.g., {ssid, password, encryption, hidden})
+      selector: { object: {} }
+    wifi5g:
+      name: 5 G
+      description: Object with fields to change (e.g., {ssid, password, encryption, hidden})
+      selector: { object: {} }
+    wifi5g_game:
+      name: 5 G Game
+      description: Object with fields to change (e.g., {ssid, password, encryption, hidden})
+      selector: { object: {} }

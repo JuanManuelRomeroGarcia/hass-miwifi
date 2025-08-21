@@ -19,7 +19,12 @@
           "is_track_devices": "Suivre les appareils",
           "stay_online": "Reste en ligne minimum en secondes",
           "scan_interval": "Intervalle d'analyse en secondes [PRO]",
-          "timeout": "Délai d'expiration des requêtes en secondes [PRO]"
+          "timeout": "Délai d'expiration des requêtes en secondes [PRO]",
+          "wan_speed_unit": "Unité de vitesse WAN",
+          "is_force_load": "Chargement forcé des appareils en mode répéteur [PRO]",
+          "activity_days": "Jours autorisés depuis la dernière activité [PRO]",
+          "log_level": "Niveau de log (global)",
+          "enable_panel": "Activer le panneau de contrôle"
         }
       }
     }
@@ -89,7 +94,13 @@
     "add_unsupported": "➕ {model} ajouté à la fonctionnalité {feature} dans unsupported_user.py",
     "already_in_unsupported": "⚠️ {model} est déjà présent dans la fonctionnalité {feature}.",
     "dump_ready": "📄 Dump généré : <a href='{url}' target='_blank'>Télécharger</a>",
-    "dump_error": "❌ Erreur lors de la génération du dump"
+    "dump_error": "❌ Erreur lors de la génération du dump",
+    "title": "MiWiFi",
+    "status_on": "ACTIVÉ",
+    "status_off": "DÉSACTIVÉ",
+    "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nInterface: {ifname}\nSource: {source}",
+    "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
+    "wifis_updated": "Wi-Fi mis à jour : {bands}"
   },
 
   "services": {
@@ -105,7 +116,40 @@
         "wifi_config": { "name": "Inclure la configuration Wi-Fi", "description": "Inclure les paramètres Wi-Fi (peut contenir des données sensibles)." },
         "hide_sensitive": { "name": "Masquer les données sensibles", "description": "Masquer les mots de passe et les adresses MAC." }
       }
-    }
-  }
+    },
+    "get_wifis": { "name": "Get Wi-Fi configuration (panel)" },
+    "set_guest_wifi": { "name": "Configurer le Wi-Fi invité" },
+    "test_guest_wifi": { "name": "Tester le Wi-Fi invité" },
+    "set_wifis": { "name": "Configurer le Wi-Fi (2.4G/5G/Game)" }
+  },
 
+  "service_fields": {
+    "common": {
+      "device_id": "Routeur MiWiFi sur lequel appliquer l'action"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Masquer les mots de passe dans le résultat (recommandé)"
+    },
+    "set_guest_wifi": {
+      "enable": "Activer ou désactiver le réseau invité",
+      "ssid": "Nom du réseau (SSID)",
+      "password": "Mot de passe (8–63 caractères si psk2)",
+      "encryption": "Encryption (psk2 recommandé; none = ouvert)",
+      "hidden": "Masquer le SSID (0 = visible, 1 = caché)"
+    },
+    "set_wifis": {
+      "wifi2g": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})",
+      "wifi5g": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})"
+    }
+  },
+
+  "errors": {
+    "password_length_simple": "Le mot de passe doit comporter de 8 à 63 caractères.",
+    "password_length_role": "[{role}] Le mot de passe doit comporter de 8 à 63 caractères.",
+    "no_blocks": "Aucun bloc Wi-Fi fourni (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Erreur lors de l'application des modifications à {role}.",
+    "router_error": "Le routeur a renvoyé une erreur.",
+    "password_length_error": "Le mot de passe doit comporter de 8 à 63 caractères."
+  }
 }

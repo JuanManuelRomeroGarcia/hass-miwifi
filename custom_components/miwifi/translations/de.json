@@ -19,7 +19,12 @@
           "is_track_devices": "Geräte verfolgen",
           "stay_online": "Mindestaufenthalt in Sekunden online",
           "scan_interval": "Scanintervall in Sekunden [PRO]",
-          "timeout": "Timeout von Anfragen in Sekunden [PRO]"
+          "timeout": "Timeout von Anfragen in Sekunden [PRO]",
+          "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
+          "is_force_load": "Erzwungenes Booten von Geräten im Repeater-Modus [PRO]",
+          "activity_days": "Erlaubte Tage seit der letzten Aktivität [PRO]",
+          "log_level": "Protokollebene (global)",
+          "enable_panel": "Steuerpanel aktivieren"
         }
       }
     }
@@ -43,9 +48,12 @@
           "is_track_devices": "Geräte verfolgen",
           "stay_online": "Mindestaufenthalt in Sekunden online",
           "scan_interval": "Scanintervall in Sekunden [PRO]",
-          "activity_days": "Anzahl an Tagen, die nach der letzten Aktivität gewartet werden soll [PRO]",
           "timeout": "Timeout von Anfragen in Sekunden [PRO]",
-          "is_force_load": "Erzwungenes Booten von Geräten im Repeater-Modus [PRO]"
+          "activity_days": "Anzahl der Tage, die nach der letzten Aktivität gewartet werden soll [PRO]",
+          "is_force_load": "Erzwungenes Booten von Geräten im Repeater-Modus [PRO]",
+          "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
+          "log_level": "Protokollebene (global)",
+          "enable_panel": "Steuerpanel aktivieren"
         }
       }
     }
@@ -86,7 +94,13 @@
     "add_unsupported": "➕ {model} zu Feature {feature} in unsupported_user.py hinzugefügt",
     "already_in_unsupported": "⚠️ {model} ist bereits in Feature {feature} vorhanden.",
     "dump_ready": "📄 Dump generiert: <a href='{url}' target='_blank'>Herunterladen</a>",
-    "dump_error": "❌ Fehler beim Generieren des Dumps"
+    "dump_error": "❌ Fehler beim Generieren des Dumps",
+    "title": "MiWiFi",
+    "status_on": "AN",
+    "status_off": "AUS",
+    "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nSchnittstelle: {ifname}\nQuelle: {source}",
+    "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
+    "wifis_updated": "Wi-Fi aktualisiert: {bands}"
   },
 
   "services": {
@@ -102,9 +116,40 @@
         "wifi_config": { "name": "Wi-Fi-Konfiguration einschließen", "description": "Wi-Fi-Netzwerkeinstellungen einschließen (kann sensible Daten enthalten)." },
         "hide_sensitive": { "name": "Sensible Daten ausblenden", "description": "Passwörter und MAC-Adressen ausblenden." }
       }
+    },
+    "get_wifis": { "name": "Wi-Fi-Konfiguration abrufen" },
+    "set_guest_wifi": { "name": "Gäste-WLAN konfigurieren" },
+    "test_guest_wifi": { "name": "Gäste-WLAN testen" },
+    "set_wifis": { "name": "Wi-Fi konfigurieren (2.4G/5G/Game)" }
+  },
+
+  "service_fields": {
+    "common": {
+      "device_id": "MiWiFi-Router, auf den die Aktion angewendet werden soll"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Passwörter im Ergebnis ausblenden (empfohlen)"
+    },
+    "set_guest_wifi": {
+      "enable": "Gäste-WLAN aktivieren oder deaktivieren",
+      "ssid": "Netzwerkname (SSID)",
+      "password": "Passwort (8–63 Zeichen, wenn psk2)",
+      "encryption": "Verschlüsselung (psk2 empfohlen; none = offen)",
+      "hidden": "SSID ausblenden (0 = sichtbar, 1 = verborgen)"
+    },
+    "set_wifis": {
+      "wifi2g": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})",
+      "wifi5g": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})"
     }
+  },
+
+  "errors": {
+    "password_length_simple": "Passwort muss 8–63 Zeichen lang sein.",
+    "password_length_role": "[{role}] Passwort muss 8–63 Zeichen lang sein.",
+    "no_blocks": "Kein Wi-Fi-Block bereitgestellt (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Fehler beim Anwenden der Änderungen auf {role}.",
+    "router_error": "Router hat einen Fehler zurückgegeben.",
+    "password_length_error": "Das Passwort muss zwischen 8 und 63 Zeichen lang sein."
   }
-
-
 }
-

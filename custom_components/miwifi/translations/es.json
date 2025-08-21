@@ -60,7 +60,7 @@
   },
   "system_health": {
     "info": {
-      "version": "Version"
+      "version": "Versión"
     }
   },
   "panel_update": {
@@ -94,7 +94,14 @@
     "add_unsupported": "➕ {model} añadido a la característica {feature} en unsupported_user.py",
     "already_in_unsupported": "⚠️ {model} ya está presente en la característica {feature}.",
     "dump_ready": "📄 Volcado generado: <a href='{url}' target='_blank'>Descargar</a>",
-    "dump_error": "❌ Error al generar el volcado"
+    "dump_error": "❌ Error al generar el volcado",
+    "title": "MiWiFi",
+    "status_on": "ON",
+    "status_off": "OFF",
+    "guest_status_message": "Wi-Fi de Invitados: {state}\nSSID: {ssid}\nCifrado: {encryption}\nInterfaz: {ifname}\nOrigen: {source}",
+    "guest_updated": "Wi-Fi de Invitados: {state}<br>SSID: {ssid}<br>Cifrado: {encryption}",
+    "wifis_updated": "Wi-Fi actualizada: {bands}"
+
   },
 
   "services": {
@@ -110,7 +117,41 @@
         "wifi_config": { "name": "Incluir configuración Wi-Fi", "description": "Incluye configuración de redes Wi-Fi (puede contener datos sensibles)." },
         "hide_sensitive": { "name": "Ocultar datos sensibles", "description": "Oculta contraseñas y direcciones MAC." }
       }
-    }
+    },
+    "get_wifis": { "name": "Obtener configuración Wi-Fi (panel)" },
+    "set_guest_wifi": { "name": "Configurar Wi-Fi de Invitados" },
+    "test_guest_wifi": { "name": "Test Wi-Fi de Invitados" },
+    "set_wifis": { "name": "Configurar Wi-Fi (2.4G/5G/Game)" }
+  },
+
+  "service_fields": {
+    "common": {
+      "device_id": "Router MiWiFi al que aplicar la acción"
+      },
+      "get_wifis": {
+        "hide_sensitive": "Oculta contraseñas en el resultado (recomendado)"
+      },
+      "set_guest_wifi": {
+        "enable": "Activa o desactiva la red de invitados",
+        "ssid": "Nombre de la red (SSID)",
+        "password": "Contraseña (8–63 caracteres si psk2)",
+        "encryption": "Cifrado (psk2 recomendado; none = abierta)",
+        "hidden": "Ocultar SSID (0 = visible, 1 = oculto)"
+      },
+      "set_wifis": {
+        "wifi2g": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})",
+        "wifi5g": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})",
+        "wifi5g_game": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})"
+      }
+    },
+
+  "errors": {
+    "password_length_simple": "La contraseña debe tener entre 8 y 63 caracteres.",
+    "password_length_role": "[{role}] La contraseña debe tener entre 8 y 63 caracteres.",
+    "no_blocks": "No se indicó ningún bloque (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Error al aplicar los cambios en {role}.",
+    "router_error": "El router devolvió un error.",
+    "password_length_error": "La contraseña debe tener entre 8 y 63 caracteres."
   }
-  
+
 }

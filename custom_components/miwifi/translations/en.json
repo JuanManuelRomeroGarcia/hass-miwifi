@@ -19,7 +19,12 @@
           "is_track_devices": "Track devices",
           "stay_online": "Minimum stay online in seconds",
           "scan_interval": "Scan interval in seconds [PRO]",
-          "timeout": "Timeout of requests in seconds [PRO]"
+          "timeout": "Timeout of requests in seconds [PRO]",
+          "wan_speed_unit": "WAN speed unit",
+          "is_force_load": "Forced loading of devices in repeater mode [PRO]",
+          "activity_days": "Allowed days since last activity [PRO]",
+          "log_level": "Log level (global)",
+          "enable_panel": "Enable control panel"
         }
       }
     }
@@ -65,7 +70,7 @@
     "release_notes": "This panel is part of the custom MiWiFi integration. It offers a visual overview of your network topology, device control, and router stats. The update includes UI improvements, performance enhancements, and fixes."
   },
   "connection_type": {
-    "lan": "Cable (LAN)",
+    "lan": "Wired (LAN)",
     "wifi_2_4": "Wi-Fi 2.4G",
     "wifi_5_0": "Wi-Fi 5G",
     "guest": "Guest Network",
@@ -89,7 +94,13 @@
     "add_unsupported": "➕ Added {model} to feature {feature} in unsupported_user.py",
     "already_in_unsupported": "⚠️ {model} is already present in feature {feature}.",
     "dump_ready": "📄 Dump generated: <a href='{url}' target='_blank'>Download</a>",
-    "dump_error": "❌ Error generating the dump"
+    "dump_error": "❌ Error generating the dump",
+    "title": "MiWiFi",
+    "status_on": "ON",
+    "status_off": "OFF",
+    "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nInterface: {ifname}\nSource: {source}",
+    "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
+    "wifis_updated": "Wi-Fi updated: {bands}"
   },
 
   "services": {
@@ -105,8 +116,40 @@
         "wifi_config": { "name": "Include Wi-Fi configuration", "description": "Include Wi-Fi network settings (may contain sensitive data)." },
         "hide_sensitive": { "name": "Hide sensitive data", "description": "Hide passwords and MAC addresses." }
       }
+    },
+    "get_wifis": { "name": "Get Wi-Fi configuration (panel)" },
+    "set_guest_wifi": { "name": "Configure Guest Wi-Fi" },
+    "test_guest_wifi": { "name": "Test Guest Wi-Fi" },
+    "set_wifis": { "name": "Configure Wi-Fi (2.4G/5G/Game)" }
+  },
+
+  "service_fields": {
+    "common": {
+      "device_id": "MiWiFi router to apply the action to"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Hide passwords in the result (recommended)"
+    },
+    "set_guest_wifi": {
+      "enable": "Turn the guest network ON or OFF",
+      "ssid": "Network name (SSID)",
+      "password": "Password (8–63 chars if psk2)",
+      "encryption": "Encryption (psk2 recommended; none = open)",
+      "hidden": "Hide SSID (0 = visible, 1 = hidden)"
+    },
+    "set_wifis": {
+      "wifi2g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
+      "wifi5g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Object with fields to change (e.g., {ssid, password, encryption, hidden})"
     }
+  },
+
+  "errors": {
+    "password_length_simple": "Password must be 8–63 characters.",
+    "password_length_role": "[{role}] Password must be 8–63 characters.",
+    "no_blocks": "No Wi-Fi block provided (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Error applying changes to {role}.",
+    "router_error": "Router returned an error.",
+    "password_length_error": "Password must be 8–63 characters."
   }
-
-
 }

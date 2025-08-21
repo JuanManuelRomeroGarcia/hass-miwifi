@@ -94,7 +94,14 @@
     "add_unsupported": "➕ 已将 {model} 添加到 unsupported_user.py 中的 {feature} 功能",
     "already_in_unsupported": "⚠️ {model} 已存在于 {feature} 功能中。",
     "dump_ready": "📄 已生成转储: <a href='{url}' target='_blank'>下载</a>",
-    "dump_error": "❌ 生成转储时出错"
+    "dump_error": "❌ 生成转储时出错",
+   "title": "MiWiFi",
+    "status_on": "开启",
+    "status_off": "关闭",
+    "guest_status_message": "访客Wi-Fi: {state}\nSSID: {ssid}\n加密: {encryption}\n接口: {ifname}\n来源: {source}",
+    "guest_updated": "访客Wi-Fi: {state}<br>SSID: {ssid}<br>加密: {encryption}",
+    "wifis_updated": "Wi-Fi已更新: {bands}"
+
   },
 
   "services": {
@@ -110,8 +117,41 @@
         "wifi_config": { "name": "包括 Wi-Fi 配置", "description": "包括 Wi-Fi 网络设置（可能包含敏感数据）。" },
         "hide_sensitive": { "name": "隐藏敏感数据", "description": "隐藏密码和 MAC 地址。" }
       }
-    }
-  }
+    },
+    "get_wifis": { "name": "获取 Wi-Fi 配置（面板）" },
+    "set_guest_wifi": { "name": "配置访客 Wi-Fi" },
+    "test_guest_wifi": { "name": "测试访客 Wi-Fi" },
+    "set_wifis": { "name": "配置 Wi-Fi（2.4G/5G/游戏）" }
+  },
 
+  "service_fields": {
+    "common": {
+      "device_id": "要应用操作的 MiWiFi 路由器"
+    },
+    "get_wifis": {
+      "hide_sensitive": "在结果中隐藏密码（推荐）"
+    },
+    "set_guest_wifi": {
+        "enable": "启用或禁用访客网络",
+        "ssid": "网络名称 (SSID)",
+        "password": "密码 (8–63 个字符，如果是 psk2)",
+        "encryption": "加密 (推荐使用 psk2; none = 开放)",
+        "hidden": "隐藏 SSID (0 = 可见, 1 = 隐藏)"
+      },
+      "set_wifis": {
+        "wifi2g": "包含要更改的字段的对象 (例如 {ssid, password, encryption, hidden})",
+        "wifi5g": "包含要更改的字段的对象 (例如 {ssid, password, encryption, hidden})",
+        "wifi5g_game": "包含要更改的字段的对象 (例如 {ssid, password, encryption, hidden})"
+      }
+    },
+
+  "errors": {
+    "password_length_simple": "密码长度必须在 8 到 63 个字符之间。",
+    "password_length_role": "[{role}] 密码长度必须在 8 到 63 个字符之间。",
+    "no_blocks": "未指定任何块 (wifi2g / wifi5g / wifi5g_game)。",
+    "apply_role_error": "应用 {role} 的更改时出错。",
+    "router_error": "路由器返回错误。",
+    "password_length_error": "密码长度必须在 8 到 63 个字符之间。"
+  }
 
 }

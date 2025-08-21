@@ -99,6 +99,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         
     # 📡 Websocket command for downloading logs
     websocket_api.async_register_command(hass, ws_api.handle_get_download_url)
+    websocket_api.async_register_command(hass, ws_api.websocket_get_wifis)
 
     return True
 
