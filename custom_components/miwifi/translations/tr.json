@@ -1,29 +1,29 @@
 {
-  "title": "MiWifi",
+  "title": "MiWiFi",
   "config": {
     "error": {
-      "ip_address.not_matched": "Geçersiz IP",
+      "ip_address.not_matched": "Geçersiz IP adresi",
       "password.not_matched": "Yanlış parola veya şifreleme algoritması",
       "connection": "Bağlantı kurulamadı",
-      "router.not.supported": "Yönlendirici desteklenmiyor. Detaylı bilgi bildirim merkezine gönderilmiştir.",
+      "router.not.supported": "Yönlendirici desteklenmiyor. Ayrıntılı bilgiler bildirim merkezine gönderildi.",
       "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}"
     },
     "step": {
       "discovery_confirm": {
-        "title": "MiWiFi Ayarları",
+        "title": "MiWiFi Yapılandırması",
         "description": "MiWiFi yönlendiricinizin IP adresini ve parolasını girin",
         "data": {
           "ip_address": "IP adresi",
           "password": "Parola",
-          "encryption_algorithm": "Şifreleme algoritması",
-          "is_track_devices": "Cihazları takip edin",
-          "stay_online": "En az çevrimiçi kalma süresi (saniye)",
+          "encryption_algorithm": "Parola şifreleme algoritması",
+          "is_track_devices": "Cihazları izle",
+          "stay_online": "Çevrimiçi minimum süre (saniye)",
           "scan_interval": "Tarama aralığı (saniye) [PRO]",
           "timeout": "İstek zaman aşımı (saniye) [PRO]",
           "wan_speed_unit": "WAN hız birimi",
-          "is_force_load": "Cihazların tekrarlayıcı modunda zorunlu olarak başlatılması [PRO]",
-          "activity_days": "Son aktiviteden sonra beklenmesi gereken süre (gün) [PRO]",
-          "log_level": "Günlük seviyesi (genel)",
+          "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
+          "activity_days": "Son etkinlikten itibaren izin verilen günler [PRO]",
+          "log_level": "Log seviyesi (genel)",
           "enable_panel": "Kontrol panelini etkinleştir"
         }
       }
@@ -31,29 +31,31 @@
   },
   "options": {
     "error": {
-      "ip_address.not_matched": "Geçersiz IP",
+      "ip_address.not_matched": "Geçersiz IP adresi",
       "password.not_matched": "Yanlış parola veya şifreleme algoritması",
       "connection": "Bağlantı kurulamadı",
-      "router.not.supported": "Yönlendirici desteklenmiyor. Detaylı bilgi bildirim merkezine gönderilmiştir.",
+      "router.not.supported": "Yönlendirici desteklenmiyor. Ayrıntılı bilgiler bildirim merkezine gönderildi.",
       "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}"
     },
     "step": {
       "init": {
-        "title": "MiWiFi Ayarları",
+        "title": "MiWiFi Yapılandırması",
         "description": "MiWiFi yönlendiricinizin IP adresini ve parolasını girin",
         "data": {
           "ip_address": "IP adresi",
           "password": "Parola",
-          "encryption_algorithm": "Şifreleme algoritması",
-          "is_track_devices": "Cihazları takip edin",
-          "stay_online": "En az çevrimiçi kalma süresi (saniye)",
+          "encryption_algorithm": "Parola şifreleme algoritması",
+          "is_track_devices": "Cihazları izle",
+          "stay_online": "Çevrimiçi minimum süre (saniye)",
           "scan_interval": "Tarama aralığı (saniye) [PRO]",
-          "activity_days": "Son aktiviteden sonra beklenmesi gereken süre (gün) [PRO]",
-          "timeout": "İstek zaman aşımı (saniye) [PRO]",
-          "is_force_load": "Cihazların tekrarlayıcı modunda zorunlu olarak başlatılması [PRO]",
-          "enable_panel": "Kontrol panelini etkinleştir",
           "wan_speed_unit": "WAN hız birimi",
-          "log_level": "Günlük seviyesi (genel)"
+          "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
+          "activity_days": "Son etkinlikten itibaren izin verilen günler [PRO]",
+          "timeout": "İstek zaman aşımı (saniye) [PRO]",
+          "log_level": "Log seviyesi (genel)",
+          "enable_panel": "Kontrol panelini etkinleştir",
+          "auto_purge_every_days": "Otomatik temizleme sıklığı (N günde bir)",
+          "auto_purge_at": "Otomatik temizleme saati (SS:DD)"
         }
       }
     }
@@ -66,8 +68,8 @@
   "panel_update": {
     "title": "MiWiFi Paneli",
     "update_title": "MiWiFi Paneli güncellendi",
-    "update_message": "✅ MiWiFi Paneli <b>{version}</b> sürümüne güncellendi.<br>Değişiklikleri görmek için lütfen <b>tarayıcınızı yenileyin (Ctrl+F5)</b>.",
-    "release_notes": "Bu panel, özel MiWiFi entegrasyonunun bir parçasıdır. Ağ topolojisinin görsel bir görünümünü, cihaz kontrolünü ve yönlendirici istatistiklerini sunar. Güncelleme, arayüz geliştirmeleri, performans iyileştirmeleri ve hata düzeltmeleri içerir."
+    "update_message": "✅ MiWiFi Paneli <b>{version}</b> sürümüne güncellendi.<br>Lütfen değişiklikleri görmek için <b>tarayıcınızı yenileyin (Ctrl+F5)</b>.",
+    "release_notes": "Bu panel MiWiFi özel entegrasyonunun bir parçasıdır. Ağ topolojisinin görsel görünümünü, cihaz kontrolünü ve yönlendirici istatistiklerini sağlar. Güncelleme arayüz, performans iyileştirmeleri ve hata düzeltmeleri içerir."
   },
   "connection_type": {
     "lan": "Kablo (LAN)",
@@ -78,73 +80,108 @@
     "unknown": "Bilinmiyor"
   },
   "notifications": {
-    "new_device_title": "MiWiFi'de Yeni Cihaz Tespit Edildi",
+    "new_device_title": "MiWiFi’de yeni cihaz algılandı",
     "new_device_message": "📶 Yeni cihaz bağlandı: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Bağlantı: `{conn}`",
-    "unsupported_router_title": "Desteklenmeyen Yönlendirici",
+    "unsupported_router_title": "Desteklenmeyen yönlendirici",
     "unsupported_router_message": "⚠️ {ip} adresindeki yönlendirici MiWiFi entegrasyonu tarafından desteklenmiyor.",
-    "device_blocked_message": "Cihaz {name} otomatik olarak {status} edildi.",
-    "status_blocked": "BLOKE EDİLDİ",
-    "status_unblocked": "BLOKEDEN KALDIRILDI",
-    "download_ready": "📦 Loglar hazır: <a href='{url}' target='_blank'>İndirmek için buraya tıklayın</a>",
+    "device_blocked_message": "{name} cihazı otomatik olarak {status}.",
+    "status_blocked": "ENGELLENDİ",
+    "status_unblocked": "ENGEL KALDIRILDI",
+    "download_ready": "📦 Loglar hazır: <a href='{url}' target='_blank'>İndirmek için buraya tıkla</a>",
     "calc_passwd_message": "🔐 Parolanız: <b>{passwd}</b>",
-    "self_check_title": "Yönlendirici uyumluluğu başarısız",
-    "self_check_message": "🔍 Yönlendiricide uyumsuz yöntemler tespit edildi ({model}).",
-    "suggest_unsupported_title": "Uyumsuz model tespit edildi",
+    "self_check_title": "Yönlendirici uyumluluk hatası",
+    "self_check_message": "🔍 Yönlendiricide ({model}) uyumsuz yöntemler tespit edildi.",
+    "suggest_unsupported_title": "Desteklenmeyen model algılandı",
     "suggest_unsupported_message": "🚫 Bu yönlendirici bazı uyumluluk testlerini geçemedi.",
-    "add_unsupported": "➕ {model} {feature} özelliğine unsupported_user.py dosyasına eklendi",
-    "already_in_unsupported": "⚠️ {model} zaten {feature} özelliğinde mevcut.",
-    "dump_ready": "📄 Döküm oluşturuldu: <a href='{url}' target='_blank'>İndir</a>",
-    "dump_error": "❌ Döküm oluşturulurken hata oluştu"
+    "add_unsupported": "➕ {model}, unsupported_user.py içindeki {feature} özelliğine eklendi",
+    "already_in_unsupported": "⚠️ {model}, zaten {feature} özelliğinde mevcut.",
+    "dump_ready": "📄 Dump oluşturuldu: <a href='{url}' target='_blank'>İndir</a>",
+    "dump_error": "❌ Dump oluşturulurken hata",
+    "title": "MiWiFi",
+    "status_on": "AÇIK",
+    "status_off": "KAPALI",
+    "guest_status_message": "Misafir Wi-Fi: {state}\nSSID: {ssid}\nŞifreleme: {encryption}\nArayüz: {ifname}\nKaynak: {source}",
+    "guest_updated": "Misafir Wi-Fi: {state}<br>SSID: {ssid}<br>Şifreleme: {encryption}",
+    "wifis_updated": "Wi-Fi güncellendi: {bands}",
+    "purge_dry_run": "Simülasyon: {entities} varlık ve {devices} cihaz silinecek (> {days} gün; rastgele={only_randomized}).",
+    "purge_done": "{entities} varlık ve {devices} cihaz silindi (> {days} gün; rastgele={only_randomized})."
   },
-
   "services": {
     "dump_router_data": {
-      "name": "Yönlendirici dökümü oluştur",
-      "description": "Ana yönlendiriciden bilgi içeren bir JSON dosyası oluşturur.",
+      "name": "Yönlendirici dump oluştur",
+      "description": "Ana yönlendirici hakkında bilgi içeren bir JSON dosyası oluşturur.",
       "fields": {
-        "system": { "name": "Sistem verilerini dahil et", "description": "Genel sistem bilgilerini dahil et." },
-        "network": { "name": "Ağ verilerini dahil et", "description": "WAN, Wi-Fi ve topoloji detaylarını dahil et." },
-        "devices": { "name": "Bağlı cihazları dahil et", "description": "Bağlı cihazların listesini ve bilgilerini dahil et." },
-        "nat_rules": { "name": "NAT kurallarını dahil et", "description": "Port yönlendirme kurallarını dahil et." },
-        "qos": { "name": "QoS yapılandırmasını dahil et", "description": "QoS yapılandırma detaylarını dahil et." },
-        "wifi_config": { "name": "Wi-Fi yapılandırmasını dahil et", "description": "Wi-Fi ağ ayarlarını dahil et (hassas bilgiler içerebilir)." },
-        "hide_sensitive": { "name": "Hassas verileri gizle", "description": "Parolaları ve MAC adreslerini gizle." }
+        "system": { "name": "Sistem verilerini dahil et", "description": "Genel sistem bilgilerini içerir." },
+        "network": { "name": "Ağ verilerini dahil et", "description": "WAN, Wi-Fi ve topoloji ayrıntılarını içerir." },
+        "devices": { "name": "Bağlı cihazları dahil et", "description": "Bağlı cihazların listesini ve bilgilerini içerir." },
+        "nat_rules": { "name": "NAT kurallarını dahil et", "description": "Port yönlendirme kurallarını içerir." },
+        "qos": { "name": "QoS yapılandırmasını dahil et", "description": "QoS yapılandırmasını içerir." },
+        "wifi_config": { "name": "Wi-Fi yapılandırmasını dahil et", "description": "Wi-Fi ağlarının yapılandırmasını içerir (hassas veriler içerebilir)." },
+        "hide_sensitive": { "name": "Hassas verileri gizle", "description": "Parolaları ve MAC adreslerini gizler." }
       }
     },
+    "purge_inactive": {
+      "name": "Etkin olmayan cihazları temizle",
+      "description": "X gün boyunca etkin olmayan device_tracker’ları ve sahipsiz cihazları kaldırır.",
+      "days": "Etkin olmama günleri",
+      "days_description": "Temizlemeden önce etkinliksiz geçen gün sayısı.",
+      "only_randomized": "Sadece rastgele MAC adresleri",
+      "only_randomized_description": "Etkinse, yalnızca rastgele (özel) MAC adresli cihazlar temizlenir.",
+      "include_orphans": "Sahipsiz cihazları dahil et",
+      "include_orphans_description": "İlgili varlığı olmayan cihazları içerir.",
+      "include_orphans_without_age": "Zaman damgası olmayanları dahil et",
+      "include_orphans_without_age_description": "Son etkinlik tarihi bilinmese bile temizlenmesine izin verir.",
+      "apply": "Değişiklikleri uygula",
+      "apply_description": "Devre dışıysa, simülasyon modunda (dry-run) çalışır ve hiçbir şey silinmez."
+    },
     "get_wifis": { "name": "Wi-Fi yapılandırmasını al (panel)" },
-    "set_guest_wifi": { "name": "Misafir Wi-Fi'sini yapılandır" },
-    "test_guest_wifi": { "name": "Misafir Wi-Fi'sini test et" },
-    "set_wifis": { "name": "Wi-Fi'yi yapılandır (2.4G/5G/Oyun)" }
+    "set_guest_wifi": { "name": "Misafir Wi-Fi yapılandır" },
+    "test_guest_wifi": { "name": "Misafir Wi-Fi test et" },
+    "set_wifis": { "name": "Wi-Fi yapılandır (2.4G/5G/Oyun)" }
   },
-
   "service_fields": {
     "common": {
-      "device_id": "MiWiFi yönlendiricisi, eylemin uygulanacağı"
+      "device_id": "İşlemin uygulanacağı MiWiFi yönlendirici",
+      "verbose": "Listeyi göster (önizleme)",
+      "dry_run": "Simülasyon (silme yok)"
     },
     "get_wifis": {
       "hide_sensitive": "Sonuçta parolaları gizle (önerilir)"
     },
     "set_guest_wifi": {
-        "enable": "Misafir ağını etkinleştir veya devre dışı bırak",
-        "ssid": "Ağ adı (SSID)",
-        "password": "Parola (8–63 karakter, eğer psk2 ise)",
-        "encryption": "Şifreleme (psk2 önerilir; none = açık)",
-        "hidden": "SSID'yi gizle (0 = görünür, 1 = gizli)"
-      },
-      "set_wifis": {
-        "wifi2g": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})",
-        "wifi5g": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})",
-        "wifi5g_game": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})"
-      }
+      "enable": "Misafir ağını etkinleştir veya devre dışı bırak",
+      "ssid": "Ağ adı (SSID)",
+      "password": "Parola (psk2 için 8–63 karakter)",
+      "encryption": "Şifreleme (psk2 önerilir; none = açık)",
+      "hidden": "SSID gizle (0 = görünür, 1 = gizli)"
     },
-
+    "set_wifis": {
+      "wifi2g": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})",
+      "wifi5g": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Değiştirilecek alanları içeren nesne (örn. {ssid, password, encryption, hidden})"
+    },
+    "purge_inactive": {
+      "name": "Etkin olmayan cihazları temizle",
+      "description": "X gün boyunca etkin olmayan device_tracker’ları ve sahipsiz cihazları kaldırır.",
+      "days": "Etkin olmama günleri",
+      "days_description": "Temizlemeden önce etkinliksiz geçen gün sayısı.",
+      "only_randomized": "Sadece rastgele MAC adresleri",
+      "only_randomized_description": "Etkinse, yalnızca rastgele (özel) MAC adresli cihazlar temizlenir.",
+      "include_orphans": "Sahipsiz cihazları dahil et",
+      "include_orphans_description": "İlgili varlığı olmayan cihazları içerir.",
+      "include_orphans_without_age": "Zaman damgası olmayanları dahil et",
+      "include_orphans_without_age_description": "Son etkinlik tarihi bilinmese bile temizlenmesine izin verir.",
+      "apply": "Değişiklikleri uygula",
+      "apply_description": "Devre dışıysa, simülasyon modunda (dry-run) çalışır ve hiçbir şey silinmez."
+    }
+  },
   "errors": {
     "password_length_simple": "Parola 8 ile 63 karakter arasında olmalıdır.",
     "password_length_role": "[{role}] Parola 8 ile 63 karakter arasında olmalıdır.",
     "no_blocks": "Hiçbir blok belirtilmedi (wifi2g / wifi5g / wifi5g_game).",
-    "apply_role_error": "{role} üzerinde değişiklik uygulanırken hata oluştu.",
+    "apply_role_error": "{role} için değişiklikler uygulanırken hata oluştu.",
     "router_error": "Yönlendirici bir hata döndürdü.",
-    "password_length_error": "Parola 8 ile 63 karakter arasında olmalıdır."
+    "password_length_error": "Parola 8 ile 63 karakter arasında olmalıdır.",
+    "purge_invalid_days": "Gün sayısı ≥ 1 olmalıdır."
   }
-
 }

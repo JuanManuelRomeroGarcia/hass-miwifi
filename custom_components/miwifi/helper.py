@@ -23,7 +23,11 @@ from .const import (
     DEFAULT_LOG_LEVEL,
     GLOBAL_PANEL_STORE,
     DEFAULT_ENABLE_PANEL,
-)
+    STORE_AUTO_PURGE,
+    DEFAULT_AUTO_PURGE_AT,
+    DEFAULT_AUTO_PURGE_EVERY_DAYS,
+    )
+
 from .updater import LuciUpdater
 
 
@@ -197,3 +201,51 @@ def map_signal_quality(signal: int) -> str:
         return "weak"
     else:
         return "no_signal"
+    
+def _auto_purge_store(hass: HomeAssistant) -> Store:
+    return Store(hass, STORAGE_VERSION, f"{DOMAIN}/{STORE_AUTO_PURGE}")
+
+def _normalize_time_str(v: str | None) -> str:
+    "Returns normalized time 'HH:MM' (accepts 'HH:MM' or 'HH:MM:SS')."
+    if not v:
+        return DEFAULT_AUTO_PURGE_AT
+    parts = str(v).split(":")
+    try:
+        hh = int(parts[0])
+        mm = int(parts[1]) if len(parts) > 1 else 0
+    except Exception:
+        return DEFAULT_AUTO_PURGE_AT
+    return f"{hh:02d}:{mm:02d}"
+
+async def get_global_auto_purge(hass: HomeAssistant) -> dict:
+    "Reads the global config; if any keys are missing, adds them and persists."
+    data = await _auto_purge_store(hass).async_load() or {}
+    changed = False
+    if "every_days" not in data:
+        data["every_days"] = DEFAULT_AUTO_PURGE_EVERY_DAYS
+        changed = True
+    if "at" not in data:
+        data["at"] = DEFAULT_AUTO_PURGE_AT
+        changed = True
+
+    norm_at = _normalize_time_str(data.get("at"))
+    if norm_at != data.get("at"):
+        data["at"] = norm_at
+        changed = True
+    if changed:
+        await _auto_purge_store(hass).async_save(data)
+    return data
+
+async def set_global_auto_purge(
+    hass: HomeAssistant,
+    *, every_days: int | None = None,
+    at: str | None = None
+) -> dict:
+    "Updates and persists the global autopurge configuration."
+    data = await get_global_auto_purge(hass)
+    if every_days is not None:
+        data["every_days"] = int(every_days)
+    if at is not None:
+        data["at"] = _normalize_time_str(at)
+    await _auto_purge_store(hass).async_save(data)
+    return data

@@ -9,14 +9,14 @@ from functools import cached_property
 from typing import Any, Final
 from homeassistant.components.device_tracker import ENTITY_ID_FORMAT
 from .helper import map_signal_quality
-from .update import MiWiFiNewDeviceNotifier, MiWiFiNotifier
+from .update import MiWiFiNewDeviceNotifier
 
 SOURCE_TYPE_ROUTER = "router"
 
 from homeassistant.components.device_tracker.config_entry import ScannerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import (
@@ -56,6 +56,7 @@ from .const import (
     DEFAULT_STAY_ONLINE,
     DOMAIN,
     SIGNAL_NEW_DEVICE,
+    SIGNAL_PURGE_DEVICE,
     UPDATER,
 )
 from .enum import Connection, DeviceClass
@@ -170,7 +171,30 @@ async def async_setup_entry(
         hass, SIGNAL_NEW_DEVICE, add_device
     )
 
+    @callback
+    def _handle_purge(entry_id: str, mac: str) -> None:
+        if entry_id != config_entry.entry_id:
+            return
 
+        registry = er.async_get(hass)
+        unique_id = f"{DOMAIN}-{entry_id}-{mac}"
+        entity_id = registry.async_get_entity_id("device_tracker", DOMAIN, unique_id)
+        if not entity_id:
+            return
+
+        entity_entry = registry.async_get(entity_id)
+        device_id = entity_entry.device_id if entity_entry else None
+
+       
+        registry.async_remove(entity_id)
+
+        if device_id:
+            dev_reg = dr.async_get(hass)
+            ents = er.async_entries_for_device(registry, device_id, include_disabled_entities=True)
+            if not ents:
+                dev_reg.async_remove_device(device_id)
+
+    async_dispatcher_connect(hass, SIGNAL_PURGE_DEVICE, _handle_purge)
 
 class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
     """MiWifi device tracker entry."""

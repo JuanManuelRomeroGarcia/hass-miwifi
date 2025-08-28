@@ -14,7 +14,6 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from httpx import codes
 
-
 try:
     from .logger import _LOGGER
 except Exception:
@@ -37,10 +36,12 @@ from .const import (
     DEFAULT_WAN_SPEED_UNIT,
     WAN_SPEED_UNIT_OPTIONS,
     CONF_LOG_LEVEL,
-    DEFAULT_LOG_LEVEL,
     LOG_LEVEL_OPTIONS,
     CONF_ENABLE_PANEL,
-    DEFAULT_ENABLE_PANEL,
+    CONF_AUTO_PURGE_EVERY_DAYS, 
+    DEFAULT_AUTO_PURGE_EVERY_DAYS,
+    CONF_AUTO_PURGE_AT, 
+    DEFAULT_AUTO_PURGE_AT,
 )
 from .discovery import async_start_discovery
 from .enum import EncryptionAlgorithm
@@ -52,6 +53,8 @@ from .helper import (
     set_global_log_level,
     get_global_panel_state,
     set_global_panel_state,
+    get_global_auto_purge,
+    set_global_auto_purge
 )
 
 from .updater import LuciUpdater, async_get_updater
@@ -162,18 +165,18 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors["base"] = error_key
             description_placeholders = description_placeholders or {}
             description_placeholders["reason"] = reason
-            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Placeholder de motivo final: %s", description_placeholders.get("reason"))
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Final Reason Placeholder: %s", description_placeholders.get("reason"))
         
         elif errors.get("base") == "router.error_with_reason":
             description_placeholders = description_placeholders or {}
             description_placeholders.setdefault("reason", "Unknown error")
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Añadido motivo por defecto para error_with_reason")
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Default reason added for error_with_reason")
 
             
         if "base" in errors:
-            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error base recibido: %s", errors["base"])
+            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Base error received: %s", errors["base"])
             if "::" in errors["base"]:
-                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Separando clave y razón de error: %s", errors["base"])
+                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Separating key and error reason: %s", errors["base"])
 
 
         return self.async_show_form(
@@ -208,6 +211,24 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
             )
 
             if codes.is_success(code):
+                at_val = user_input.get(CONF_AUTO_PURGE_AT)
+                if isinstance(at_val, str) and len(at_val) == 8:
+                    at_val = at_val[:5]  # HH:MM:SS -> HH:MM
+
+                await set_global_auto_purge(
+                    self.hass,
+                    every_days=user_input.get(CONF_AUTO_PURGE_EVERY_DAYS),
+                    at=at_val,
+                )
+
+                for e in self.hass.config_entries.async_entries(DOMAIN):
+                    new_opts = dict(e.options)
+                    if CONF_AUTO_PURGE_EVERY_DAYS in user_input:
+                        new_opts[CONF_AUTO_PURGE_EVERY_DAYS] = int(user_input[CONF_AUTO_PURGE_EVERY_DAYS])
+                    if CONF_AUTO_PURGE_AT in user_input and at_val:
+                        new_opts[CONF_AUTO_PURGE_AT] = at_val
+                    self.hass.config_entries.async_update_entry(e, options=new_opts)
+
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
                 return self.async_create_entry(title=user_input[CONF_IP_ADDRESS], data=user_input)
 
@@ -255,6 +276,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
         try:
             panel_state = await get_global_panel_state(self.hass)
             log_level = await get_global_log_level(self.hass)
+            global_cfg = await get_global_auto_purge(self.hass)
+            ap_every = int(global_cfg.get("every_days", DEFAULT_AUTO_PURGE_EVERY_DAYS))
+            ap_at = str(global_cfg.get("at", DEFAULT_AUTO_PURGE_AT))
 
             schema: dict = {
                 vol.Required(CONF_IP_ADDRESS, default=get_config_value(self._config_entry, CONF_IP_ADDRESS, "")): str,
@@ -269,6 +293,8 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ACTIVITY_DAYS, default=get_config_value(self._config_entry, CONF_ACTIVITY_DAYS, DEFAULT_ACTIVITY_DAYS)): cv.positive_int,
                 vol.Optional(CONF_TIMEOUT, default=get_config_value(self._config_entry, CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(vol.Coerce(int), vol.Range(min=10)),
                 vol.Optional(CONF_WAN_SPEED_UNIT, default=get_config_value(self._config_entry, CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)): vol.In(WAN_SPEED_UNIT_OPTIONS),
+                vol.Optional(CONF_AUTO_PURGE_EVERY_DAYS, default=ap_every): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
+                vol.Optional(CONF_AUTO_PURGE_AT, default=ap_at): str,
             }
 
             with contextlib.suppress(ValueError):

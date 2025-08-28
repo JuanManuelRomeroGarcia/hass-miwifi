@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import traceback
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import websocket_api
@@ -26,7 +25,6 @@ from .const import (
     CONF_WAN_SPEED_UNIT,
     CONF_LOG_LEVEL,
     DEFAULT_ACTIVITY_DAYS,
-    DEFAULT_ENABLE_PANEL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SLEEP,
     DEFAULT_TIMEOUT,
@@ -47,11 +45,12 @@ from .helper import (
     set_global_log_level,
     get_global_panel_state,
     set_global_panel_state,
+
 )
+from .auto_purge import schedule_auto_purge, cancel_auto_purge
 from .services import SERVICES
 from .updater import LuciUpdater
 from .frontend import (
-    async_download_panel_if_needed,
     async_register_panel,
     async_remove_miwifi_panel,
     read_local_version,
@@ -164,8 +163,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await asyncio.sleep(DEFAULT_SLEEP)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
+    
     async def async_stop(event: Event) -> None:
+        cancel_auto_purge(hass, entry.entry_id)
         await _updater.async_stop()
 
     hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, async_stop)
@@ -175,6 +175,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.services.async_register(
                 DOMAIN, service_name, service(hass).async_call_service, service.schema
             )
+    # Program auto-purge
+    schedule_auto_purge(hass, entry, kickoff=True)
+
 
     return True
 
@@ -203,15 +206,30 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    
+    cancel_auto_purge(hass, entry.entry_id)
+    
     if is_unload := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         _updater = hass.data[DOMAIN][entry.entry_id][UPDATER]
         await _updater.async_stop()
         _update_listener: CALLBACK_TYPE = hass.data[DOMAIN][entry.entry_id][UPDATE_LISTENER]
         _update_listener()
         hass.data[DOMAIN].pop(entry.entry_id)
+        
+        others = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id in hass.data.get(DOMAIN, {})]
+        if others:
+            schedule_auto_purge(hass, others[0], kickoff=False)
     return is_unload
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    _updater = hass.data[DOMAIN][entry.entry_id][UPDATER]
-    await _updater.async_stop(clean_store=True)
+    cancel_auto_purge(hass, entry.entry_id)
+
+    data_dom = hass.data.get(DOMAIN) or {}
+    entry_data = data_dom.get(entry.entry_id)
+    if entry_data:
+        _updater = entry_data.get(UPDATER)
+        if _updater:
+            await _updater.async_stop(clean_store=True)
+        
+        data_dom.pop(entry.entry_id, None)

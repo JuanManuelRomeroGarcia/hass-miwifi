@@ -53,7 +53,9 @@
           "is_force_load": "Erzwungenes Booten von Geräten im Repeater-Modus [PRO]",
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
           "log_level": "Protokollebene (global)",
-          "enable_panel": "Steuerpanel aktivieren"
+          "enable_panel": "Steuerpanel aktivieren",
+          "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
+          "auto_purge_at": "Automatische Spülung zur vollen Stunde (0-23) [PRO]"
         }
       }
     }
@@ -100,7 +102,9 @@
     "status_off": "AUS",
     "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nSchnittstelle: {ifname}\nQuelle: {source}",
     "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
-    "wifis_updated": "Wi-Fi aktualisiert: {bands}"
+    "wifis_updated": "Wi-Fi aktualisiert: {bands}",
+    "purge_dry_run": "Bereinigungsvorschau: {entities} Entitäten und {devices} Geräte werden entfernt (> {days} Tage; only_randomized={only_randomized}).",
+    "purge_done": "Bereinigung abgeschlossen: {entities} Entitäten und {devices} Geräte entfernt (> {days} Tage; only_randomized={only_randomized})."
   },
 
   "services": {
@@ -117,6 +121,21 @@
         "hide_sensitive": { "name": "Sensible Daten ausblenden", "description": "Passwörter und MAC-Adressen ausblenden." }
       }
     },
+    "purge_inactive": {
+      "name": "Inaktive Geräte löschen",
+      "description": "Löscht Geräte-Tracker und verwaiste Geräte nach X Tagen Inaktivität.",
+      "days": "Tage der Inaktivität",
+      "days_description": "Anzahl der Tage der Inaktivität, bevor eine Löschung in Betracht gezogen wird.",
+      "only_randomized": "Nur zufällige MACs",
+      "only_randomized_description": "Wenn aktiviert, werden nur Geräte mit zufälligen (privaten) MACs gelöscht.",
+      "include_orphans": "Verwaiste Geräte einschließen",
+      "include_orphans_description": "Geräte ohne zugehörige Entitäten einschließen.",
+      "include_orphans_without_age": "Verwaiste Geräte ohne Zeitstempel einschließen",
+      "include_orphans_without_age_description": "Erlaubt die Löschung auch bei unbekanntem Datum der letzten Aktivität.",
+      "apply": "Änderungen anwenden",
+      "apply_description": "Wenn deaktiviert, wird dies als Dry-Reset ausgeführt. ausführen, ohne etwas zu löschen."
+    },
+
     "get_wifis": { "name": "Wi-Fi-Konfiguration abrufen" },
     "set_guest_wifi": { "name": "Gäste-WLAN konfigurieren" },
     "test_guest_wifi": { "name": "Gäste-WLAN testen" },
@@ -125,7 +144,9 @@
 
   "service_fields": {
     "common": {
-      "device_id": "MiWiFi-Router, auf den die Aktion angewendet werden soll"
+      "device_id": "MiWiFi-Router, auf den die Aktion angewendet werden soll",
+      "verbose": "Liste anzeigen (Vorschau)",
+      "dry_run": "Simulieren (nicht löschen)"
     },
     "get_wifis": {
       "hide_sensitive": "Passwörter im Ergebnis ausblenden (empfohlen)"
@@ -141,7 +162,21 @@
       "wifi2g": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})",
       "wifi5g": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})",
       "wifi5g_game": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})"
-    }
+    },
+    "purge_inactive": {
+      "name": "Inaktive Geräte löschen",
+      "description": "Entfernt Geräte-Tracker und verwaiste Geräte nach X Tagen Inaktivität.",
+      "days": "Tage der Inaktivität",
+      "days_description": "Anzahl der Tage der Inaktivität, bevor eine Löschung in Betracht gezogen wird.",
+      "only_randomized": "Nur zufällige MACs",
+      "only_randomized_description": "Wenn aktiviert, werden nur Geräte mit zufälligen (privaten) MACs gelöscht.",
+      "include_orphans": "Verwaiste Geräte einschließen",
+      "include_orphans_description": "Geräte ohne zugehörige Entitäten einschließen.",
+      "include_orphans_without_age": "Verwaiste Geräte ohne Zeitstempel einschließen",
+      "include_orphans_without_age_description": "Erlaubt die Löschung auch bei unbekanntem Datum der letzten Aktivität.",
+      "apply": "Änderungen anwenden",
+      "apply_description": "Wenn deaktiviert, als Test (Trockenlauf) ausführen, ohne etwas zu löschen."
+      }
   },
 
   "errors": {
@@ -150,6 +185,7 @@
     "no_blocks": "Kein Wi-Fi-Block bereitgestellt (wifi2g / wifi5g / wifi5g_game).",
     "apply_role_error": "Fehler beim Anwenden der Änderungen auf {role}.",
     "router_error": "Router hat einen Fehler zurückgegeben.",
-    "password_length_error": "Das Passwort muss zwischen 8 und 63 Zeichen lang sein."
+    "password_length_error": "Das Passwort muss zwischen 8 und 63 Zeichen lang sein.",
+    "purge_invalid_days": "Tage müssen \u2265 1 sein."
   }
 }

@@ -53,7 +53,9 @@
           "is_force_load": "Forced booting of devices in repeater mode [PRO]",
           "wan_speed_unit": "WAN speed unit",
           "log_level": "Log level (global)",
-          "enable_panel": "Enable control panel"
+          "enable_panel": "Enable control panel",
+          "auto_purge_every_days": "Auto-purge every X days (0 = disabled) [PRO]",
+          "auto_purge_at": "Auto-purge at hour (0-23) [PRO]"
         }
       }
     }
@@ -100,7 +102,9 @@
     "status_off": "OFF",
     "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nInterface: {ifname}\nSource: {source}",
     "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
-    "wifis_updated": "Wi-Fi updated: {bands}"
+    "wifis_updated": "Wi-Fi updated: {bands}",
+    "purge_dry_run": "Purge preview: {entities} entities and {devices} devices would be removed (> {days} days; only_randomized={only_randomized}).",
+    "purge_done": "Purge completed: {entities} entities and {devices} devices removed (> {days} days; only_randomized={only_randomized})."
   },
 
   "services": {
@@ -117,6 +121,21 @@
         "hide_sensitive": { "name": "Hide sensitive data", "description": "Hide passwords and MAC addresses." }
       }
     },
+    "purge_inactive": {
+      "name": "Purge inactive devices",
+        "description": "Deletes device_trackers and orphaned devices after X days of inactivity.",
+        "days": "Days of inactivity",
+        "days_description": "Number of days of inactivity before considering purging.",
+        "only_randomized": "Random MACs only",
+        "only_randomized_description": "If enabled, only devices with random (private) MACs are purged.",
+        "include_orphans": "Include orphaned devices",
+        "include_orphans_description": "Include devices without associated entities.",
+        "include_orphans_without_age": "Include orphans without a timestamp",
+        "include_orphans_without_age_description": "Allows purging even if the last activity date is unknown.",
+        "apply": "Apply changes",
+        "apply_description": "If disabled, this runs as a dry run without deleting anything."
+    },
+
     "get_wifis": { "name": "Get Wi-Fi configuration (panel)" },
     "set_guest_wifi": { "name": "Configure Guest Wi-Fi" },
     "test_guest_wifi": { "name": "Test Guest Wi-Fi" },
@@ -125,7 +144,9 @@
 
   "service_fields": {
     "common": {
-      "device_id": "MiWiFi router to apply the action to"
+      "device_id": "MiWiFi router to apply the action to",
+      "verbose": "Show list (preview)",
+      "dry_run": "Simulate (do not delete)"
     },
     "get_wifis": {
       "hide_sensitive": "Hide passwords in the result (recommended)"
@@ -141,6 +162,20 @@
       "wifi2g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
       "wifi5g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
       "wifi5g_game": "Object with fields to change (e.g., {ssid, password, encryption, hidden})"
+    },
+    "purge_inactive": {
+      "name": "Purge inactive devices",
+      "description": "Removes device_trackers and orphaned devices after X days of inactivity.",
+      "days": "Days of inactivity",
+      "days_description": "Number of days of inactivity before considering purging.",
+      "only_randomized": "Random MACs only",
+      "only_randomized_description": "If enabled, only devices with random (private) MACs are purged.",
+      "include_orphans": "Include orphaned devices",
+      "include_orphans_description": "Include devices without associated entities.",
+      "include_orphans_without_age": "Include orphans without a timestamp",
+      "include_orphans_without_age_description": "Allows purging even if the last activity date is unknown.",
+      "apply": "Apply changes",
+      "apply_description": "If disabled, run as a test (dry-run), without deleting anything."
     }
   },
 
@@ -150,6 +185,7 @@
     "no_blocks": "No Wi-Fi block provided (wifi2g / wifi5g / wifi5g_game).",
     "apply_role_error": "Error applying changes to {role}.",
     "router_error": "Router returned an error.",
-    "password_length_error": "Password must be 8–63 characters."
+    "password_length_error": "Password must be 8–63 characters.",
+    "purge_invalid_days": "Days must be \u2265 1."
   }
 }

@@ -85,8 +85,8 @@ class CompatibilityChecker:
             "rom_update": self.client.rom_update,
             "flash_permission": self.client.flash_permission,
             "led_control": self.client.led,
-            "guest_wifi": lambda: self.client.set_guest_wifi({}),
-            "wifi_config": lambda: self.client.set_wifi({}),
+            "guest_wifi": self.client.wifi_diag_detail_all,
+            "wifi_config": self.client.wifi_detail_all,   
             "device_list": self.client.device_list,
             "topo_graph": self.client.topo_graph,
             "portforward": lambda: self.client.portforward(ftype=1),
@@ -113,8 +113,9 @@ class CompatibilityChecker:
         return self.result
 
     async def _check_mac_filter(self) -> bool:
+        """Check MAC filter support without changing anything."""
         try:
-            await self.client.set_mac_filter("00:00:00:00:00:00", True)
+            await self.client.macfilter_info()
             return True
         except LuciError:
             return False
@@ -136,6 +137,7 @@ class CompatibilityChecker:
             return False
 
     async def _check_rom_update(self) -> bool | None:
+
         if self.mode in {Mode.REPEATER, Mode.ACCESS_POINT, Mode.MESH, Mode.MESH_LEAF, Mode.MESH_NODE}:
             return None
         try:
@@ -145,6 +147,7 @@ class CompatibilityChecker:
             return False
 
     async def _check_flash_permission(self) -> bool:
+        """Check flash permission support using read-only endpoint."""
         try:
             await self.client.flash_permission()
             return True
@@ -152,6 +155,7 @@ class CompatibilityChecker:
             return False
 
     async def _check_led(self) -> bool:
+        """Check LED control support using read-only endpoint."""
         try:
             await self.client.led()
             return True
@@ -159,20 +163,30 @@ class CompatibilityChecker:
             return False
 
     async def _check_guest_wifi(self) -> bool:
+        """Check Guest Wi-Fi support using read-only endpoints."""
+       
         try:
-            await self.client.set_guest_wifi({})
+            await self.client.wifi_diag_detail_all()
             return True
         except LuciError:
-            return False
+            pass
+
+        try:
+            await self.client.wifi_detail_all()
+            return True
+        except LuciError:
+          return False
 
     async def _check_wifi_config(self) -> bool:
+        """Check Wi-Fi config support using read-only endpoint."""
         try:
-            await self.client.set_wifi({})
+            await self.client.wifi_detail_all()
             return True
         except LuciError:
             return False
 
     async def _check_device_list(self) -> bool:
+        """Check device list support using read-only endpoint."""
         try:
             await self.client.device_list()
             return True
@@ -180,6 +194,7 @@ class CompatibilityChecker:
             return False
 
     async def _check_topo_graph(self) -> bool:
+        """Check topology graph support using read-only endpoint."""
         try:
             await self.client.topo_graph()
             return True
@@ -187,6 +202,7 @@ class CompatibilityChecker:
             return False
 
     async def _check_portforward(self) -> bool:
+        """Check port forwarding support using read-only endpoint."""
         try:
             await self.client.portforward(ftype=1)
             return True

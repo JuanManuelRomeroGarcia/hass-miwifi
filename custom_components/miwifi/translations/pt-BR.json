@@ -1,27 +1,27 @@
 {
-  "title": "MiWifi",
+  "title": "MiWiFi",
   "config": {
     "error": {
       "ip_address.not_matched": "IP inválido",
-      "password.not_matched": "Senha ou algoritmo de criptografia incorreto",
-      "connection": "Falha ao estabelecer conexão",
-      "router.not.supported": "O roteador não é suportado. Informações detalhadas foram enviadas para o centro de notificação.",
+      "password.not_matched": "Senha ou algoritmo de criptografia incorretos",
+      "connection": "Não foi possível estabelecer a conexão",
+      "router.not.supported": "O roteador não é compatível. Informações detalhadas foram enviadas para o centro de notificações.",
       "router.error_with_reason": "Erro ao conectar ao roteador: {reason}"
     },
     "step": {
       "discovery_confirm": {
-        "title": "Configurações MiWiFi",
-        "description": "Digite o endereço IP e a senha do seu roteador MiWiFi",
+        "title": "Configuração do MiWiFi",
+        "description": "Insira o endereço IP e a senha do seu roteador MiWiFi",
         "data": {
           "ip_address": "Endereço IP",
           "password": "Senha",
-          "encryption_algorithm": "Algoritmo de criptografia de senha",
-          "is_track_devices": "Dispositivos de rastreamento",
-          "stay_online": "Estadia mínima online em segundos",
+          "encryption_algorithm": "Algoritmo de criptografia da senha",
+          "is_track_devices": "Rastrear dispositivos",
+          "stay_online": "Permanência mínima online em segundos",
           "scan_interval": "Intervalo de varredura em segundos [PRO]",
-          "timeout": "Tempo limite de solicitações em segundos [PRO]",
+          "timeout": "Tempo limite das solicitações em segundos [PRO]",
           "wan_speed_unit": "Unidade de velocidade WAN",
-          "is_force_load": "Carregar dispositivos forçosamente em modo repetidor [PRO]",
+          "is_force_load": "Forçar carregamento de dispositivos em modo repetidor [PRO]",
           "activity_days": "Dias permitidos desde a última atividade [PRO]",
           "log_level": "Nível de log (global)",
           "enable_panel": "Habilitar painel de controle"
@@ -30,33 +30,32 @@
     }
   },
   "options": {
-    "abort": {
-      "updated": "Os dados são atualizados, reinicie o Home Assistant"
-    },
     "error": {
       "ip_address.not_matched": "IP inválido",
-      "password.not_matched": "Senha ou algoritmo de criptografia incorreto",
-      "connection": "Falha ao estabelecer conexão",
-      "router.not.supported": "O roteador não é suportado. Informações detalhadas foram enviadas para o centro de notificação.",
+      "password.not_matched": "Senha ou algoritmo de criptografia incorretos",
+      "connection": "Não foi possível estabelecer a conexão",
+      "router.not.supported": "O roteador não é compatível. Informações detalhadas foram enviadas para o centro de notificações.",
       "router.error_with_reason": "Erro ao conectar ao roteador: {reason}"
     },
     "step": {
       "init": {
-        "title": "Configurações MiWiFi",
-        "description": "Digite o endereço IP e a senha do seu roteador MiWiFi",
+        "title": "Configuração do MiWiFi",
+        "description": "Insira o endereço IP e a senha do seu roteador MiWiFi",
         "data": {
           "ip_address": "Endereço IP",
           "password": "Senha",
-          "encryption_algorithm": "Algoritmo de criptografia de senha",
-          "is_track_devices": "Dispositivos de rastreamento",
-          "stay_online": "Estadia mínima online em segundos",
+          "encryption_algorithm": "Algoritmo de criptografia da senha",
+          "is_track_devices": "Rastrear dispositivos",
+          "stay_online": "Permanência mínima online em segundos",
           "scan_interval": "Intervalo de varredura em segundos [PRO]",
-          "activity_days": "Número permitido de dias de espera após a última atividade [PRO]",
-          "timeout": "Tempo limite de solicitações em segundos [PRO]",
-          "is_force_load": "Inicialização forçada de dispositivos no modo repetidor [PRO]",
-          "enable_panel": "Ativar painel de controle",
           "wan_speed_unit": "Unidade de velocidade WAN",
-          "log_level": "Nível de log (global)"
+          "is_force_load": "Forçar carregamento de dispositivos em modo repetidor [PRO]",
+          "activity_days": "Dias permitidos desde a última atividade [PRO]",
+          "timeout": "Tempo limite das solicitações em segundos [PRO]",
+          "log_level": "Nível de log (global)",
+          "enable_panel": "Habilitar painel de controle",
+          "auto_purge_every_days": "Frequência de autopurga (a cada N dias)",
+          "auto_purge_at": "Hora diária da autopurga (HH:MM)"
         }
       }
     }
@@ -70,92 +69,119 @@
     "title": "Painel MiWiFi",
     "update_title": "Painel MiWiFi atualizado",
     "update_message": "✅ O Painel MiWiFi foi atualizado para a versão <b>{version}</b>.<br>Por favor, <b>atualize seu navegador (Ctrl+F5)</b> para ver as mudanças.",
-    "release_notes": "Este painel faz parte da integração personalizada MiWiFi. Ele oferece uma visão visual da topologia da rede, controle de dispositivos e estatísticas do roteador. A atualização inclui melhorias na interface, desempenho e correções de bugs."
+    "release_notes": "Este painel faz parte da integração personalizada MiWiFi. Oferece uma visualização da topologia de rede, controle de dispositivos e estatísticas do roteador. A atualização inclui melhorias de interface, desempenho e correções de erros."
   },
   "connection_type": {
-    "lan": "Cable (LAN)",
+    "lan": "Cabo (LAN)",
     "wifi_2_4": "Wi-Fi 2.4G",
     "wifi_5_0": "Wi-Fi 5G",
     "guest": "Rede de Convidados",
-    "wifi_5_0_game": "Wi-Fi 5G (Jogos)",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
     "unknown": "Desconhecido"
   },
   "notifications": {
-    "new_device_title": "Novo Dispositivo Detectado no MiWiFi",
+    "new_device_title": "Novo dispositivo detectado no MiWiFi",
     "new_device_message": "📶 Novo dispositivo conectado: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Conexão: `{conn}`",
-    "unsupported_router_title": "Roteador Não Suportado",
-    "unsupported_router_message": "⚠️ O roteador em {ip} não é suportado pela integração MiWiFi.",
-    "device_blocked_message": "O dispositivo {name} foi automaticamente {status}.",
+    "unsupported_router_title": "Roteador não compatível",
+    "unsupported_router_message": "⚠️ O roteador em {ip} não é compatível com a integração MiWiFi.",
+    "device_blocked_message": "O dispositivo {name} foi {status} automaticamente.",
     "status_blocked": "BLOQUEADO",
     "status_unblocked": "DESBLOQUEADO",
-    "download_ready": "📦 Seus logs estão prontos: <a href='{url}' target='_blank'>Clique aqui para baixá-los</a>",
+    "download_ready": "📦 Os logs estão prontos: <a href='{url}' target='_blank'>Clique aqui para baixar</a>",
     "calc_passwd_message": "🔐 Sua senha é: <b>{passwd}</b>",
-    "self_check_title": "Compatibilidade do roteador falhou",
-    "self_check_message": "🔍 Métodos incompatíveis foram detectados no roteador ({model}).",
-    "suggest_unsupported_title": "Modelo não suportado detectado",
+    "self_check_title": "Falha de compatibilidade do roteador",
+    "self_check_message": "🔍 Foram detectados métodos incompatíveis no roteador ({model}).",
+    "suggest_unsupported_title": "Modelo não compatível detectado",
     "suggest_unsupported_message": "🚫 Este roteador falhou em alguns testes de compatibilidade.",
-    "add_unsupported": "➕ {model} adicionado à funcionalidade {feature} em unsupported_user.py",
-    "already_in_unsupported": "⚠️ {model} já está presente na funcionalidade {feature}.",
+    "add_unsupported": "➕ {model} adicionado ao recurso {feature} em unsupported_user.py",
+    "already_in_unsupported": "⚠️ {model} já está presente no recurso {feature}.",
     "dump_ready": "📄 Dump gerado: <a href='{url}' target='_blank'>Baixar</a>",
     "dump_error": "❌ Erro ao gerar o dump",
     "title": "MiWiFi",
     "status_on": "ON",
     "status_off": "OFF",
-    "guest_status_message": "Wi-Fi de Convidados: {state}\nSSID: {ssid}\nCifrado: {encryption}\nInterfaz: {ifname}\nOrigen: {source}",
-    "guest_updated": "Wi-Fi de Convidados: {state}<br>SSID: {ssid}<br>Cifrado: {encryption}",
-    "wifis_updated": "Wi-Fi atualizada: {bands}"
+    "guest_status_message": "Wi-Fi de Convidados: {state}\nSSID: {ssid}\nCriptografia: {encryption}\nInterface: {ifname}\nOrigem: {source}",
+    "guest_updated": "Wi-Fi de Convidados: {state}<br>SSID: {ssid}<br>Criptografia: {encryption}",
+    "wifis_updated": "Wi-Fi atualizado: {bands}",
+    "purge_dry_run": "Simulação: seriam removidas {entities} entidades e {devices} dispositivos (> {days} dias; aleatória={only_randomized}).",
+    "purge_done": "Removidas {entities} entidades e {devices} dispositivos (> {days} dias; aleatória={only_randomized})."
   },
-
   "services": {
     "dump_router_data": {
       "name": "Gerar dump do roteador",
       "description": "Gera um arquivo JSON com informações do roteador principal.",
       "fields": {
-        "system": { "name": "Incluir dados do sistema", "description": "Incluir informações gerais do sistema." },
-        "network": { "name": "Incluir dados de rede", "description": "Incluir detalhes de WAN, Wi-Fi e topologia." },
-        "devices": { "name": "Incluir dispositivos conectados", "description": "Incluir lista de dispositivos conectados e suas informações." },
-        "nat_rules": { "name": "Incluir regras NAT", "description": "Incluir regras de redirecionamento de portas." },
-        "qos": { "name": "Incluir configuração QoS", "description": "Incluir detalhes da configuração de QoS." },
-        "wifi_config": { "name": "Incluir configuração Wi-Fi", "description": "Incluir configurações das redes Wi-Fi (pode conter dados sensíveis)." },
-        "hide_sensitive": { "name": "Ocultar dados sensíveis", "description": "Ocultar senhas e endereços MAC." }
+        "system": { "name": "Incluir dados do sistema", "description": "Inclui informações gerais do sistema." },
+        "network": { "name": "Incluir dados de rede", "description": "Inclui detalhes de WAN, Wi-Fi e topologia." },
+        "devices": { "name": "Incluir dispositivos conectados", "description": "Inclui lista de dispositivos conectados e suas informações." },
+        "nat_rules": { "name": "Incluir regras NAT", "description": "Inclui regras de encaminhamento de portas." },
+        "qos": { "name": "Incluir configuração QoS", "description": "Inclui a configuração de QoS." },
+        "wifi_config": { "name": "Incluir configuração Wi-Fi", "description": "Inclui configuração das redes Wi-Fi (pode conter dados sensíveis)." },
+        "hide_sensitive": { "name": "Ocultar dados sensíveis", "description": "Oculta senhas e endereços MAC." }
       }
     },
+    "purge_inactive": {
+      "name": "Purgar dispositivos inativos",
+      "description": "Remove device_trackers e dispositivos órfãos após X dias de inatividade.",
+      "days": "Dias de inatividade",
+      "days_description": "Número de dias sem atividade antes de considerar a purga.",
+      "only_randomized": "Apenas MACs aleatórias",
+      "only_randomized_description": "Se ativado, apenas dispositivos com MACs aleatórias (privadas) serão removidos.",
+      "include_orphans": "Incluir dispositivos órfãos",
+      "include_orphans_description": "Inclui dispositivos sem entidades associadas.",
+      "include_orphans_without_age": "Incluir órfãos sem marca de tempo",
+      "include_orphans_without_age_description": "Permite remover mesmo que a data da última atividade seja desconhecida.",
+      "apply": "Aplicar alterações",
+      "apply_description": "Se desativado, executa em modo de simulação (dry-run), sem excluir nada."
+    },
     "get_wifis": { "name": "Obter configuração Wi-Fi (painel)" },
-    "set_guest_wifi": { "name": "Configurar Wi-Fi convidado" },
-    "test_guest_wifi": { "name": "Testar Wi-Fi convidado" },
+    "set_guest_wifi": { "name": "Configurar Wi-Fi de Convidados" },
+    "test_guest_wifi": { "name": "Testar Wi-Fi de Convidados" },
     "set_wifis": { "name": "Configurar Wi-Fi (2.4G/5G/Game)" }
   },
-
   "service_fields": {
     "common": {
-      "device_id": "Roteador MiWiFi no qual aplicar a ação"
+      "device_id": "Roteador MiWiFi ao qual aplicar a ação",
+      "verbose": "Mostrar lista (pré-visualização)",
+      "dry_run": "Simular (não excluir)"
     },
     "get_wifis": {
-      "hide_sensitive": "Mascarar senhas no resultado (recomendado)"
+      "hide_sensitive": "Ocultar senhas no resultado (recomendado)"
     },
     "set_guest_wifi": {
-      "enable": "Ativar ou desativar a rede convidada",
+      "enable": "Ativar ou desativar a rede de convidados",
       "ssid": "Nome da rede (SSID)",
       "password": "Senha (8–63 caracteres se psk2)",
-      "encryption": "Criptografia (psk2 recomendada; none = aberto)",
+      "encryption": "Criptografia (psk2 recomendado; none = aberta)",
       "hidden": "Ocultar SSID (0 = visível, 1 = oculto)"
     },
     "set_wifis": {
-      "wifi2g": "Objeto com os campos a serem modificados (por exemplo, {ssid, password, encryption, hidden})",
-      "wifi5g": "Objeto com os campos a serem modificados (por exemplo, {ssid, password, encryption, hidden})",
-      "wifi5g_game": "Objeto com os campos a serem modificados (por exemplo, {ssid, password, encryption, hidden})"
+      "wifi2g": "Objeto com campos a alterar (ex.: {ssid, password, encryption, hidden})",
+      "wifi5g": "Objeto com campos a alterar (ex.: {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objeto com campos a alterar (ex.: {ssid, password, encryption, hidden})"
+    },
+    "purge_inactive": {
+      "name": "Purgar dispositivos inativos",
+      "description": "Remove device_trackers e dispositivos órfãos após X dias de inatividade.",
+      "days": "Dias de inatividade",
+      "days_description": "Número de dias sem atividade antes de considerar a purga.",
+      "only_randomized": "Apenas MACs aleatórias",
+      "only_randomized_description": "Se ativado, apenas dispositivos com MACs aleatórias (privadas) serão removidos.",
+      "include_orphans": "Incluir dispositivos órfãos",
+      "include_orphans_description": "Inclui dispositivos sem entidades associadas.",
+      "include_orphans_without_age": "Incluir órfãos sem marca de tempo",
+      "include_orphans_without_age_description": "Permite remover mesmo que a data da última atividade seja desconhecida.",
+      "apply": "Aplicar alterações",
+      "apply_description": "Se desativado, executa em modo de simulação (dry-run), sem excluir nada."
     }
   },
-
   "errors": {
-    "password_length_simple": "A senha deve ter de 8 a 63 caracteres.",
-    "password_length_role": "[{role}] A senha deve ter de 8 a 63 caracteres.",
-    "no_blocks": "Nenhum bloco Wi-Fi fornecido (wifi2g / wifi5g / wifi5g_game).",
+    "password_length_simple": "A senha deve ter entre 8 e 63 caracteres.",
+    "password_length_role": "[{role}] A senha deve ter entre 8 e 63 caracteres.",
+    "no_blocks": "Nenhum bloco indicado (wifi2g / wifi5g / wifi5g_game).",
     "apply_role_error": "Erro ao aplicar as alterações em {role}.",
     "router_error": "O roteador retornou um erro.",
-    "password_length_error": "A senha deve ter de 8 a 63 caracteres."
+    "password_length_error": "A senha deve ter entre 8 e 63 caracteres.",
+    "purge_invalid_days": "Os dias devem ser ≥ 1."
   }
 }
-
-
-  

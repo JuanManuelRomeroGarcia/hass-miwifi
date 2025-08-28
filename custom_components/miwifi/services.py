@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import time
 import hashlib
 import json
 import os
@@ -12,6 +13,7 @@ from .logger import _LOGGER, async_recreate_log_handlers
 from typing import Final
 from .sensor import MiWifiNATRulesSensor 
 from .notifier import MiWiFiNotifier
+from .helper import parse_last_activity
 
 
 import homeassistant.components.persistent_notification as pn
@@ -23,6 +25,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.network import get_url
 from homeassistant.helpers.selector import selector
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 
 from .const import (
@@ -38,6 +41,10 @@ from .const import (
     SERVICE_CALC_PASSWD,
     SERVICE_REQUEST,
     UPDATER,
+    ATTR_TRACKER_LAST_ACTIVITY,
+    ATTR_TRACKER_MAC,
+    ATTR_TRACKER_ENTRY_ID,
+    SIGNAL_PURGE_DEVICE,
     DOMAIN
 )
 from .exceptions import LuciError
@@ -1397,6 +1404,230 @@ class MiWifiSetWifisServiceCall(_I18nMixin, MiWifiMainOrDeviceServiceCall):
         msg = msg_tpl.replace("{bands}", ", ".join(applied) if applied else "-")
         await notifier.notify(msg, title=title, notification_id="miwifi_set_wifis")
 
+class MiWifiPurgeInactiveDevicesServiceCall:
+    "Purge device_trackers and orphaned devices due to inactivity."
+
+    schema = vol.Schema({
+        vol.Optional("days", description="service_fields.purge_inactive.days", default=30):
+            vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
+        vol.Optional("only_randomized", description="service_fields.purge_inactive.only_randomized", default=True):
+            cv.boolean,
+        vol.Optional("include_orphans", description="service_fields.purge_inactive.include_orphans", default=True):
+            cv.boolean,
+        vol.Optional("include_orphans_without_age", description="service_fields.purge_inactive.include_orphans_without_age", default=True):
+            cv.boolean,
+        vol.Optional("verbose", description="service_fields.common.verbose", default=True):
+            cv.boolean,
+        vol.Optional("apply", description="service_fields.purge_inactive.apply", default=False):
+            cv.boolean,
+        })
+
+    def __init__(self, hass):
+        self.hass = hass
+
+    @staticmethod
+    def _is_randomized_mac(mac: str | None) -> bool:
+        if not mac or ":" not in mac:
+            return False
+        try:
+            first = int(mac.split(":")[0], 16)
+            return bool(first & 0x02) 
+        except Exception:
+            return False
+
+    @staticmethod
+    def _norm_mac(mac: str | None) -> str | None:
+        if not mac or mac in ("-", ""):
+            return None
+        m = re.sub(r"[^0-9a-fA-F]", "", mac)
+        if len(m) != 12:
+            return None
+        return ":".join(m[i:i+2] for i in range(0, 12, 2)).upper()
+
+    @staticmethod
+    def _mac_from_unique_id(uq: str | None) -> str | None:
+        if not uq:
+            return None
+        parts = uq.split("-")
+        if len(parts) < 3:
+            return None
+        return MiWifiPurgeInactiveDevicesServiceCall._norm_mac(parts[-1])
+
+    async def async_call_service(self, service: ServiceCall):
+        days: int = int(service.data.get("days", 30))
+        only_rand: bool = bool(service.data.get("only_randomized", True))
+        include_orphans: bool = bool(service.data.get("include_orphans", True))
+        include_orphans_wo_age: bool = bool(service.data.get("include_orphans_without_age", True))
+        verbose: bool = bool(service.data.get("verbose", True))
+        apply_changes: bool = bool(service.data.get("apply", False))
+
+        cutoff = int(time.time()) - days * 86400
+
+        ent_reg = er.async_get(self.hass)
+        dev_reg = dr.async_get(self.hass)
+        integrations = async_get_integrations(self.hass)  
+        updaters = [data.get(UPDATER) for data in integrations.values() if data.get(UPDATER)]
+        all_entry_ids = list({
+            data.get(ATTR_TRACKER_ENTRY_ID)
+            for data in integrations.values()
+            if data.get(ATTR_TRACKER_ENTRY_ID)
+        })
+
+        def _last_ts_from_updaters(mac: str | None) -> int | None:
+            if not mac:
+                return None
+            for upd in updaters:
+                dev = getattr(upd, "devices", {}).get(mac)
+                if dev and isinstance(dev.get(ATTR_TRACKER_LAST_ACTIVITY), str):
+                    try:
+                        return parse_last_activity(dev[ATTR_TRACKER_LAST_ACTIVITY])
+                    except Exception:
+                        continue
+            return None
+
+        entity_targets: list[tuple[str, str | None, str | None, float | None, str | None]] = []
+
+        for entry in list(ent_reg.entities.values()):
+            if entry.platform != DOMAIN or entry.domain != "device_tracker":
+                continue
+
+            
+            st = self.hass.states.get(entry.entity_id)
+            attrs = dict(st.attributes) if st else {}
+            mac = self._norm_mac(attrs.get(ATTR_TRACKER_MAC) if st else None)
+            if not mac:
+                mac = self._mac_from_unique_id(entry.unique_id)
+
+            if only_rand and not self._is_randomized_mac(mac):
+                continue
+
+            ts = None
+            last = attrs.get(ATTR_TRACKER_LAST_ACTIVITY) if st else None
+            if isinstance(last, str):
+                try:
+                    ts = parse_last_activity(last)
+                except Exception:
+                    ts = None
+            if ts is None:
+                ts = _last_ts_from_updaters(mac)
+
+            if ts is None:
+                
+                if not include_orphans_wo_age:
+                    continue
+                days_ago = None
+            else:
+                if ts > cutoff:
+                    continue
+                days_ago = round((int(time.time()) - ts) / 86400, 2)
+
+            entity_targets.append((entry.entity_id, entry.device_id, mac, days_ago, entry.config_entry_id))
+
+        
+        orphan_targets: list[tuple[str, str | None, float | None]] = []
+        if include_orphans:
+            for device in list(dev_reg.devices.values()):
+                if not any(dom == DOMAIN for (dom, _id) in device.identifiers):
+                    continue
+
+                ents = er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True)
+                if ents:
+                    continue  
+
+                mac = None
+                for dom, ident in device.identifiers:
+                    if dom == DOMAIN and isinstance(ident, str) and ":" in ident:
+                       
+                        mac = self._mac_from_unique_id(ident)
+                        break
+
+                if only_rand and not self._is_randomized_mac(mac):
+                    continue
+
+                ts = _last_ts_from_updaters(mac)
+                if ts is None and not include_orphans_wo_age:
+                    continue
+                if ts is not None and ts > cutoff:
+                    continue
+
+                days_ago = None if ts is None else round((int(time.time()) - ts) / 86400, 2)
+                orphan_targets.append((device.id, mac, days_ago))
+
+       
+        entities_removed, devices_removed = [], []
+
+        if apply_changes:
+            
+            macs_to_purge = [mac for *_skip, mac, _days, _entry in entity_targets if mac]
+            
+            for mac in macs_to_purge:
+                for entry_id in all_entry_ids:
+                    async_dispatcher_send(self.hass, SIGNAL_PURGE_DEVICE, entry_id, mac)
+
+            
+            for entity_id, _dev_id, _mac, _days_ago, _entry_id in entity_targets:
+                if ent_reg.async_get(entity_id):
+                    ent_reg.async_remove(entity_id)
+                if not ent_reg.async_get(entity_id):
+                    entities_removed.append(entity_id)
+
+            
+            touched_devices = set([d for _, d, *_ in entity_targets if d]) | set([d for d, *_ in orphan_targets])
+            for dev_id in list(touched_devices):
+                if not dev_id:
+                    continue
+                if er.async_entries_for_device(ent_reg, dev_id, include_disabled_entities=True):
+                    continue
+                dev = dev_reg.async_get(dev_id)
+                if not dev:
+                    continue
+                if not any(dom == DOMAIN for (dom, _id) in dev.identifiers):
+                    continue
+                if len(dev.config_entries) > 1:
+                    continue
+                dev_reg.async_remove_device(dev_id)
+                devices_removed.append(dev_id)
+
+        
+        notifier = MiWiFiNotifier(self.hass)
+        tr = await notifier.get_translations() or {}
+        title = tr.get("title", "MiWiFi")
+        t_notify = tr.get("notifications", {})
+        tpl_key = "purge_done" if apply_changes else "purge_dry_run"
+        default_tpl = (
+            "Removed {entities} entities and {devices} devices (> {days} days; randomized={only_randomized})."
+            if apply_changes else
+            "Dry-run: would remove {entities} entities and {devices} devices (> {days} days; randomized={only_randomized})."
+        )
+
+        entities_count = len(entities_removed) if apply_changes else len(entity_targets)
+        devices_count = len(devices_removed) if apply_changes else len({d for d, *_ in orphan_targets})
+
+        msg = (t_notify.get(tpl_key, default_tpl)
+               .replace("{entities}", str(entities_count))
+               .replace("{devices}", str(devices_count))
+               .replace("{days}", str(days))
+               .replace("{only_randomized}", "true" if only_rand else "false"))
+        await notifier.notify(msg, title=title, notification_id="miwifi_purge_inactive")
+
+        if verbose:
+            preview_lines = []
+            if not apply_changes:
+                for ent_id, dev_id, mac, days_ago, _eid in entity_targets[:50]:
+                    age = "?" if days_ago is None else f"{days_ago}d"
+                    reason = "entity_without_age" if days_ago is None else "inactive"
+                    preview_lines.append(f"Entity: {ent_id} | dev={dev_id} | mac={mac} | {age} | {reason}")
+                for dev_id, mac, days_ago in orphan_targets[:50]:
+                    age = "unknown" if days_ago is None else f"{days_ago}d"
+                    preview_lines.append(f"Device: {dev_id} | mac={mac} | {age} | orphan_device")
+                if preview_lines:
+                    await notifier.notify("\n".join(preview_lines), title=f"{title} — Purge preview")
+
+        return {
+            "applied": apply_changes,
+            "entities": entities_count,
+            "devices": devices_count,
+        }
         
 SERVICES: Final = (
     (SERVICE_CALC_PASSWD, MiWifiCalcPasswdServiceCall),
@@ -1411,6 +1642,7 @@ SERVICES: Final = (
     ("delete_port", MiWifiDeletePortServiceCall),
     ("refresh_nat_rules", MiWifiRefreshNATRulesServiceCall),
     ("clear_logs", MiWifiClearLogsService),
+    ("purge_inactive_devices", MiWifiPurgeInactiveDevicesServiceCall),
     ("download_logs", MiWifiDownloadLogsService),
     ("add_unsupported", MiWifiAddUnsupportedService),
     ("dump_router_data", MiWifiDumpRouterDataService),

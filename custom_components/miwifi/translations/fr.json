@@ -53,7 +53,9 @@
           "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
           "enable_panel": "Activer le panneau de contrôle",
           "wan_speed_unit": "Unité de vitesse WAN",
-          "log_level": "Niveau de log (global)"
+          "log_level": "Niveau de log (global)",
+          "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
+          "auto_purge_at": "Purge automatique à une heure (0-23) [PRO]"
         }
       }
     }
@@ -100,7 +102,9 @@
     "status_off": "DÉSACTIVÉ",
     "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nInterface: {ifname}\nSource: {source}",
     "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
-    "wifis_updated": "Wi-Fi mis à jour : {bands}"
+    "wifis_updated": "Wi-Fi mis à jour : {bands}",
+    "purge_dry_run": "Aperçu de la purge : {entities} entités et {devices} appareils seront supprimés (> {days} jours ; only_randomized={only_randomized}).",
+    "purge_done": "Purge terminée : {entities} entités et {devices} appareils seront supprimés (> {days} jours ; only_randomized={only_randomized})."
   },
 
   "services": {
@@ -117,6 +121,21 @@
         "hide_sensitive": { "name": "Masquer les données sensibles", "description": "Masquer les mots de passe et les adresses MAC." }
       }
     },
+    "purge_inactive": {
+      "name": "Purger les appareils inactifs",
+      "description": "Supprime les appareils de suivi et les appareils orphelins après X jours d'inactivité.",
+      "days": "Jours d'inactivité",
+      "days_description": "Nombre de jours d'inactivité avant d'envisager une purge.",
+      "only_randomized": "MAC aléatoires uniquement",
+      "only_randomized_description": "Si cette option est activée, seuls les appareils avec des MAC aléatoires (privés) sont purgés.",
+      "include_orphans": "Inclure les appareils orphelins",
+      "include_orphans_description": "Inclure les appareils sans entités associées.",
+      "include_orphans_without_age": "Inclure les orphelins sans horodatage",
+      "include_orphans_without_age_description": "Autorise la purge même si la date de la dernière activité est inconnue.",
+      "apply": "Appliquer les modifications",
+      "apply_description":"Si cette option est désactivée, cette opération s'exécute comme un essai sans rien supprimer."
+    },
+
     "get_wifis": { "name": "Get Wi-Fi configuration (panel)" },
     "set_guest_wifi": { "name": "Configurer le Wi-Fi invité" },
     "test_guest_wifi": { "name": "Tester le Wi-Fi invité" },
@@ -125,7 +144,9 @@
 
   "service_fields": {
     "common": {
-      "device_id": "Routeur MiWiFi sur lequel appliquer l'action"
+      "device_id": "Routeur MiWiFi sur lequel appliquer l'action",
+      "verbose": "Afficher la liste (aperçu)",
+      "dry_run": "Simuler (ne pas supprimer)"
     },
     "get_wifis": {
       "hide_sensitive": "Masquer les mots de passe dans le résultat (recommandé)"
@@ -141,8 +162,22 @@
       "wifi2g": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})",
       "wifi5g": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})",
       "wifi5g_game": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})"
-    }
-  },
+    },
+    "purge_inactive": {
+      "name": "Purger les appareils inactifs",
+      "description": "Supprime les appareils de suivi et les appareils orphelins après X jours d'inactivité.",
+      "days": "Jours d'inactivité",
+      "days_description": "Nombre de jours d'inactivité avant d'envisager une purge.",
+      "only_randomized": "MAC aléatoires uniquement",
+      "only_randomized_description": "Si cette option est activée, seuls les appareils avec des MAC aléatoires (privés) sont purgés.",
+      "include_orphans": "Inclure les appareils orphelins",
+      "include_orphans_description": "Inclure les appareils sans entités associées.",
+      "include_orphans_without_age": "Inclure les orphelins sans horodatage",
+      "include_orphans_without_age_description": "Autorise la purge même si la date de la dernière activité est inconnue.",
+      "apply": "Appliquer les modifications",
+      "apply_description": "Si cette option est désactivée, cette opération s'exécute comme un essai sans rien supprimer."
+      }
+  },  
 
   "errors": {
     "password_length_simple": "Le mot de passe doit comporter de 8 à 63 caractères.",
@@ -150,6 +185,7 @@
     "no_blocks": "Aucun bloc Wi-Fi fourni (wifi2g / wifi5g / wifi5g_game).",
     "apply_role_error": "Erreur lors de l'application des modifications à {role}.",
     "router_error": "Le routeur a renvoyé une erreur.",
-    "password_length_error": "Le mot de passe doit comporter de 8 à 63 caractères."
+    "password_length_error": "Le mot de passe doit comporter de 8 à 63 caractères.",
+    "purge_invalid_days": "Les jours doivent être \u2265 1."
   }
 }

@@ -204,3 +204,61 @@ set_wifis:
       name: 5 G Game
       description: Object with fields to change (e.g., {ssid, password, encryption, hidden})
       selector: { object: {} }
+
+purge_inactive_devices:
+  name: service_fields.purge_inactive.name
+  description: service_fields.purge_inactive.description
+  fields:
+    days:
+      name: service_fields.purge_inactive.days
+      description: service_fields.purge_inactive.days_description
+      required: false
+      default: 30
+      example: 30
+      selector:
+        number:
+          min: 1
+          max: 3650
+          step: 1
+          mode: box
+          unit_of_measurement: days
+
+    only_randomized:
+      name: service_fields.purge_inactive.only_randomized
+      description: service_fields.purge_inactive.only_randomized_description
+      required: false
+      default: true
+      selector:
+        boolean: {}
+
+    include_orphans:
+      name: service_fields.purge_inactive.include_orphans
+      description: service_fields.purge_inactive.include_orphans_description
+      required: false
+      default: true
+      selector:
+        boolean: {}
+
+    include_orphans_without_age:
+      name: service_fields.purge_inactive.include_orphans_without_age
+      description: service_fields.purge_inactive.include_orphans_without_age_description
+      required: false
+      default: true
+      selector:
+        boolean: {}
+
+    verbose:
+      name: service_fields.common.verbose
+      description: service_fields.common.verbose_description
+      required: false
+      default: true
+      selector:
+        boolean: {}
+
+    apply:
+      name: service_fields.purge_inactive.apply
+      description: service_fields.purge_inactive.apply_description
+      required: false
+      default: false
+      selector:
+        boolean: {}

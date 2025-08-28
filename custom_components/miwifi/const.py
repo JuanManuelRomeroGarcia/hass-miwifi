@@ -37,7 +37,15 @@ UPDATER: Final = "updater"
 UPDATE_LISTENER: Final = "update_listener"
 OPTION_IS_FROM_FLOW: Final = "is_from_flow"
 STORAGE_VERSION: Final = 1
+
+""" Auto-purge const """
+CONF_AUTO_PURGE_EVERY_DAYS = "auto_purge_every_days"
+DEFAULT_AUTO_PURGE_EVERY_DAYS = 7
+CONF_AUTO_PURGE_AT: Final = "auto_purge_at"
+DEFAULT_AUTO_PURGE_AT: Final = "00:00"
+STORE_AUTO_PURGE: Final = "auto_purge.json"    
 SIGNAL_NEW_DEVICE: Final = f"{DOMAIN}-device-new"
+SIGNAL_PURGE_DEVICE: Final = f"{DOMAIN}-device-purge"
 
 """Custom conf"""
 CONF_STAY_ONLINE: Final = "stay_online"
