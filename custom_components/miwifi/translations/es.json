@@ -106,7 +106,6 @@
     "purge_dry_run": "Simulación: se eliminarían {entities} entidades y {devices} dispositivos (> {days} días; aleatoria={only_randomized}).",
     "purge_done": "Eliminadas {entities} entidades y {devices} dispositivos (> {days} días; aleatoria={only_randomized})."
   },
-
   "services": {
     "dump_router_data": {
       "name": "Generar dump del router",
@@ -121,64 +120,63 @@
         "hide_sensitive": { "name": "Ocultar datos sensibles", "description": "Oculta contraseñas y direcciones MAC." }
       }
     },
-    "purge_inactive": {
+    "purge_inactive_devices": {
       "name": "Purgar dispositivos inactivos",
       "description": "Elimina device_trackers y dispositivos huérfanos tras X días de inactividad.",
-      "days": "Días de inactividad",
-      "days_description": "Número de días sin actividad antes de considerar la purga.",
-      "only_randomized": "Solo MAC aleatorias",
-      "only_randomized_description": "Si está activado, solo se purgan dispositivos con MAC aleatorias (privadas).",
-      "include_orphans": "Incluir dispositivos huérfanos",
-      "include_orphans_description": "Incluye devices sin entidades asociadas.",
-      "include_orphans_without_age": "Incluir huérfanos sin marca de tiempo",
-      "include_orphans_without_age_description": "Permite purgar aunque no se conozca la fecha de última actividad.",
-      "apply": "Aplicar cambios",
-      "apply_description": "Si está desactivado se ejecuta como prueba (dry-run), sin borrar nada."
+      "fields": {
+        "days": {
+          "name": "Días de inactividad",
+          "description": "Número de días sin actividad antes de considerar la purga."
+        },
+        "only_randomized": {
+          "name": "Solo MAC aleatorias",
+          "description": "Si está activado, solo se purgan dispositivos con MAC aleatorias (privadas)."
+        },
+        "include_orphans": {
+          "name": "Incluir dispositivos huérfanos",
+          "description": "Incluye devices sin entidades asociadas."
+        },
+        "include_orphans_without_age": {
+          "name": "Incluir huérfanos sin marca de tiempo",
+          "description": "Permite purgar aunque no se conozca la fecha de última actividad."
+        },
+        "verbose": {
+          "name": "Modo detallado",
+          "description": "Incluye información extendida en los registros al ejecutar la purga."
+        },
+        "apply": {
+          "name": "Aplicar cambios",
+          "description": "Si está desactivado se ejecuta como prueba (dry-run), sin borrar nada."
+        }
+      }
     },
-
     "get_wifis": { "name": "Obtener configuración Wi-Fi (panel)" },
     "set_guest_wifi": { "name": "Configurar Wi-Fi de Invitados" },
     "test_guest_wifi": { "name": "Test Wi-Fi de Invitados" },
     "set_wifis": { "name": "Configurar Wi-Fi (2.4G/5G/Game)" }
   },
-
   "service_fields": {
     "common": {
       "device_id": "Router MiWiFi al que aplicar la acción",
       "verbose": "Mostrar listado (vista previa)",
       "dry_run": "Simular (no borrar)"
-      },
-      "get_wifis": {
-        "hide_sensitive": "Oculta contraseñas en el resultado (recomendado)"
-      },
-      "set_guest_wifi": {
-        "enable": "Activa o desactiva la red de invitados",
-        "ssid": "Nombre de la red (SSID)",
-        "password": "Contraseña (8–63 caracteres si psk2)",
-        "encryption": "Cifrado (psk2 recomendado; none = abierta)",
-        "hidden": "Ocultar SSID (0 = visible, 1 = oculto)"
-      },
-      "set_wifis": {
-        "wifi2g": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})",
-        "wifi5g": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})",
-        "wifi5g_game": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})"
-      },
-      "purge_inactive": {
-        "name": "Purgar dispositivos inactivos",
-        "description": "Elimina device_trackers y dispositivos huérfanos tras X días de inactividad.",
-        "days": "Días de inactividad",
-        "days_description": "Número de días sin actividad antes de considerar la purga.",
-        "only_randomized": "Solo MAC aleatorias",
-        "only_randomized_description": "Si está activado, solo se purgan dispositivos con MAC aleatorias (privadas).",
-        "include_orphans": "Incluir dispositivos huérfanos",
-        "include_orphans_description": "Incluye devices sin entidades asociadas.",
-        "include_orphans_without_age": "Incluir huérfanos sin marca de tiempo",
-        "include_orphans_without_age_description": "Permite purgar aunque no se conozca la fecha de última actividad.",
-        "apply": "Aplicar cambios",
-        "apply_description": "Si está desactivado se ejecuta como prueba (dry-run), sin borrar nada."
-      }
     },
-
+    "get_wifis": {
+      "hide_sensitive": "Oculta contraseñas en el resultado (recomendado)"
+    },
+    "set_guest_wifi": {
+      "enable": "Activa o desactiva la red de invitados",
+      "ssid": "Nombre de la red (SSID)",
+      "password": "Contraseña (8–63 caracteres si psk2)",
+      "encryption": "Cifrado (psk2 recomendado; none = abierta)",
+      "hidden": "Ocultar SSID (0 = visible, 1 = oculto)"
+    },
+    "set_wifis": {
+      "wifi2g": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})",
+      "wifi5g": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objeto con campos a cambiar (p. ej. {ssid, password, encryption, hidden})"
+    }
+  },
   "errors": {
     "password_length_simple": "La contraseña debe tener entre 8 y 63 caracteres.",
     "password_length_role": "[{role}] La contraseña debe tener entre 8 y 63 caracteres.",
@@ -187,6 +185,5 @@
     "router_error": "El router devolvió un error.",
     "password_length_error": "La contraseña debe tener entre 8 y 63 caracteres.",
     "purge_invalid_days": "Los días deben ser \u2265 1."
-
   }
 }

@@ -106,7 +106,6 @@
     "purge_dry_run": "Purge preview: {entities} entities and {devices} devices would be removed (> {days} days; only_randomized={only_randomized}).",
     "purge_done": "Purge completed: {entities} entities and {devices} devices removed (> {days} days; only_randomized={only_randomized})."
   },
-
   "services": {
     "dump_router_data": {
       "name": "Generate router dump",
@@ -121,27 +120,41 @@
         "hide_sensitive": { "name": "Hide sensitive data", "description": "Hide passwords and MAC addresses." }
       }
     },
-    "purge_inactive": {
-      "name": "Purge inactive devices",
-        "description": "Deletes device_trackers and orphaned devices after X days of inactivity.",
-        "days": "Days of inactivity",
-        "days_description": "Number of days of inactivity before considering purging.",
-        "only_randomized": "Random MACs only",
-        "only_randomized_description": "If enabled, only devices with random (private) MACs are purged.",
-        "include_orphans": "Include orphaned devices",
-        "include_orphans_description": "Include devices without associated entities.",
-        "include_orphans_without_age": "Include orphans without a timestamp",
-        "include_orphans_without_age_description": "Allows purging even if the last activity date is unknown.",
-        "apply": "Apply changes",
-        "apply_description": "If disabled, this runs as a dry run without deleting anything."
+    "purge_inactive_devices": {
+    "name": "Purge inactive devices",
+    "description": "Removes device_trackers and orphan devices after X days of inactivity.",
+    "fields": {
+      "days": {
+        "name": "Inactivity days",
+        "description": "Number of days without activity before considering the purge."
+        },
+        "only_randomized": {
+          "name": "Only randomized MACs",
+          "description": "If enabled, only devices with randomized (private) MACs will be purged."
+        },
+        "include_orphans": {
+          "name": "Include orphan devices",
+          "description": "Also remove devices without associated entities."
+        },
+        "include_orphans_without_age": {
+          "name": "Include orphans without timestamp",
+          "description": "Allows purging even if the last activity date is unknown."
+        },
+        "verbose": {
+          "name": "Detailed mode",
+          "description": "Adds extended log output when executing the purge."
+        },
+        "apply": {
+          "name": "Apply changes",
+          "description": "If disabled, runs as a dry-run (simulation) without deleting anything."
+        }
+      }
     },
-
     "get_wifis": { "name": "Get Wi-Fi configuration (panel)" },
     "set_guest_wifi": { "name": "Configure Guest Wi-Fi" },
     "test_guest_wifi": { "name": "Test Guest Wi-Fi" },
     "set_wifis": { "name": "Configure Wi-Fi (2.4G/5G/Game)" }
   },
-
   "service_fields": {
     "common": {
       "device_id": "MiWiFi router to apply the action to",
@@ -162,23 +175,8 @@
       "wifi2g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
       "wifi5g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
       "wifi5g_game": "Object with fields to change (e.g., {ssid, password, encryption, hidden})"
-    },
-    "purge_inactive": {
-      "name": "Purge inactive devices",
-      "description": "Removes device_trackers and orphaned devices after X days of inactivity.",
-      "days": "Days of inactivity",
-      "days_description": "Number of days of inactivity before considering purging.",
-      "only_randomized": "Random MACs only",
-      "only_randomized_description": "If enabled, only devices with random (private) MACs are purged.",
-      "include_orphans": "Include orphaned devices",
-      "include_orphans_description": "Include devices without associated entities.",
-      "include_orphans_without_age": "Include orphans without a timestamp",
-      "include_orphans_without_age_description": "Allows purging even if the last activity date is unknown.",
-      "apply": "Apply changes",
-      "apply_description": "If disabled, run as a test (dry-run), without deleting anything."
     }
   },
-
   "errors": {
     "password_length_simple": "Password must be 8–63 characters.",
     "password_length_role": "[{role}] Password must be 8–63 characters.",

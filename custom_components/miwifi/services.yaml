@@ -206,59 +206,53 @@ set_wifis:
       selector: { object: {} }
 
 purge_inactive_devices:
-  name: service_fields.purge_inactive.name
-  description: service_fields.purge_inactive.description
+  name: Purge inactive devices
+  description: Remove device_trackers and orphaned devices after X days of inactivity.
   fields:
     days:
-      name: service_fields.purge_inactive.days
-      description: service_fields.purge_inactive.days_description
-      required: false
-      default: 30
-      example: 30
+      name: Inactivity days
+      description: Number of days without activity before purge.
+      required: true
+      default: 7
+      example: 7
       selector:
         number:
           min: 1
-          max: 3650
-          step: 1
+          max: 365
           mode: box
           unit_of_measurement: days
-
     only_randomized:
-      name: service_fields.purge_inactive.only_randomized
-      description: service_fields.purge_inactive.only_randomized_description
-      required: false
-      default: true
+      name: Only randomized MACs
+      description: Purge only devices with randomized (private) MACs.
+      required: true
+      default: false
       selector:
         boolean: {}
-
     include_orphans:
-      name: service_fields.purge_inactive.include_orphans
-      description: service_fields.purge_inactive.include_orphans_description
+      name: Include orphan devices
+      description: Include devices without associated entities.
       required: false
       default: true
       selector:
         boolean: {}
-
     include_orphans_without_age:
-      name: service_fields.purge_inactive.include_orphans_without_age
-      description: service_fields.purge_inactive.include_orphans_without_age_description
+      name: Include orphans without timestamp
+      description: Allow purge even if last activity date is unknown.
       required: false
       default: true
       selector:
         boolean: {}
-
     verbose:
-      name: service_fields.common.verbose
-      description: service_fields.common.verbose_description
-      required: false
-      default: true
+      name: Verbose mode
+      description: Show detailed log output during execution.
+      required: true
+      default: false
       selector:
         boolean: {}
-
     apply:
-      name: service_fields.purge_inactive.apply
-      description: service_fields.purge_inactive.apply_description
-      required: false
+      name: Apply changes
+      description: If disabled, runs as dry-run (simulation), nothing will be deleted.
+      required: true
       default: false
       selector:
         boolean: {}
