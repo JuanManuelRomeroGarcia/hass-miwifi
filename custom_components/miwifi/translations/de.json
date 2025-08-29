@@ -2,190 +2,188 @@
   "title": "MiWifi",
   "config": {
     "error": {
-      "ip_address.not_matched": "Ungültige IP Adresse",
+      "ip_address.not_matched": "Ungültige IP",
       "password.not_matched": "Falsches Passwort oder Verschlüsselungsalgorithmus",
-      "connection": "Fehler bei der Herstellung einer Verbindung",
-      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungszentrum gesendet.",
-      "router.error_with_reason": "Fehler bei der Verbindung zum Router: {reason}"
+      "connection": "Verbindung konnte nicht hergestellt werden",
+      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungscenter gesendet.",
+      "router.error_with_reason": "Fehler beim Verbinden mit dem Router: {reason}"
     },
     "step": {
       "discovery_confirm": {
         "title": "MiWiFi Einstellungen",
-        "description": "Gib die IP Adresse und das Passwort deines MiWifi Routers ein",
+        "description": "Geben Sie die IP-Adresse und das Passwort Ihres MiWiFi Routers ein",
         "data": {
-          "ip_address": "IP Adresse",
+          "ip_address": "IP-Adresse",
           "password": "Passwort",
-          "encryption_algorithm": "Passwort Verschlüsselungsalgorithmus",
+          "encryption_algorithm": "Passwort-Verschlüsselungsalgorithmus",
           "is_track_devices": "Geräte verfolgen",
-          "stay_online": "Mindestaufenthalt in Sekunden online",
-          "scan_interval": "Scanintervall in Sekunden [PRO]",
-          "timeout": "Timeout von Anfragen in Sekunden [PRO]",
+          "stay_online": "Minimale Online-Zeit (Sekunden)",
+          "scan_interval": "Scanintervall (Sekunden) [PRO]",
+          "timeout": "Timeout für Anfragen (Sekunden) [PRO]",
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
-          "is_force_load": "Erzwungenes Booten von Geräten im Repeater-Modus [PRO]",
+          "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
           "activity_days": "Erlaubte Tage seit der letzten Aktivität [PRO]",
-          "log_level": "Protokollebene (global)",
-          "enable_panel": "Steuerpanel aktivieren"
+          "log_level": "Log-Level (global)",
+          "enable_panel": "Steuerungs-Panel aktivieren"
         }
       }
     }
   },
   "options": {
     "error": {
-      "ip_address.not_matched": "Ungültige IP Adresse",
+      "ip_address.not_matched": "Ungültige IP",
       "password.not_matched": "Falsches Passwort oder Verschlüsselungsalgorithmus",
-      "connection": "Fehler bei der Herstellung einer Verbindung",
-      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungszentrum gesendet.",
-      "router.error_with_reason": "Fehler bei der Verbindung zum Router: {reason}"
+      "connection": "Verbindung konnte nicht hergestellt werden",
+      "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungscenter gesendet.",
+      "router.error_with_reason": "Fehler beim Verbinden mit dem Router: {reason}"
     },
     "step": {
       "init": {
         "title": "MiWiFi Einstellungen",
-        "description": "Gib die IP Adresse und das Passwort deines MiWifi Routers ein",
+        "description": "Geben Sie die IP-Adresse und das Passwort Ihres MiWiFi Routers ein",
         "data": {
-          "ip_address": "IP Adresse",
+          "ip_address": "IP-Adresse",
           "password": "Passwort",
-          "encryption_algorithm": "Passwort Verschlüsselungsalgorithmus",
+          "encryption_algorithm": "Passwort-Verschlüsselungsalgorithmus",
           "is_track_devices": "Geräte verfolgen",
-          "stay_online": "Mindestaufenthalt in Sekunden online",
-          "scan_interval": "Scanintervall in Sekunden [PRO]",
-          "timeout": "Timeout von Anfragen in Sekunden [PRO]",
-          "activity_days": "Anzahl der Tage, die nach der letzten Aktivität gewartet werden soll [PRO]",
-          "is_force_load": "Erzwungenes Booten von Geräten im Repeater-Modus [PRO]",
+          "stay_online": "Minimale Online-Zeit (Sekunden)",
+          "scan_interval": "Scanintervall (Sekunden) [PRO]",
+          "timeout": "Timeout für Anfragen (Sekunden) [PRO]",
+          "activity_days": "Erlaubte Tage nach der letzten Aktivität [PRO]",
+          "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
-          "log_level": "Protokollebene (global)",
-          "enable_panel": "Steuerpanel aktivieren",
+          "log_level": "Log-Level (global)",
+          "enable_panel": "Steuerungs-Panel aktivieren",
           "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
-          "auto_purge_at": "Automatische Spülung zur vollen Stunde (0-23) [PRO]"
+          "auto_purge_at": "Zeit für automatische Bereinigung (0–23) [PRO]"
         }
       }
     }
   },
   "system_health": {
     "info": {
-      "version": "Ausführung"
+      "version": "Version"
     }
   },
   "panel_update": {
-    "title": "MiWiFi-Panel",
-    "update_title": "MiWiFi-Panel aktualisiert",
-    "update_message": "✅ Das MiWiFi-Panel wurde auf Version <b>{version}</b> aktualisiert.<br>Bitte <b>aktualisiere deinen Browser (Strg+F5)</b>, um die Änderungen zu sehen.",
-    "release_notes": "Dieses Panel ist Teil der benutzerdefinierten MiWiFi-Integration. Es bietet eine visuelle Übersicht über die Netzwerktopologie, Gerätesteuerung und Routerstatistiken. Das Update enthält Verbesserungen an der Benutzeroberfläche, Leistungsverbesserungen und Fehlerbehebungen."
+    "title": "MiWiFi Panel",
+    "update_title": "MiWiFi Panel aktualisiert",
+    "update_message": "✅ Das MiWiFi Panel wurde auf Version <b>{version}</b> aktualisiert.<br>Bitte <b>aktualisieren Sie Ihren Browser (Ctrl+F5)</b>, um die Änderungen zu sehen.",
+    "release_notes": "Dieses Panel ist Teil der benutzerdefinierten MiWiFi-Integration. Es bietet eine visuelle Netzwerktopologie, Gerätesteuerung und Router-Statistiken. Das Update enthält Verbesserungen an der Oberfläche, Leistung und Fehlerbehebungen."
   },
   "connection_type": {
     "lan": "Kabel (LAN)",
     "wifi_2_4": "Wi-Fi 2.4G",
     "wifi_5_0": "Wi-Fi 5G",
-    "guest": "Gäste-Netzwerk",
+    "guest": "Gastnetzwerk",
     "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
     "unknown": "Unbekannt"
   },
   "notifications": {
-    "new_device_title": "Neues Gerät auf MiWiFi erkannt",
+    "new_device_title": "Neues Gerät im MiWiFi erkannt",
     "new_device_message": "📶 Neues Gerät verbunden: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Verbindung: `{conn}`",
     "unsupported_router_title": "Nicht unterstützter Router",
-    "unsupported_router_message": "⚠️ Router unter {ip} wird von der MiWiFi-Integration nicht unterstützt.",
+    "unsupported_router_message": "⚠️ Der Router unter {ip} wird von der MiWiFi-Integration nicht unterstützt.",
     "device_blocked_message": "Gerät {name} wurde automatisch {status}.",
     "status_blocked": "BLOCKIERT",
-    "status_unblocked": "ENTBLOCKIERT",
-    "download_ready": "📦 Die Logs sind bereit: <a href='{url}' target='_blank'>Klicke hier, um sie herunterzuladen</a>",
-    "calc_passwd_message": "🔐 Dein Passwort ist: <b>{passwd}</b>",
+    "status_unblocked": "ENTBLOCKT",
+    "download_ready": "📦 Logs sind bereit: <a href='{url}' target='_blank'>Herunterladen</a>",
+    "calc_passwd_message": "🔐 Ihr Passwort lautet: <b>{passwd}</b>",
     "self_check_title": "Router-Kompatibilität fehlgeschlagen",
-    "self_check_message": "🔍 Inkompatible Methoden im Router ({model}) wurden erkannt.",
+    "self_check_message": "🔍 Auf dem Router ({model}) wurden inkompatible Methoden erkannt.",
     "suggest_unsupported_title": "Nicht unterstütztes Modell erkannt",
-    "suggest_unsupported_message": "🚫 Dieses Router-Modell hat einige Kompatibilitätstests nicht bestanden.",
-    "add_unsupported": "➕ {model} zu Feature {feature} in unsupported_user.py hinzugefügt",
-    "already_in_unsupported": "⚠️ {model} ist bereits in Feature {feature} vorhanden.",
-    "dump_ready": "📄 Dump generiert: <a href='{url}' target='_blank'>Herunterladen</a>",
-    "dump_error": "❌ Fehler beim Generieren des Dumps",
+    "suggest_unsupported_message": "🚫 Dieser Router hat einige Kompatibilitätstests nicht bestanden.",
+    "add_unsupported": "➕ {model} wurde zur Funktion {feature} in unsupported_user.py hinzugefügt",
+    "already_in_unsupported": "⚠️ {model} ist bereits in der Funktion {feature} vorhanden.",
+    "dump_ready": "📄 Dump erstellt: <a href='{url}' target='_blank'>Herunterladen</a>",
+    "dump_error": "❌ Fehler beim Erstellen des Dumps",
     "title": "MiWiFi",
     "status_on": "AN",
     "status_off": "AUS",
-    "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nSchnittstelle: {ifname}\nQuelle: {source}",
-    "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
+    "guest_status_message": "Gast-Wi-Fi: {state}\nSSID: {ssid}\nVerschlüsselung: {encryption}\nSchnittstelle: {ifname}\nQuelle: {source}",
+    "guest_updated": "Gast-Wi-Fi: {state}<br>SSID: {ssid}<br>Verschlüsselung: {encryption}",
     "wifis_updated": "Wi-Fi aktualisiert: {bands}",
-    "purge_dry_run": "Bereinigungsvorschau: {entities} Entitäten und {devices} Geräte werden entfernt (> {days} Tage; only_randomized={only_randomized}).",
+    "purge_dry_run": "Bereinigungsvorschau: {entities} Entitäten und {devices} Geräte würden entfernt (> {days} Tage; only_randomized={only_randomized}).",
     "purge_done": "Bereinigung abgeschlossen: {entities} Entitäten und {devices} Geräte entfernt (> {days} Tage; only_randomized={only_randomized})."
   },
-
   "services": {
     "dump_router_data": {
       "name": "Router-Dump erstellen",
       "description": "Erstellt eine JSON-Datei mit Informationen des Hauptrouters.",
       "fields": {
-        "system": { "name": "Systemdaten einschließen", "description": "Allgemeine Systeminformationen einschließen." },
-        "network": { "name": "Netzwerkdaten einschließen", "description": "WAN-, Wi-Fi- und Topologie-Details einschließen." },
-        "devices": { "name": "Verbundene Geräte einschließen", "description": "Liste der verbundenen Geräte und deren Informationen einschließen." },
-        "nat_rules": { "name": "NAT-Regeln einschließen", "description": "Portweiterleitungsregeln einschließen." },
-        "qos": { "name": "QoS-Konfiguration einschließen", "description": "Details zur QoS-Konfiguration einschließen." },
-        "wifi_config": { "name": "Wi-Fi-Konfiguration einschließen", "description": "Wi-Fi-Netzwerkeinstellungen einschließen (kann sensible Daten enthalten)." },
+        "system": { "name": "Systemdaten einbeziehen", "description": "Allgemeine Systeminformationen einfügen." },
+        "network": { "name": "Netzwerkdaten einbeziehen", "description": "WAN-, Wi-Fi- und Topologie-Details einfügen." },
+        "devices": { "name": "Verbundene Geräte einbeziehen", "description": "Liste verbundener Geräte und deren Informationen einfügen." },
+        "nat_rules": { "name": "NAT-Regeln einbeziehen", "description": "Portweiterleitungsregeln einfügen." },
+        "qos": { "name": "QoS-Konfiguration einbeziehen", "description": "QoS-Konfigurationsdetails einfügen." },
+        "wifi_config": { "name": "Wi-Fi-Konfiguration einbeziehen", "description": "Wi-Fi-Netzwerkeinstellungen einfügen (kann sensible Daten enthalten)." },
         "hide_sensitive": { "name": "Sensible Daten ausblenden", "description": "Passwörter und MAC-Adressen ausblenden." }
       }
     },
-    "purge_inactive": {
-      "name": "Inaktive Geräte löschen",
-      "description": "Löscht Geräte-Tracker und verwaiste Geräte nach X Tagen Inaktivität.",
-      "days": "Tage der Inaktivität",
-      "days_description": "Anzahl der Tage der Inaktivität, bevor eine Löschung in Betracht gezogen wird.",
-      "only_randomized": "Nur zufällige MACs",
-      "only_randomized_description": "Wenn aktiviert, werden nur Geräte mit zufälligen (privaten) MACs gelöscht.",
-      "include_orphans": "Verwaiste Geräte einschließen",
-      "include_orphans_description": "Geräte ohne zugehörige Entitäten einschließen.",
-      "include_orphans_without_age": "Verwaiste Geräte ohne Zeitstempel einschließen",
-      "include_orphans_without_age_description": "Erlaubt die Löschung auch bei unbekanntem Datum der letzten Aktivität.",
-      "apply": "Änderungen anwenden",
-      "apply_description": "Wenn deaktiviert, wird dies als Dry-Reset ausgeführt. ausführen, ohne etwas zu löschen."
+    "purge_inactive_devices": {
+      "name": "Inaktive Geräte bereinigen",
+      "description": "Entfernt device_tracker und verwaiste Geräte nach X Tagen Inaktivität.",
+      "fields": {
+        "days": {
+          "name": "Inaktivitätstage",
+          "description": "Anzahl der Tage ohne Aktivität vor der Bereinigung."
+        },
+        "only_randomized": {
+          "name": "Nur zufällige MACs",
+          "description": "Wenn aktiviert, werden nur Geräte mit zufälligen (privaten) MAC-Adressen bereinigt."
+        },
+        "include_orphans": {
+          "name": "Verwaiste Geräte einbeziehen",
+          "description": "Entfernt auch Geräte ohne zugehörige Entitäten."
+        },
+        "include_orphans_without_age": {
+          "name": "Verwaiste ohne Zeitstempel einbeziehen",
+          "description": "Bereinigung auch wenn kein letztes Aktivitätsdatum bekannt ist."
+        },
+        "verbose": {
+          "name": "Detaillierter Modus",
+          "description": "Fügt während der Bereinigung erweiterte Protokollausgaben hinzu."
+        },
+        "apply": {
+          "name": "Änderungen anwenden",
+          "description": "Wenn deaktiviert, wird nur eine Simulation (Dry-Run) ausgeführt, ohne etwas zu löschen."
+        }
+      }
     },
-
-    "get_wifis": { "name": "Wi-Fi-Konfiguration abrufen" },
-    "set_guest_wifi": { "name": "Gäste-WLAN konfigurieren" },
-    "test_guest_wifi": { "name": "Gäste-WLAN testen" },
-    "set_wifis": { "name": "Wi-Fi konfigurieren (2.4G/5G/Game)" }
+    "get_wifis": { "name": "Wi-Fi-Konfiguration abrufen (Panel)" },
+    "set_guest_wifi": { "name": "Gast-Wi-Fi konfigurieren" },
+    "test_guest_wifi": { "name": "Gast-Wi-Fi testen" },
+    "set_wifis": { "name": "Wi-Fi konfigurieren (2.4G/5G/Spiel)" }
   },
-
   "service_fields": {
     "common": {
-      "device_id": "MiWiFi-Router, auf den die Aktion angewendet werden soll",
+      "device_id": "MiWiFi-Router, auf den die Aktion angewendet wird",
       "verbose": "Liste anzeigen (Vorschau)",
-      "dry_run": "Simulieren (nicht löschen)"
+      "dry_run": "Simulation (nicht löschen)"
     },
     "get_wifis": {
       "hide_sensitive": "Passwörter im Ergebnis ausblenden (empfohlen)"
     },
     "set_guest_wifi": {
-      "enable": "Gäste-WLAN aktivieren oder deaktivieren",
+      "enable": "Gastnetzwerk ein-/ausschalten",
       "ssid": "Netzwerkname (SSID)",
-      "password": "Passwort (8–63 Zeichen, wenn psk2)",
+      "password": "Passwort (8–63 Zeichen für psk2)",
       "encryption": "Verschlüsselung (psk2 empfohlen; none = offen)",
       "hidden": "SSID ausblenden (0 = sichtbar, 1 = verborgen)"
     },
     "set_wifis": {
-      "wifi2g": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})",
-      "wifi5g": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})",
-      "wifi5g_game": "Objekt mit zu ändernden Feldern (z. B. {ssid, password, encryption, hidden})"
-    },
-    "purge_inactive": {
-      "name": "Inaktive Geräte löschen",
-      "description": "Entfernt Geräte-Tracker und verwaiste Geräte nach X Tagen Inaktivität.",
-      "days": "Tage der Inaktivität",
-      "days_description": "Anzahl der Tage der Inaktivität, bevor eine Löschung in Betracht gezogen wird.",
-      "only_randomized": "Nur zufällige MACs",
-      "only_randomized_description": "Wenn aktiviert, werden nur Geräte mit zufälligen (privaten) MACs gelöscht.",
-      "include_orphans": "Verwaiste Geräte einschließen",
-      "include_orphans_description": "Geräte ohne zugehörige Entitäten einschließen.",
-      "include_orphans_without_age": "Verwaiste Geräte ohne Zeitstempel einschließen",
-      "include_orphans_without_age_description": "Erlaubt die Löschung auch bei unbekanntem Datum der letzten Aktivität.",
-      "apply": "Änderungen anwenden",
-      "apply_description": "Wenn deaktiviert, als Test (Trockenlauf) ausführen, ohne etwas zu löschen."
-      }
+      "wifi2g": "Objekt mit zu ändernden Feldern (z.B. {ssid, password, encryption, hidden})",
+      "wifi5g": "Objekt mit zu ändernden Feldern (z.B. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objekt mit zu ändernden Feldern (z.B. {ssid, password, encryption, hidden})"
+    }
   },
-
   "errors": {
     "password_length_simple": "Passwort muss 8–63 Zeichen lang sein.",
     "password_length_role": "[{role}] Passwort muss 8–63 Zeichen lang sein.",
-    "no_blocks": "Kein Wi-Fi-Block bereitgestellt (wifi2g / wifi5g / wifi5g_game).",
-    "apply_role_error": "Fehler beim Anwenden der Änderungen auf {role}.",
-    "router_error": "Router hat einen Fehler zurückgegeben.",
-    "password_length_error": "Das Passwort muss zwischen 8 und 63 Zeichen lang sein.",
-    "purge_invalid_days": "Tage müssen \u2265 1 sein."
+    "no_blocks": "Kein Wi-Fi-Block angegeben (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Fehler beim Anwenden der Änderungen an {role}.",
+    "router_error": "Der Router hat einen Fehler zurückgegeben.",
+    "password_length_error": "Passwort muss 8–63 Zeichen lang sein.",
+    "purge_invalid_days": "Die Tage müssen ≥ 1 sein."
   }
 }

@@ -3,23 +3,23 @@
   "config": {
     "error": {
       "ip_address.not_matched": "IP invalide",
-      "password.not_matched": "Mauvais mot de passe ou algorithme de cryptage",
-      "connection": "Impossible d'établir la connexion",
-      "router.not.supported": "Le routeur n'est pas pris en charge. Des informations détaillées ont été envoyées au centre de notification.",
-      "router.error_with_reason": "Erreur lors de la connexion au routeur : {reason}"
+      "password.not_matched": "Mot de passe ou algorithme de chiffrement incorrect",
+      "connection": "Échec de l’établissement de la connexion",
+      "router.not.supported": "Le routeur n’est pas pris en charge. Des informations détaillées ont été envoyées au centre de notifications.",
+      "router.error_with_reason": "Erreur de connexion au routeur : {reason}"
     },
     "step": {
       "discovery_confirm": {
         "title": "Paramètres MiWiFi",
-        "description": "Entrez l'adresse IP et le mot de passe de votre routeur MiWiFi",
+        "description": "Saisissez l’adresse IP et le mot de passe de votre routeur MiWiFi",
         "data": {
           "ip_address": "Adresse IP",
           "password": "Mot de passe",
-          "encryption_algorithm": "Algorithme de cryptage du mot de passe",
+          "encryption_algorithm": "Algorithme de chiffrement du mot de passe",
           "is_track_devices": "Suivre les appareils",
-          "stay_online": "Reste en ligne minimum en secondes",
-          "scan_interval": "Intervalle d'analyse en secondes [PRO]",
-          "timeout": "Délai d'expiration des requêtes en secondes [PRO]",
+          "stay_online": "Temps minimum en ligne (secondes)",
+          "scan_interval": "Intervalle d’analyse (secondes) [PRO]",
+          "timeout": "Délai des requêtes (secondes) [PRO]",
           "wan_speed_unit": "Unité de vitesse WAN",
           "is_force_load": "Chargement forcé des appareils en mode répéteur [PRO]",
           "activity_days": "Jours autorisés depuis la dernière activité [PRO]",
@@ -32,30 +32,30 @@
   "options": {
     "error": {
       "ip_address.not_matched": "IP invalide",
-      "password.not_matched": "Mauvais mot de passe ou algorithme de cryptage",
-      "connection": "Impossible d'établir la connexion",
-      "router.not.supported": "Le routeur n'est pas pris en charge. Des informations détaillées ont été envoyées au centre de notification.",
-      "router.error_with_reason": "Erreur lors de la connexion au routeur : {reason}"
+      "password.not_matched": "Mot de passe ou algorithme de chiffrement incorrect",
+      "connection": "Échec de l’établissement de la connexion",
+      "router.not.supported": "Le routeur n’est pas pris en charge. Des informations détaillées ont été envoyées au centre de notifications.",
+      "router.error_with_reason": "Erreur de connexion au routeur : {reason}"
     },
     "step": {
       "init": {
         "title": "Paramètres MiWiFi",
-        "description": "Entrez l'adresse IP et le mot de passe de votre routeur MiWiFi",
+        "description": "Saisissez l’adresse IP et le mot de passe de votre routeur MiWiFi",
         "data": {
           "ip_address": "Adresse IP",
           "password": "Mot de passe",
-          "encryption_algorithm": "Algorithme de cryptage du mot de passe",
+          "encryption_algorithm": "Algorithme de chiffrement du mot de passe",
           "is_track_devices": "Suivre les appareils",
-          "stay_online": "Reste en ligne minimum en secondes",
-          "scan_interval": "Intervalle d'analyse en secondes [PRO]",
-          "activity_days": "Nombre de jours d'attente autorisés après la dernière activité [PRO]",
-          "timeout": "Délai d'expiration des requêtes en secondes [PRO]",
+          "stay_online": "Temps minimum en ligne (secondes)",
+          "scan_interval": "Intervalle d’analyse (secondes) [PRO]",
+          "timeout": "Délai des requêtes (secondes) [PRO]",
+          "activity_days": "Nombre de jours autorisés après la dernière activité [PRO]",
           "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
-          "enable_panel": "Activer le panneau de contrôle",
           "wan_speed_unit": "Unité de vitesse WAN",
           "log_level": "Niveau de log (global)",
+          "enable_panel": "Activer le panneau de contrôle",
           "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
-          "auto_purge_at": "Purge automatique à une heure (0-23) [PRO]"
+          "auto_purge_at": "Heure de purge automatique (0–23) [PRO]"
         }
       }
     }
@@ -68,26 +68,26 @@
   "panel_update": {
     "title": "Panneau MiWiFi",
     "update_title": "Panneau MiWiFi mis à jour",
-    "update_message": "✅ Le panneau MiWiFi a été mis à jour vers la version <b>{version}</b>.<br>Veuillez <b>actualiser votre navigateur (Ctrl+F5)</b> pour voir les modifications.",
-    "release_notes": "Ce panneau fait partie de l'intégration personnalisée MiWiFi. Il offre une vue visuelle de la topologie réseau, le contrôle des appareils et des statistiques du routeur. La mise à jour inclut des améliorations de l'interface, des performances et des corrections de bugs."
+    "update_message": "✅ Le panneau MiWiFi a été mis à jour vers la version <b>{version}</b>.<br>Veuillez <b>actualiser votre navigateur (Ctrl+F5)</b> pour voir les changements.",
+    "release_notes": "Ce panneau fait partie de l’intégration personnalisée MiWiFi. Il offre une vue de la topologie réseau, le contrôle des appareils et des statistiques du routeur. Cette mise à jour inclut des améliorations d’interface, de performances et des corrections."
   },
   "connection_type": {
-    "lan": "Câble (LAN)",
+    "lan": "Câblé (LAN)",
     "wifi_2_4": "Wi-Fi 2.4G",
     "wifi_5_0": "Wi-Fi 5G",
-    "guest": "Réseau Invité",
-    "wifi_5_0_game": "Wi-Fi 5G (Jeux)",
+    "guest": "Réseau invité",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
     "unknown": "Inconnu"
   },
   "notifications": {
-    "new_device_title": "Nouveau dispositif détecté sur MiWiFi",
-    "new_device_message": "📶 Nouveau dispositif connecté : **{name}**\n💻 MAC : `{mac}`\n🌐 IP : `{ip}`\n📡 Connexion : `{conn}`",
+    "new_device_title": "Nouvel appareil détecté sur MiWiFi",
+    "new_device_message": "📶 Nouvel appareil connecté : **{name}**\n💻 MAC : `{mac}`\n🌐 IP : `{ip}`\n📡 Connexion : `{conn}`",
     "unsupported_router_title": "Routeur non pris en charge",
-    "unsupported_router_message": "⚠️ Le routeur à {ip} n'est pas pris en charge par l'intégration MiWiFi.",
-    "device_blocked_message": "Le dispositif {name} a été automatiquement {status}.",
+    "unsupported_router_message": "⚠️ Le routeur à {ip} n’est pas pris en charge par l’intégration MiWiFi.",
+    "device_blocked_message": "L’appareil {name} a été {status} automatiquement.",
     "status_blocked": "BLOQUÉ",
     "status_unblocked": "DÉBLOQUÉ",
-    "download_ready": "📦 Vos logs sont prêts : <a href='{url}' target='_blank'>Cliquez ici pour les télécharger</a>",
+    "download_ready": "📦 Vos journaux sont prêts : <a href='{url}' target='_blank'>Cliquez pour télécharger</a>",
     "calc_passwd_message": "🔐 Votre mot de passe est : <b>{passwd}</b>",
     "self_check_title": "Compatibilité du routeur échouée",
     "self_check_message": "🔍 Des méthodes incompatibles ont été détectées sur le routeur ({model}).",
@@ -98,53 +98,66 @@
     "dump_ready": "📄 Dump généré : <a href='{url}' target='_blank'>Télécharger</a>",
     "dump_error": "❌ Erreur lors de la génération du dump",
     "title": "MiWiFi",
-    "status_on": "ACTIVÉ",
-    "status_off": "DÉSACTIVÉ",
-    "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nInterface: {ifname}\nSource: {source}",
-    "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
+    "status_on": "ON",
+    "status_off": "OFF",
+    "guest_status_message": "Wi-Fi invité : {state}\nSSID : {ssid}\nChiffrement : {encryption}\nInterface : {ifname}\nSource : {source}",
+    "guest_updated": "Wi-Fi invité : {state}<br>SSID : {ssid}<br>Chiffrement : {encryption}",
     "wifis_updated": "Wi-Fi mis à jour : {bands}",
-    "purge_dry_run": "Aperçu de la purge : {entities} entités et {devices} appareils seront supprimés (> {days} jours ; only_randomized={only_randomized}).",
-    "purge_done": "Purge terminée : {entities} entités et {devices} appareils seront supprimés (> {days} jours ; only_randomized={only_randomized})."
+    "purge_dry_run": "Aperçu de purge : {entities} entités et {devices} appareils seraient supprimés (> {days} jours ; only_randomized={only_randomized}).",
+    "purge_done": "Purge terminée : {entities} entités et {devices} appareils supprimés (> {days} jours ; only_randomized={only_randomized})."
   },
-
   "services": {
     "dump_router_data": {
       "name": "Générer un dump du routeur",
       "description": "Génère un fichier JSON avec les informations du routeur principal.",
       "fields": {
         "system": { "name": "Inclure les données système", "description": "Inclure les informations générales du système." },
-        "network": { "name": "Inclure les données réseau", "description": "Inclure les détails du WAN, du Wi-Fi et de la topologie." },
+        "network": { "name": "Inclure les données réseau", "description": "Inclure les détails WAN, Wi-Fi et topologie." },
         "devices": { "name": "Inclure les appareils connectés", "description": "Inclure la liste des appareils connectés et leurs informations." },
-        "nat_rules": { "name": "Inclure les règles NAT", "description": "Inclure les règles de redirection de port." },
-        "qos": { "name": "Inclure la configuration QoS", "description": "Inclure les détails de la configuration QoS." },
-        "wifi_config": { "name": "Inclure la configuration Wi-Fi", "description": "Inclure les paramètres Wi-Fi (peut contenir des données sensibles)." },
-        "hide_sensitive": { "name": "Masquer les données sensibles", "description": "Masquer les mots de passe et les adresses MAC." }
+        "nat_rules": { "name": "Inclure les règles NAT", "description": "Inclure les règles de redirection de ports." },
+        "qos": { "name": "Inclure la configuration QoS", "description": "Inclure les paramètres QoS." },
+        "wifi_config": { "name": "Inclure la configuration Wi-Fi", "description": "Inclure les paramètres des réseaux Wi-Fi (peut contenir des données sensibles)." },
+        "hide_sensitive": { "name": "Masquer les données sensibles", "description": "Masquer les mots de passe et adresses MAC." }
       }
     },
-    "purge_inactive": {
+    "purge_inactive_devices": {
       "name": "Purger les appareils inactifs",
-      "description": "Supprime les appareils de suivi et les appareils orphelins après X jours d'inactivité.",
-      "days": "Jours d'inactivité",
-      "days_description": "Nombre de jours d'inactivité avant d'envisager une purge.",
-      "only_randomized": "MAC aléatoires uniquement",
-      "only_randomized_description": "Si cette option est activée, seuls les appareils avec des MAC aléatoires (privés) sont purgés.",
-      "include_orphans": "Inclure les appareils orphelins",
-      "include_orphans_description": "Inclure les appareils sans entités associées.",
-      "include_orphans_without_age": "Inclure les orphelins sans horodatage",
-      "include_orphans_without_age_description": "Autorise la purge même si la date de la dernière activité est inconnue.",
-      "apply": "Appliquer les modifications",
-      "apply_description":"Si cette option est désactivée, cette opération s'exécute comme un essai sans rien supprimer."
+      "description": "Supprime les device_trackers et appareils orphelins après X jours d’inactivité.",
+      "fields": {
+        "days": {
+          "name": "Jours d’inactivité",
+          "description": "Nombre de jours sans activité avant de lancer la purge."
+        },
+        "only_randomized": {
+          "name": "Uniquement les MAC aléatoires",
+          "description": "Si activé, ne purge que les appareils avec des MAC aléatoires (privées)."
+        },
+        "include_orphans": {
+          "name": "Inclure les appareils orphelins",
+          "description": "Inclure aussi les appareils sans entités associées."
+        },
+        "include_orphans_without_age": {
+          "name": "Inclure les orphelins sans horodatage",
+          "description": "Autoriser la purge même si la date de dernière activité est inconnue."
+        },
+        "verbose": {
+          "name": "Mode détaillé",
+          "description": "Ajoute des informations étendues dans les journaux lors de l’exécution de la purge."
+        },
+        "apply": {
+          "name": "Appliquer les changements",
+          "description": "Si désactivé, exécute un essai (simulation) sans rien supprimer."
+        }
+      }
     },
-
-    "get_wifis": { "name": "Get Wi-Fi configuration (panel)" },
+    "get_wifis": { "name": "Obtenir la configuration Wi-Fi (panneau)" },
     "set_guest_wifi": { "name": "Configurer le Wi-Fi invité" },
     "test_guest_wifi": { "name": "Tester le Wi-Fi invité" },
     "set_wifis": { "name": "Configurer le Wi-Fi (2.4G/5G/Game)" }
   },
-
   "service_fields": {
     "common": {
-      "device_id": "Routeur MiWiFi sur lequel appliquer l'action",
+      "device_id": "Routeur MiWiFi auquel appliquer l’action",
       "verbose": "Afficher la liste (aperçu)",
       "dry_run": "Simuler (ne pas supprimer)"
     },
@@ -155,37 +168,22 @@
       "enable": "Activer ou désactiver le réseau invité",
       "ssid": "Nom du réseau (SSID)",
       "password": "Mot de passe (8–63 caractères si psk2)",
-      "encryption": "Encryption (psk2 recommandé; none = ouvert)",
-      "hidden": "Masquer le SSID (0 = visible, 1 = caché)"
+      "encryption": "Chiffrement (psk2 recommandé ; none = ouvert)",
+      "hidden": "Masquer le SSID (0 = visible, 1 = masqué)"
     },
     "set_wifis": {
-      "wifi2g": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})",
-      "wifi5g": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})",
-      "wifi5g_game": "Objet avec les champs à modifier (par exemple, {ssid, password, encryption, hidden})"
-    },
-    "purge_inactive": {
-      "name": "Purger les appareils inactifs",
-      "description": "Supprime les appareils de suivi et les appareils orphelins après X jours d'inactivité.",
-      "days": "Jours d'inactivité",
-      "days_description": "Nombre de jours d'inactivité avant d'envisager une purge.",
-      "only_randomized": "MAC aléatoires uniquement",
-      "only_randomized_description": "Si cette option est activée, seuls les appareils avec des MAC aléatoires (privés) sont purgés.",
-      "include_orphans": "Inclure les appareils orphelins",
-      "include_orphans_description": "Inclure les appareils sans entités associées.",
-      "include_orphans_without_age": "Inclure les orphelins sans horodatage",
-      "include_orphans_without_age_description": "Autorise la purge même si la date de la dernière activité est inconnue.",
-      "apply": "Appliquer les modifications",
-      "apply_description": "Si cette option est désactivée, cette opération s'exécute comme un essai sans rien supprimer."
-      }
-  },  
-
+      "wifi2g": "Objet avec les champs à modifier (ex. {ssid, password, encryption, hidden})",
+      "wifi5g": "Objet avec les champs à modifier (ex. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objet avec les champs à modifier (ex. {ssid, password, encryption, hidden})"
+    }
+  },
   "errors": {
-    "password_length_simple": "Le mot de passe doit comporter de 8 à 63 caractères.",
-    "password_length_role": "[{role}] Le mot de passe doit comporter de 8 à 63 caractères.",
+    "password_length_simple": "Le mot de passe doit contenir 8 à 63 caractères.",
+    "password_length_role": "[{role}] Le mot de passe doit contenir 8 à 63 caractères.",
     "no_blocks": "Aucun bloc Wi-Fi fourni (wifi2g / wifi5g / wifi5g_game).",
-    "apply_role_error": "Erreur lors de l'application des modifications à {role}.",
+    "apply_role_error": "Erreur lors de l’application des changements sur {role}.",
     "router_error": "Le routeur a renvoyé une erreur.",
-    "password_length_error": "Le mot de passe doit comporter de 8 à 63 caractères.",
+    "password_length_error": "Le mot de passe doit contenir 8 à 63 caractères.",
     "purge_invalid_days": "Les jours doivent être \u2265 1."
   }
 }
