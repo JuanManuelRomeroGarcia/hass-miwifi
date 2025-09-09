@@ -222,6 +222,7 @@ class Model(str, Enum):
     
     CR6606 = "cr6606"  # Xiaomi Mi Router CR6606​          |​ 2021.04.25
     CR8808 = "cr8808"  # Xiaomi Mi Router CR8808​          | 2021.11.26
+    CR8809 = "cr8809"  # Xiaomi Mi Router CR8809​          | 2023-12-13
     CR8816 = "cr8816"  # Xiaomi Mi Router CR8816 ​         | 2023.10.28
     CR8806 = "cr8806"  # Xiaomi Mi Router CR8806​          | 2021.11.26
     

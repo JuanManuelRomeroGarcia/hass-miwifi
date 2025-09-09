@@ -20,19 +20,24 @@ class CompatibilityChecker:
         self.silent_mode: bool = False
         self.max_retries = max_retries
 
-    async def _safe_call(self, func, name: str) -> bool:
-        """Run a call with retries and log errors."""
+    async def _safe_call(self, func, name: str, timeout: float = 6.0) -> bool:
+        """Run a call with retries, timeout and safe cancellation handling."""
         for attempt in range(1, self.max_retries + 1):
             try:
-                resp = await func()
+                resp = await asyncio.wait_for(func(), timeout=timeout)
                 if isinstance(resp, dict) or resp is True:
                     return True
+            except asyncio.TimeoutError:
+                await self.hass.async_add_executor_job(_LOGGER.debug,"[MiWiFi] '%s' timeout (%ss) (attempt %d/%d)",name, timeout, attempt, self.max_retries)
+            except asyncio.CancelledError:
+                await self.hass.async_add_executor_job(_LOGGER.warning,"[MiWiFi] '%s' cancelada por HA durante el setup (attempt %d/%d).",name, attempt, self.max_retries)
+                return False
             except LuciConnectionError as e:
-                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] '%s' connection error (attempt %d/%d): %s", name, attempt, self.max_retries, e)
+                await self.hass.async_add_executor_job(_LOGGER.debug,"[MiWiFi] '%s' connection error (attempt %d/%d): %s",name, attempt, self.max_retries, e)
             except LuciError as e:
-                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] '%s' luci error (attempt %d/%d): %s", name, attempt, self.max_retries, e)
+                await self.hass.async_add_executor_job(_LOGGER.debug,"[MiWiFi] '%s' luci error (attempt %d/%d): %s",name, attempt, self.max_retries, e)
             except Exception as e:
-                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] '%s' unexpected error (attempt %d/%d): %s", name, attempt, self.max_retries, e)
+                await self.hass.async_add_executor_job(_LOGGER.debug,"[MiWiFi] '%s' unexpected error (attempt %d/%d): %s",name, attempt, self.max_retries, e)
             await asyncio.sleep(1)
         return False
 
@@ -79,17 +84,17 @@ class CompatibilityChecker:
 
         # Feature checks
         features: dict[str, callable] = {
-            "mac_filter": lambda: self.client.set_mac_filter("00:00:00:00:00:00", True),
-            "mac_filter_info": self.client.macfilter_info,
-            "per_device_qos": self.client.qos_info,
-            "rom_update": self.client.rom_update,
-            "flash_permission": self.client.flash_permission,
-            "led_control": self.client.led,
-            "guest_wifi": self.client.wifi_diag_detail_all,
-            "wifi_config": self.client.wifi_detail_all,   
-            "device_list": self.client.device_list,
-            "topo_graph": self.client.topo_graph,
-            "portforward": lambda: self.client.portforward(ftype=1),
+            "mac_filter": self._check_mac_filter,
+            "mac_filter_info": self._check_mac_filter_info,
+            "per_device_qos": self._check_qos_info,
+            "rom_update": self._check_rom_update,
+            "flash_permission": self._check_flash_permission,
+            "led_control": self._check_led,
+            "guest_wifi": self._check_guest_wifi,
+            "wifi_config": self._check_wifi_config,
+            "device_list": self._check_device_list,
+            "topo_graph": self._check_topo_graph,
+            "portforward": self._check_portforward,
         }
 
         for feature, func in features.items():
@@ -112,15 +117,18 @@ class CompatibilityChecker:
 
         return self.result
 
-    async def _check_mac_filter(self) -> bool:
-        """Check MAC filter support without changing anything."""
+    async def _check_mac_filter(self) -> bool | None:
+        """Check RW support (inferred, no write during setup)."""
         try:
             await self.client.macfilter_info()
             return True
         except LuciError:
             return False
+        except Exception:
+            return None
 
     async def _check_mac_filter_info(self) -> bool:
+        """Check RO support (real info endpoint)."""
         try:
             await self.client.macfilter_info()
             return True
