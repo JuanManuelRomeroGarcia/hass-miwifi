@@ -307,3 +307,4 @@ class Model(str, Enum):
     RN04 = "rn04" # Xiaomi Whole House BE3600 Pro MASTER​  | 2024.10.26
     RN06 = "rn06" # Xiaomi Mi Router BE3600 2.5G (Global)​ | 2024.10.28
     RN07 = "rn07" # Xiaomi router AX3000E​                 | 2024.08.27
+    RN09 = "rn09" # Xiaomi Mesh System BE3600 Pro​         | 2025.01.07

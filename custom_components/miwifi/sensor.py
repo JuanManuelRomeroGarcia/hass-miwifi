@@ -337,6 +337,12 @@ class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
         self._attr_should_poll = False
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        
+    
+    async def async_update_from_updater(self):
+        """Compatibility shim for services expecting this method."""
+        # Si tu updater es DataUpdateCoordinator, esto pedirá el refresh
+        await self.async_request_refresh()
 
     @property
     def native_value(self) -> int:
