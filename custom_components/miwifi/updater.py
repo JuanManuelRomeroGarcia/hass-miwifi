@@ -1443,12 +1443,21 @@ class LuciUpdater(DataUpdateCoordinator):
                 if manual_mac:
                     if (manual_mac or "").lower() == (graph.get("mac") or "").lower():
                         graph["is_main"] = True
-                        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Main router restored from saved MAC: %s", manual_mac)
+                        await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Main router restored from saved MAC: %s", manual_mac)
                     else:
                         graph.pop("is_main", None)
                 else:
-                    graph.pop("is_main", None)
-                    await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] No manual MAC found, removed is_main from graph")
+                    # Fallback: if only one integration exists, assume it's the main one.
+                    from .updater import async_get_integrations
+                    integrations = async_get_integrations(self.hass)
+                    if len(integrations) == 1:
+                        graph["is_main"] = True
+                        auto_main = True # Treat as auto for logic purposes
+                        graph["is_main_auto"] = True
+                        graph["auto_reason"] = "single_integration_fallback"
+                        await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Main router set by single integration fallback")
+                    else:
+                        graph.pop("is_main", None)
             else:
                 graph["is_main"] = True
 
@@ -1704,5 +1713,3 @@ async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, a
         if entry:
             await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 🔴 Removing update panel because it is no longer main")
             entity_registry.async_remove(entity_id)
-
-
