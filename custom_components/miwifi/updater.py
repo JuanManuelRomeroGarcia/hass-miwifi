@@ -97,6 +97,7 @@ from .const import (
     DEFAULT_CALL_DELAY,
     DEFAULT_MANUFACTURER,
     DEFAULT_NAME,
+    DEFAULT_PROTOCOL,
     DEFAULT_RETRY,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
@@ -182,6 +183,7 @@ class LuciUpdater(DataUpdateCoordinator):
         store: Store | None = None,
         is_only_login: bool = False,
         entry_id: str | None = None,
+        protocol: str = DEFAULT_PROTOCOL,
     ) -> None:
         """Initialize updater.
 
@@ -197,6 +199,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param store: Store | None: Device store
         :param is_only_login: bool: Only config flow
         :param entry_id: str | None: Entry ID
+        :param protocol: str: Connection protocol (auto, http, https)
         """
 
         self.luci = LuciClient(
@@ -205,6 +208,7 @@ class LuciUpdater(DataUpdateCoordinator):
             password,
             EncryptionAlgorithm(encryption),
             timeout,
+            protocol,
         )
 
         self.ip = ip  # pylint: disable=invalid-name
