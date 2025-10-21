@@ -25,6 +25,10 @@ from .const import (
     DIAGNOSTIC_CONTENT,
     DIAGNOSTIC_DATE_TIME,
     DIAGNOSTIC_MESSAGE,
+    PROTOCOL_AUTO,
+    PROTOCOL_HTTP,
+    PROTOCOL_HTTPS,
+    DEFAULT_PROTOCOL,
 )
 from .enum import EncryptionAlgorithm
 from .exceptions import LuciConnectionError, LuciError, LuciRequestError
@@ -53,6 +57,7 @@ class LuciClient:
         password: str | None = None,
         encryption: str = EncryptionAlgorithm.SHA1,
         timeout: int = DEFAULT_TIMEOUT,
+        protocol: str = DEFAULT_PROTOCOL,
     ) -> None:
         """Initialize API client.
 
@@ -61,6 +66,7 @@ class LuciClient:
         :param password: str: device password
         :param encryption: str: password encryption algorithm
         :param timeout: int: Query execution timeout
+        :param protocol: str: Connection protocol (auto, http, https)
         """
 
         ip = ip.removesuffix("/")
@@ -70,16 +76,63 @@ class LuciClient:
         self._password = password
         self._encryption = encryption
         self._timeout = timeout
+        self._protocol = protocol
+        self._detected_protocol = None
 
-        self._url = CLIENT_URL.format(ip=ip)
+        # URL será configurada dinámicamente
+        self._url = None
 
         self.diagnostics: dict[str, Any] = {}
+
+    async def _detect_protocol(self) -> str:
+        """Detect the correct protocol for the router.
+        
+        :return str: detected protocol (http or https)
+        """
+        if self._detected_protocol is not None:
+            return self._detected_protocol
+            
+        if self._protocol != PROTOCOL_AUTO:
+            self._detected_protocol = self._protocol
+            return self._detected_protocol
+            
+        # Try HTTPS first (more secure)
+        protocols_to_try = [PROTOCOL_HTTPS, PROTOCOL_HTTP]
+        
+        for protocol in protocols_to_try:
+            test_url = CLIENT_URL.format(protocol=protocol, ip=self.ip)
+            try:
+                async with self._client as client:
+                    response = await client.get(f"{test_url}/", timeout=5)
+                    if response.status_code < 500:  # Any response except server error
+                        self._detected_protocol = protocol
+                        return protocol
+            except Exception:
+                continue
+                
+        # Default to HTTP if both fail
+        self._detected_protocol = PROTOCOL_HTTP
+        return PROTOCOL_HTTP
+    
+    def _get_url(self, protocol: str = None) -> str:
+        """Get the base URL with the specified or detected protocol.
+        
+        :param protocol: str: Protocol to use (optional)
+        :return str: Base URL
+        """
+        if protocol is None:
+            protocol = self._detected_protocol or PROTOCOL_HTTP
+        return CLIENT_URL.format(protocol=protocol, ip=self.ip)
 
     async def login(self) -> dict:
         """Login method
 
         :return dict: dict with login data.
         """
+
+        # Detect protocol if not done yet
+        protocol = await self._detect_protocol()
+        self._url = self._get_url(protocol)
 
         _method: str = "xqsystem/login"
         _nonce: str = self.generate_nonce()
@@ -125,6 +178,13 @@ class LuciClient:
         if self._token is None:
             return
 
+        # Ensure we have a URL configured
+        if self._url is None and self._detected_protocol:
+            self._url = self._get_url()
+
+        if self._url is None:
+            return
+
         _method: str = "logout"
         _url: str = f"{self._url}/;stok={self._token}/web/{_method}"
 
@@ -157,6 +217,13 @@ class LuciClient:
 
         if query_params is not None and len(query_params) > 0:
             path += f"?{urllib.parse.urlencode(query_params, doseq=True)}"
+
+        # Ensure we have a URL configured
+        if self._url is None and self._detected_protocol:
+            self._url = self._get_url()
+            
+        if self._url is None:
+            raise LuciRequestError("No URL configured - protocol detection may have failed")
 
         _stok: str = f";stok={self._token}/" if use_stok else ""
         _url: str = f"{self._url}/{_stok}api/{path}"
@@ -416,6 +483,12 @@ class LuciClient:
 
     async def add_redirect(self, name: str, proto: int, sport: int, ip: str, dport: int) -> dict:
         """Add a single port forwarding rule."""
+        # Ensure we have a URL configured
+        if self._url is None and self._detected_protocol:
+            self._url = self._get_url()
+        if self._url is None:
+            raise LuciRequestError("No URL configured - protocol detection may have failed")
+            
         _url = f"{self._url}/;stok={self._token}/api/xqnetwork/add_redirect"
         data = {
             "name": name,
@@ -433,6 +506,12 @@ class LuciClient:
 
     async def add_range_redirect(self, name: str, proto: int, fport: int, tport: int, ip: str) -> dict:
         """Add a port range forwarding rule."""
+        # Ensure we have a URL configured
+        if self._url is None and self._detected_protocol:
+            self._url = self._get_url()
+        if self._url is None:
+            raise LuciRequestError("No URL configured - protocol detection may have failed")
+            
         _url = f"{self._url}/;stok={self._token}/api/xqnetwork/add_range_redirect"
         data = {
             "name": name,
@@ -454,6 +533,12 @@ class LuciClient:
 
     async def delete_redirect(self, port: int, proto: int) -> dict:
         """Delete a port forwarding rule."""
+        # Ensure we have a URL configured
+        if self._url is None and self._detected_protocol:
+            self._url = self._get_url()
+        if self._url is None:
+            raise LuciRequestError("No URL configured - protocol detection may have failed")
+            
         _url = f"{self._url}/;stok={self._token}/api/xqnetwork/delete_redirect"
         data = {"port": port, "proto": proto}
         async with self._client as client:
