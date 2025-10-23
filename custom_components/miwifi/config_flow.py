@@ -25,8 +25,10 @@ from .const import (
     CONF_ENCRYPTION_ALGORITHM,
     CONF_IS_FORCE_LOAD,
     CONF_IS_TRACK_DEVICES,
+    CONF_PROTOCOL,
     CONF_STAY_ONLINE,
     DEFAULT_ACTIVITY_DAYS,
+    DEFAULT_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STAY_ONLINE,
     DEFAULT_TIMEOUT,
@@ -42,6 +44,7 @@ from .const import (
     DEFAULT_AUTO_PURGE_EVERY_DAYS,
     CONF_AUTO_PURGE_AT, 
     DEFAULT_AUTO_PURGE_AT,
+    PROTOCOL_OPTIONS,
 )
 from .discovery import async_start_discovery
 from .enum import EncryptionAlgorithm
@@ -101,6 +104,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_PASSWORD],
                 user_input[CONF_ENCRYPTION_ALGORITHM],
                 user_input[CONF_TIMEOUT],
+                user_input.get(CONF_PROTOCOL, DEFAULT_PROTOCOL),
             )
 
             if codes.is_success(code):
@@ -139,6 +143,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_ENCRYPTION_ALGORITHM, default=EncryptionAlgorithm.SHA1): vol.In([
                 EncryptionAlgorithm.SHA1, EncryptionAlgorithm.SHA256
             ]),
+            vol.Required(CONF_PROTOCOL, default=DEFAULT_PROTOCOL): vol.In(PROTOCOL_OPTIONS),
             vol.Required(CONF_IS_TRACK_DEVICES, default=True): cv.boolean,
             vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
@@ -208,6 +213,7 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 user_input[CONF_PASSWORD],
                 user_input[CONF_ENCRYPTION_ALGORITHM],
                 user_input[CONF_TIMEOUT],
+                user_input.get(CONF_PROTOCOL, DEFAULT_PROTOCOL),
             )
 
             if codes.is_success(code):
@@ -286,6 +292,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_ENCRYPTION_ALGORITHM, default=get_config_value(
                     self._config_entry, CONF_ENCRYPTION_ALGORITHM, EncryptionAlgorithm.SHA1
                 )): vol.In([EncryptionAlgorithm.SHA1, EncryptionAlgorithm.SHA256]),
+                vol.Required(CONF_PROTOCOL, default=get_config_value(
+                    self._config_entry, CONF_PROTOCOL, DEFAULT_PROTOCOL
+                )): vol.In(PROTOCOL_OPTIONS),
                 vol.Optional(CONF_ENABLE_PANEL, default=panel_state): cv.boolean,
                 vol.Required(CONF_IS_TRACK_DEVICES, default=get_config_value(self._config_entry, CONF_IS_TRACK_DEVICES, True)): cv.boolean,
                 vol.Required(CONF_STAY_ONLINE, default=get_config_value(self._config_entry, CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE)): cv.positive_int,

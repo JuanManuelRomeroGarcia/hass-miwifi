@@ -52,16 +52,21 @@ async def async_verify_access(
     password: str,
     encryption: str,
     timeout: int = DEFAULT_TIMEOUT,
+    protocol: str = None,
 ) -> tuple[codes, str]:
     """Verify IP and password against the router and return code + reason."""
     from .logger import _LOGGER  # Asegura que _LOGGER esté disponible aquí
 
+    # Import DEFAULT_PROTOCOL here to avoid circular import
+    from .const import DEFAULT_PROTOCOL
+    
     updater = LuciUpdater(
         hass=hass,
         ip=ip,
         password=password,
         encryption=encryption,
         timeout=timeout,
+        protocol=protocol or DEFAULT_PROTOCOL,
         is_only_login=True,
     )
 

@@ -53,6 +53,7 @@ CONF_IS_TRACK_DEVICES: Final = "is_track_devices"
 CONF_IS_FORCE_LOAD: Final = "is_force_load"
 CONF_ACTIVITY_DAYS: Final = "activity_days"
 CONF_ENCRYPTION_ALGORITHM: Final = "encryption_algorithm"
+CONF_PROTOCOL: Final = "protocol"
 CONF_REQUEST: Final = "request"
 CONF_RESPONSE: Final = "response"
 CONF_URI: Final = "uri"
@@ -60,6 +61,13 @@ CONF_BODY: Final = "body"
 CONF_WAN_SPEED_UNIT: Final = "wan_speed_unit"
 DEFAULT_WAN_SPEED_UNIT: Final = "Mbps"
 WAN_SPEED_UNIT_OPTIONS: Final = ["B/s", "Mbps"]
+
+"""Protocol constants"""
+PROTOCOL_AUTO: Final = "auto"
+PROTOCOL_HTTP: Final = "http"
+PROTOCOL_HTTPS: Final = "https"
+DEFAULT_PROTOCOL: Final = PROTOCOL_AUTO
+PROTOCOL_OPTIONS: Final = [PROTOCOL_AUTO, PROTOCOL_HTTP, PROTOCOL_HTTPS]
 
 """Panel const"""
 CONF_ENABLE_PANEL = "enable_panel"
@@ -95,7 +103,7 @@ DEFAULT_MANUFACTURER: Final = "Xiaomi"
 CLIENT_ADDRESS: Final = "miwifi.com"
 CLIENT_ADDRESS_DEFAULT: Final = "192.168.31.1"
 CLIENT_ADDRESS_IP: Final = "192.168.1.1"
-CLIENT_URL: Final = "http://{ip}/cgi-bin/luci"
+CLIENT_URL: Final = "{protocol}://{ip}/cgi-bin/luci"
 CLIENT_USERNAME: Final = "admin"
 CLIENT_LOGIN_TYPE: Final = 2
 CLIENT_NONCE_TYPE: Final = 0

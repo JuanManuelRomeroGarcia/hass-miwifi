@@ -22,9 +22,11 @@ from .const import (
     CONF_ENCRYPTION_ALGORITHM,
     CONF_IS_FORCE_LOAD,
     CONF_ENABLE_PANEL,
+    CONF_PROTOCOL,
     CONF_WAN_SPEED_UNIT,
     CONF_LOG_LEVEL,
     DEFAULT_ACTIVITY_DAYS,
+    DEFAULT_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SLEEP,
     DEFAULT_TIMEOUT,
@@ -142,6 +144,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         get_config_value(entry, CONF_ACTIVITY_DAYS, DEFAULT_ACTIVITY_DAYS),
         get_store(hass, _ip),
         entry_id=entry.entry_id,
+        protocol=get_config_value(entry, CONF_PROTOCOL, DEFAULT_PROTOCOL),
     )
 
     hass.data.setdefault(DOMAIN, {})
