@@ -33,7 +33,44 @@ from .const import (
 from .enum import EncryptionAlgorithm
 from .exceptions import LuciConnectionError, LuciError, LuciRequestError
 
- 
+API_PATHS = {
+    "default": {
+        "login": "xqsystem/login",
+        "logout": "web/logout",
+        "topo_graph": "misystem/topo_graph",
+        "init_info": "xqsystem/init_info",
+        "status": "misystem/status",
+        "new_status": "misystem/newstatus",
+        "mode": "xqnetwork/mode",
+        "netmode": "xqnetwork/get_netmode",
+        "wifi_ap_signal": "xqnetwork/wifiap_signal",
+        "wifi_detail_all": "xqnetwork/wifi_detail_all",
+        "wifi_diag_detail_all": "xqnetwork/wifi_diag_detail_all",
+        "vpn_status": "xqsystem/vpn_status",
+        "set_wifi": "xqnetwork/set_wifi",
+        "set_guest_wifi": "xqnetwork/set_wifi_without_restart",
+        "avaliable_channels": "xqnetwork/avaliable_channels",
+        "wan_info": "xqnetwork/wan_info",
+        "reboot": "xqsystem/reboot",
+        "led": "misystem/led",
+        "qos_switch": "misystem/qos_switch",
+        "qos_info": "misystem/qos_info",
+        "device_list": "misystem/devicelist",
+        "wifi_connect_devices": "xqnetwork/wifi_connect_devices",
+        "set_mac_filter": "xqsystem/set_mac_filter",
+        "mac_filter_info": "xqnetwork/wifi_macfilter_info",
+        "portforward": "xqnetwork/portforward",
+        "add_redirect": "xqnetwork/add_redirect",
+        "add_range_redirect": "xqnetwork/add_range_redirect",
+        "redirect_apply": "xqnetwork/redirect_apply",
+        "delete_redirect": "xqnetwork/delete_redirect",
+        "rom_update": "xqsystem/check_rom_update",
+        "rom_upgrade": "xqsystem/upgrade_rom",
+        "flash_permission": "xqsystem/flash_permission",
+    }
+    # Here you can add overrides for specific models, for example:
+    # "R3600": { "status": "xqsystem/status" }
+}
 
 
 # pylint: disable=too-many-public-methods,too-many-arguments
@@ -49,6 +86,8 @@ class LuciClient:
 
     _token: str | None = None
     _url: str
+    _model: str | None = None
+    _api_paths: dict[str, str]
 
     def __init__(
         self,
@@ -83,6 +122,20 @@ class LuciClient:
         self._url = None
 
         self.diagnostics: dict[str, Any] = {}
+        self._set_api_paths()
+
+    def set_model(self, model: str | None) -> None:
+        """Set the router model to adjust API paths."""
+        if model != self._model:
+            self._model = model
+            self._set_api_paths(model)
+
+    def _set_api_paths(self, model: str | None = None) -> None:
+        """Set the API paths based on the router model."""
+        self._api_paths = API_PATHS["default"].copy()
+        if model and model in API_PATHS:
+            _LOGGER.debug("Applying API path overrides for model %s", model)
+            self._api_paths.update(API_PATHS[model])
 
     async def _detect_protocol(self) -> str:
         """Detect the correct protocol for the router.
@@ -134,7 +187,7 @@ class LuciClient:
         protocol = await self._detect_protocol()
         self._url = self._get_url(protocol)
 
-        _method: str = "xqsystem/login"
+        _method: str = self._api_paths["login"]
         _nonce: str = self.generate_nonce()
         _url: str = f"{self._url}/api/{_method}"
 
@@ -185,8 +238,8 @@ class LuciClient:
         if self._url is None:
             return
 
-        _method: str = "logout"
-        _url: str = f"{self._url}/;stok={self._token}/web/{_method}"
+        _method: str = self._api_paths["logout"]
+        _url: str = f"{self._url}/;stok={self._token}/{_method}"
 
         try:
             async with self._client as client:
@@ -267,7 +320,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("misystem/topo_graph", use_stok=False)
+        return await self.get(self._api_paths["topo_graph"], use_stok=False)
 
     async def init_info(self) -> dict:
         """xqsystem/init_info method.
@@ -275,7 +328,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqsystem/init_info")
+        return await self.get(self._api_paths["init_info"])
 
     async def status(self) -> dict:
         """misystem/status method.
@@ -283,7 +336,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("misystem/status")
+        return await self.get(self._api_paths["status"])
 
     async def new_status(self) -> dict:
         """misystem/newstatus method.
@@ -291,7 +344,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("misystem/newstatus")
+        return await self.get(self._api_paths["new_status"])
 
     async def mode(self) -> dict:
         """xqnetwork/mode method.
@@ -299,7 +352,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
         try:
-            return await self.get("xqnetwork/mode")
+            return await self.get(self._api_paths["mode"])
         except:
             _LOGGER.info("Primary endpoint failed load qnetwork/get_netmode")
             try:
@@ -313,7 +366,7 @@ class LuciClient:
 
         :return dict: dict con la información del modo de red.
         """
-        return await self.get("xqnetwork/get_netmode")
+        return await self.get(self._api_paths["netmode"])
 
     async def wifi_ap_signal(self) -> dict:
         """xqnetwork/wifiap_signal method.
@@ -321,7 +374,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/wifiap_signal")
+        return await self.get(self._api_paths["wifi_ap_signal"])
 
     async def wifi_detail_all(self) -> dict:
         """xqnetwork/wifi_detail_all method.
@@ -329,7 +382,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/wifi_detail_all")
+        return await self.get(self._api_paths["wifi_detail_all"])
 
     async def wifi_diag_detail_all(self) -> dict:
         """xqnetwork/wifi_diag_detail_all method.
@@ -337,7 +390,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/wifi_diag_detail_all")
+        return await self.get(self._api_paths["wifi_diag_detail_all"])
 
     async def vpn_status(self) -> dict:
         """xqsystem/vpn_status method.
@@ -345,7 +398,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqsystem/vpn_status")
+        return await self.get(self._api_paths["vpn_status"])
 
     async def set_wifi(self, data: dict) -> dict:
         """xqnetwork/set_wifi method.
@@ -354,7 +407,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/set_wifi", data)
+        return await self.get(self._api_paths["set_wifi"], data)
 
     async def set_guest_wifi(self, data: dict) -> dict:
         """xqnetwork/set_wifi_without_restart method.
@@ -363,7 +416,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/set_wifi_without_restart", data)
+        return await self.get(self._api_paths["set_guest_wifi"], data)
 
     async def avaliable_channels(self, index: int = 1) -> dict:
         """xqnetwork/avaliable_channels method.
@@ -372,7 +425,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/avaliable_channels", {"wifiIndex": index})
+        return await self.get(self._api_paths["avaliable_channels"], {"wifiIndex": index})
 
     async def wan_info(self) -> dict:
         """xqnetwork/wan_info method.
@@ -380,7 +433,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/wan_info")
+        return await self.get(self._api_paths["wan_info"])
 
     async def reboot(self) -> dict:
         """xqsystem/reboot method.
@@ -388,7 +441,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqsystem/reboot")
+        return await self.get(self._api_paths["reboot"])
 
     async def led(self, state: int | None = None) -> dict:
         """misystem/led method.
@@ -401,7 +454,7 @@ class LuciClient:
         if state is not None:
             data["on"] = state
 
-        return await self.get("misystem/led", data)
+        return await self.get(self._api_paths["led"], data)
 
     async def qos_toggle(self, qosState: int = 0) -> dict:
         """misystem/qos_switch method.
@@ -410,7 +463,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("misystem/qos_switch", {"on": qosState})
+        return await self.get(self._api_paths["qos_switch"], {"on": qosState})
 
 
     async def qos_info(self) -> dict:
@@ -419,7 +472,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("misystem/qos_info")
+        return await self.get(self._api_paths["qos_info"])
 
     async def device_list(self) -> dict:
         """misystem/devicelist method.
@@ -427,7 +480,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("misystem/devicelist")
+        return await self.get(self._api_paths["device_list"])
 
     async def wifi_connect_devices(self) -> dict:
         """xqnetwork/wifi_connect_devices method.
@@ -435,7 +488,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqnetwork/wifi_connect_devices")
+        return await self.get(self._api_paths["wifi_connect_devices"])
     
     async def set_mac_filter(self, mac: str, allow: bool) -> dict:
             """xqsystem/set_mac_filter method.
@@ -449,7 +502,7 @@ class LuciClient:
             :return dict: dict with API data.
             """
             data = {"mac": mac, "wan": "1" if allow else "0"}
-            return await self.get("xqsystem/set_mac_filter", data)
+            return await self.get(self._api_paths["set_mac_filter"], data)
 
     async def macfilter_info(self) -> dict:
             """xqnetwork/wifi_macfilter_info method.
@@ -458,7 +511,7 @@ class LuciClient:
 
             :return dict: dict with API data.
             """
-            return await self.get("xqnetwork/wifi_macfilter_info")
+            return await self.get(self._api_paths["mac_filter_info"])
 
     async def check_mac_filter_support(self) -> bool:
         """Check if the router supports set_mac_filter API."""
@@ -473,7 +526,7 @@ class LuciClient:
         """Get port forwarding rules (ftype 1 = single port, 2 = range)."""
         _LOGGER.debug("Requesting NAT rules with ftype=%s", ftype)
         try:
-            data = await self.get("xqnetwork/portforward", {"ftype": ftype})
+            data = await self.get(self._api_paths["portforward"], {"ftype": ftype})
             _LOGGER.debug("NAT response for ftype=%s → %s", ftype, data)
             return data
         except Exception as e:
@@ -489,7 +542,7 @@ class LuciClient:
         if self._url is None:
             raise LuciRequestError("No URL configured - protocol detection may have failed")
             
-        _url = f"{self._url}/;stok={self._token}/api/xqnetwork/add_redirect"
+        _url = f"{self._url}/;stok={self._token}/api/{self._api_paths['add_redirect']}"
         data = {
             "name": name,
             "proto": proto,
@@ -512,7 +565,7 @@ class LuciClient:
         if self._url is None:
             raise LuciRequestError("No URL configured - protocol detection may have failed")
             
-        _url = f"{self._url}/;stok={self._token}/api/xqnetwork/add_range_redirect"
+        _url = f"{self._url}/;stok={self._token}/api/{self._api_paths['add_range_redirect']}"
         data = {
             "name": name,
             "proto": proto,
@@ -529,7 +582,7 @@ class LuciClient:
 
     async def redirect_apply(self) -> dict:
         """Apply NAT rule changes after adding/deleting."""
-        return await self.get("xqnetwork/redirect_apply")
+        return await self.get(self._api_paths["redirect_apply"])
 
     async def delete_redirect(self, port: int, proto: int) -> dict:
         """Delete a port forwarding rule."""
@@ -539,7 +592,7 @@ class LuciClient:
         if self._url is None:
             raise LuciRequestError("No URL configured - protocol detection may have failed")
             
-        _url = f"{self._url}/;stok={self._token}/api/xqnetwork/delete_redirect"
+        _url = f"{self._url}/;stok={self._token}/api/{self._api_paths['delete_redirect']}"
         data = {"port": port, "proto": proto}
         async with self._client as client:
             response = await client.post(_url, data=data, timeout=self._timeout)
@@ -556,7 +609,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqsystem/check_rom_update")
+        return await self.get(self._api_paths["rom_update"])
 
     async def rom_upgrade(self, data: dict) -> dict:
         """xqsystem/upgrade_rom method.
@@ -566,7 +619,7 @@ class LuciClient:
         """
 
         return await self.get(
-            "xqsystem/upgrade_rom",
+            self._api_paths["rom_upgrade"],
             data,
             errors={
                 6: "Download failed",
@@ -583,7 +636,7 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
-        return await self.get("xqsystem/flash_permission")
+        return await self.get(self._api_paths["flash_permission"])
 
     def sha(self, key: str) -> str:
         """Generate sha by key.

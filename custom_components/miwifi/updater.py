@@ -498,6 +498,8 @@ class LuciUpdater(DataUpdateCoordinator):
         if "hardware" in response:
             try:
                 data[ATTR_MODEL] = Model(response["hardware"].lower())
+                if self.luci:
+                    self.luci.set_model(data[ATTR_MODEL].value)
 
             except ValueError as _e:
                 await async_self_check(self.hass, self.luci, response["hardware"])
