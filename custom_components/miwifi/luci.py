@@ -67,9 +67,16 @@ API_PATHS = {
         "rom_update": "xqsystem/check_rom_update",
         "rom_upgrade": "xqsystem/upgrade_rom",
         "flash_permission": "xqsystem/flash_permission",
+    },
+    "RC06": {
+        "portforward": "xqsystem/portforward",
+        "add_redirect": "xqsystem/add_redirect",
+        "add_range_redirect": "xqsystem/add_range_redirect",
+        "redirect_apply": "xqsystem/redirect_apply",
+        "delete_redirect": "xqsystem/delete_redirect",
     }
     # Here you can add overrides for specific models, for example:
-    # "R3600": { "status": "xqsystem/status" }
+    # "R3600,RA82": { "status": "xqsystem/status" }
 }
 
 
@@ -133,9 +140,16 @@ class LuciClient:
     def _set_api_paths(self, model: str | None = None) -> None:
         """Set the API paths based on the router model."""
         self._api_paths = API_PATHS["default"].copy()
-        if model and model in API_PATHS:
-            _LOGGER.debug("Applying API path overrides for model %s", model)
-            self._api_paths.update(API_PATHS[model])
+        if not model:
+            return
+
+        for model_group, overrides in API_PATHS.items():
+            if model_group == "default":
+                continue
+            if model in [m.strip() for m in model_group.split(",")]:
+                _LOGGER.debug("Applying API path overrides for model %s from group '%s'", model, model_group)
+                self._api_paths.update(overrides)
+                break
 
     async def _detect_protocol(self) -> str:
         """Detect the correct protocol for the router.
