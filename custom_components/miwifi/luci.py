@@ -68,7 +68,7 @@ API_PATHS = {
         "rom_upgrade": "xqsystem/upgrade_rom",
         "flash_permission": "xqsystem/flash_permission",
     },
-    "RC06": {
+    "rc06": {
         "portforward": "xqsystem/portforward",
         "add_redirect": "xqsystem/add_redirect",
         "add_range_redirect": "xqsystem/add_range_redirect",
@@ -76,7 +76,7 @@ API_PATHS = {
         "delete_redirect": "xqsystem/delete_redirect",
     }
     # Here you can add overrides for specific models, for example:
-    # "R3600,RA82": { "status": "xqsystem/status" }
+    # "r3600,ra82": { "status": "xqsystem/status" }
 }
 
 
