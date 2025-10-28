@@ -34,49 +34,38 @@ from .enum import EncryptionAlgorithm
 from .exceptions import LuciConnectionError, LuciError, LuciRequestError
 
 API_PATHS = {
-    "default": {
-        "login": "xqsystem/login",
-        "logout": "web/logout",
-        "topo_graph": "misystem/topo_graph",
-        "init_info": "xqsystem/init_info",
-        "status": "misystem/status",
-        "new_status": "misystem/newstatus",
-        "mode": "xqnetwork/mode",
-        "netmode": "xqnetwork/get_netmode",
-        "wifi_ap_signal": "xqnetwork/wifiap_signal",
-        "wifi_detail_all": "xqnetwork/wifi_detail_all",
-        "wifi_diag_detail_all": "xqnetwork/wifi_diag_detail_all",
-        "vpn_status": "xqsystem/vpn_status",
-        "set_wifi": "xqnetwork/set_wifi",
-        "set_guest_wifi": "xqnetwork/set_wifi_without_restart",
-        "avaliable_channels": "xqnetwork/avaliable_channels",
-        "wan_info": "xqnetwork/wan_info",
-        "reboot": "xqsystem/reboot",
-        "led": "misystem/led",
-        "qos_switch": "misystem/qos_switch",
-        "qos_info": "misystem/qos_info",
-        "device_list": "misystem/devicelist",
-        "wifi_connect_devices": "xqnetwork/wifi_connect_devices",
-        "set_mac_filter": "xqsystem/set_mac_filter",
-        "mac_filter_info": "xqnetwork/wifi_macfilter_info",
-        "portforward": "xqnetwork/portforward",
-        "add_redirect": "xqnetwork/add_redirect",
-        "add_range_redirect": "xqnetwork/add_range_redirect",
-        "redirect_apply": "xqnetwork/redirect_apply",
-        "delete_redirect": "xqnetwork/delete_redirect",
-        "rom_update": "xqsystem/check_rom_update",
-        "rom_upgrade": "xqsystem/upgrade_rom",
-        "flash_permission": "xqsystem/flash_permission",
-    },
-    "rc06": {
-        "portforward": "xqsystem/portforward",
-        "add_redirect": "xqsystem/add_redirect",
-        "add_range_redirect": "xqsystem/add_range_redirect",
-        "redirect_apply": "xqsystem/redirect_apply",
-        "delete_redirect": "xqsystem/delete_redirect",
-    }
-    # Here you can add overrides for specific models, for example:
-    # "r3600,ra82": { "status": "xqsystem/status" }
+    "login": "xqsystem/login",
+    "logout": "web/logout",
+    "topo_graph": "misystem/topo_graph",
+    "init_info": "xqsystem/init_info",
+    "status": "misystem/status",
+    "new_status": "misystem/newstatus",
+    "mode": "xqnetwork/mode",
+    "netmode": "xqnetwork/get_netmode",
+    "wifi_ap_signal": "xqnetwork/wifiap_signal",
+    "wifi_detail_all": "xqnetwork/wifi_detail_all",
+    "wifi_diag_detail_all": "xqnetwork/wifi_diag_detail_all",
+    "vpn_status": "xqsystem/vpn_status",
+    "set_wifi": "xqnetwork/set_wifi",
+    "set_guest_wifi": "xqnetwork/set_wifi_without_restart",
+    "avaliable_channels": "xqnetwork/avaliable_channels",
+    "wan_info": "xqnetwork/wan_info",
+    "reboot": "xqsystem/reboot",
+    "led": "misystem/led",
+    "qos_switch": "misystem/qos_switch",
+    "qos_info": "misystem/qos_info",
+    "device_list": "misystem/devicelist",
+    "wifi_connect_devices": "xqnetwork/wifi_connect_devices",
+    "set_mac_filter": "xqsystem/set_mac_filter",
+    "mac_filter_info": "xqnetwork/wifi_macfilter_info",
+    "portforward": "xqnetwork/portforward",
+    "add_redirect": "xqnetwork/add_redirect",
+    "add_range_redirect": "xqnetwork/add_range_redirect",
+    "redirect_apply": "xqnetwork/redirect_apply",
+    "delete_redirect": "xqnetwork/delete_redirect",
+    "rom_update": "xqsystem/check_rom_update",
+    "rom_upgrade": "xqsystem/upgrade_rom",
+    "flash_permission": "xqsystem/flash_permission",
 }
 
 
@@ -93,7 +82,6 @@ class LuciClient:
 
     _token: str | None = None
     _url: str
-    _model: str | None = None
     _api_paths: dict[str, str]
 
     def __init__(
@@ -129,27 +117,7 @@ class LuciClient:
         self._url = None
 
         self.diagnostics: dict[str, Any] = {}
-        self._set_api_paths()
-
-    def set_model(self, model: str | None) -> None:
-        """Set the router model to adjust API paths."""
-        if model != self._model:
-            self._model = model
-            self._set_api_paths(model)
-
-    def _set_api_paths(self, model: str | None = None) -> None:
-        """Set the API paths based on the router model."""
-        self._api_paths = API_PATHS["default"].copy()
-        if not model:
-            return
-
-        for model_group, overrides in API_PATHS.items():
-            if model_group == "default":
-                continue
-            if model in [m.strip() for m in model_group.split(",")]:
-                _LOGGER.debug("Applying API path overrides for model %s from group '%s'", model, model_group)
-                self._api_paths.update(overrides)
-                break
+        self._api_paths = API_PATHS.copy()
 
     async def _detect_protocol(self) -> str:
         """Detect the correct protocol for the router.
