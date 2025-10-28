@@ -210,13 +210,32 @@ class CompatibilityChecker:
             return False
 
     async def _check_portforward(self) -> bool:
-        """Check port forwarding support using read-only endpoint."""
+        """Check port forwarding support and discover correct paths."""
         try:
+            # This will use the default path from luci.py
             await self.client.portforward(ftype=1)
             return True
-        except LuciConnectionError:
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Router does not support portforward endpoint.")
-            return False
+        except (LuciError, LuciConnectionError):
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Default portforward path failed, trying fallback.")
+            try:
+                # Manually try the fallback path
+                fallback_path = "xqsystem/portforward"
+                await self.client.get(fallback_path, {"ftype": 1})
+                
+                # Fallback worked, update client's api_paths for the whole group
+                overrides = {
+                    "portforward": "xqsystem/portforward",
+                    "add_redirect": "xqsystem/add_redirect",
+                    "add_range_redirect": "xqsystem/add_range_redirect",
+                    "redirect_apply": "xqsystem/redirect_apply",
+                    "delete_redirect": "xqsystem/delete_redirect",
+                }
+                self.client._api_paths.update(overrides)
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Using fallback portforward paths.")
+                return True
+            except (LuciError, LuciConnectionError) as e:
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Fallback portforward path also failed: %s", e)
+                return False
         except Exception as e:
             await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Unexpected error during portforward check: %s", e)
             return False
