@@ -319,6 +319,33 @@ class LuciClient:
         """
 
         return await self.get(self._api_paths["status"])
+    
+    async def misystem_info(self) -> dict:
+        """Devuelve la info global misystem (dev, wan, mem, etc.)."""
+
+        try:
+            data = await self.status()
+            if isinstance(data, dict) and "dev" in data:
+                return data
+        except Exception as e:
+            self._debug(
+                "misystem_info status() failed",
+                self._url or "",
+                e,
+                "misystem_info",
+            )
+
+        try:
+            return await self.get("misystem/")
+        except Exception as e:
+            self._debug(
+                "misystem_info misystem/ failed",
+                self._url or "",
+                e,
+                "misystem_info",
+            )
+            return {}
+
 
     async def new_status(self) -> dict:
         """misystem/newstatus method.

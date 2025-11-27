@@ -326,6 +326,17 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
 
         signal_key = map_signal_quality(int(signal)) if signal not in ("", None) else "no_signal"
 
+        total_bytes = int(self._device.get(ATTR_TRACKER_TOTAL_USAGE, 0) or 0)
+
+        if self.is_connected and total_bytes > 0:
+            mb = total_bytes / (1024 * 1024)
+            if mb >= 1024:
+                total_usage_str = f"{round(mb / 1024, 2)} GB"
+            else:
+                total_usage_str = f"{round(mb, 2)} MB"
+        else:
+            total_usage_str = "0 MB"
+
         return {
             ATTR_TRACKER_SCANNER: DOMAIN,
             ATTR_TRACKER_MAC: self.mac_address,
@@ -343,14 +354,11 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             ) if self.is_connected else "",
             ATTR_TRACKER_LAST_ACTIVITY: self._device.get(ATTR_TRACKER_LAST_ACTIVITY, None),
             ATTR_TRACKER_SIGNAL_QUALITY: signal_key,
-            ATTR_TRACKER_TOTAL_USAGE: (
-                f"{round(self._device.get(ATTR_TRACKER_TOTAL_USAGE, 0) / (1024 * 1024), 2)} MB"
-                if self.is_connected and self._device.get(ATTR_TRACKER_TOTAL_USAGE) else "0 MB"
-            ),
+            ATTR_TRACKER_TOTAL_USAGE: total_usage_str,
             ATTR_TRACKER_INTERNET_BLOCKED: self._device.get(ATTR_TRACKER_INTERNET_BLOCKED, False),
             ATTR_TRACKER_FIRST_SEEN: self._device.get(ATTR_TRACKER_FIRST_SEEN, None),
-            
         }
+
 
     @property
     def configuration_url(self) -> str | None:

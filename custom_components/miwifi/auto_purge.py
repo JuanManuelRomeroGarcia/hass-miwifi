@@ -16,7 +16,6 @@ from . import const as C
 DOMAIN = C.DOMAIN
 STORAGE_VERSION = C.STORAGE_VERSION
 
-
 CONF_AUTO_PURGE_EVERY_DAYS = getattr(C, "CONF_AUTO_PURGE_EVERY_DAYS", "auto_purge_every_days")
 DEFAULT_AUTO_PURGE_EVERY_DAYS = getattr(C, "DEFAULT_AUTO_PURGE_EVERY_DAYS", 1)
 
@@ -25,10 +24,9 @@ DEFAULT_AUTO_PURGE_AT = getattr(C, "DEFAULT_AUTO_PURGE_AT", "04:10")
 
 STORE_AUTO_PURGE = getattr(C, "STORE_AUTO_PURGE", "auto_purge.json")
 
-
 AUTO_PURGE_UNSUB = "_auto_purge_global_unsub"
 AUTO_PURGE_FIRST = "_auto_purge_global_first"
-AUTO_PURGE_OWNER = "_auto_purge_owner" 
+AUTO_PURGE_OWNER = "_auto_purge_owner"  
 
 
 def _store(hass: HomeAssistant) -> Store:
@@ -89,10 +87,10 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
     data = hass.data.setdefault(DOMAIN, {})
     owner_id = data.get(AUTO_PURGE_OWNER)
     if owner_id and owner_id != entry.entry_id and data.get(AUTO_PURGE_UNSUB):
-        
+        # Ya hay otro dueño con scheduler activo -> no reprogramar
         return
 
-    
+   
     cancel_auto_purge(hass, entry_id=owner_id)
     data[AUTO_PURGE_OWNER] = entry.entry_id
 
@@ -104,19 +102,19 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         return _parse_hhmm(at_str), every_days, at_str
 
     async def _job(_now=None):
-        
+        # 1) Reprogramar siguiente ejecución
         now = dt_util.now()
         at_time, every_days, at_str = await _current_cfg()
         next_dt = _next_run(now, at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, next_dt)
 
-        
+        # 2) Llamar al servicio de purga con parámetros compatibles
+        #    (only_randomized=False => purga TODOS, no solo MAC aleatorias)
         params = {
             "days": int(every_days),
             "only_randomized": False,
             "include_orphans": True,
-            "include_orphans_without_age": True,
-            "include_entities_without_age": True,
+            "include_orphans_without_age": True, 
             "verbose": False,
             "apply": True,
         }
@@ -129,7 +127,7 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         except Exception:
             ok = False
 
-        
+        # 3) Guardar histórico en el store
         sdata = await _load(hass)
         hist = (sdata.get("history") or [])[-29:]
         rec = {"at": now.isoformat(), "ok": bool(ok)}
@@ -140,22 +138,21 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         sdata.update({
             "last_run": now.isoformat(),
             "last_ok": bool(ok),
-            "last_params": params,                 
+            "last_params": params,
             "last_result": result if isinstance(result, dict) else None,
             "next_due": next_dt.isoformat(),
-            "every_days": every_days,              
-            "at": at_str,                          
+            "every_days": every_days,
+            "at": at_str,
             "owner": entry.entry_id,
         })
         await _save(hass, sdata)
 
     async def _prime():
-       
+        # Programa la primera ejecución y opcionalmente un kickoff rápido
         at_time, every_days, _ = await _current_cfg()
         first = _next_run(dt_util.now(), at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, first)
         if kickoff:
             data[AUTO_PURGE_FIRST] = async_call_later(hass, 60, _job)
-
 
     hass.async_create_task(_prime())

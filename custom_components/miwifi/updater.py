@@ -854,7 +854,13 @@ class LuciUpdater(DataUpdateCoordinator):
         try:
             macfilter_info = await self.luci.macfilter_info()
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] macfilter_info failed for %s: %s", self.ip, e)
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] macfilter_info failed for %s: %s",
+                self.ip,
+                e,
+            )
+
         filter_macs: dict[str, int] = {}
 
         for entry in macfilter_info.get("flist", []):
@@ -879,7 +885,9 @@ class LuciUpdater(DataUpdateCoordinator):
                 self._signals[mac] = device["signal"] if "signal" in device else 0
 
                 if mac in self.devices:
-                    self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = datetime.now().replace(microsecond=0).isoformat()
+                    self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
+                        datetime.now().replace(microsecond=0).isoformat()
+                    )
 
                 if mac in filter_macs:
                     device[ATTR_TRACKER_INTERNET_BLOCKED] = (filter_macs[mac] == 0)
@@ -897,18 +905,42 @@ class LuciUpdater(DataUpdateCoordinator):
                         action = DeviceAction.SKIP
 
                     if ATTR_TRACKER_MAC in device:
-                        if "down_total" in device and "up_total" in device:
-                            device[ATTR_TRACKER_TOTAL_USAGE] = int(device.get("down_total", 0)) + int(device.get("up_total", 0))
-                        else:
-                            device[ATTR_TRACKER_TOTAL_USAGE] = None
-
                         await self.add_device(device, action=action)
+
 
     async def _async_prepare_device_list(self, data: dict) -> None:
         """Prepare device list"""
 
         if self.is_repeater:
             return
+        
+        totals_by_mac: dict[str, int] = {}
+
+        try:
+            misystem = await self.luci.misystem_info()
+        except Exception as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] misystem_info failed for %s (device_list): %s",
+                self.ip,
+                e,
+            )
+            misystem = {}
+        else:
+            for dev in misystem.get("dev", []):
+                mac_dev = (dev.get("mac") or "").upper()
+                if not mac_dev:
+                    continue
+
+                try:
+                    down = int(dev.get("download") or 0)
+                    up = int(dev.get("upload") or 0)
+                except (TypeError, ValueError):
+                    continue
+
+                total = down + up
+                if total >= 0:
+                    totals_by_mac[mac_dev] = total
 
         response: dict = await self.luci.device_list()
 
@@ -1006,6 +1038,10 @@ class LuciUpdater(DataUpdateCoordinator):
                     device[ATTR_TRACKER_INTERNET_BLOCKED] = (filter_macs[mac] == 0)
                 else:
                     device[ATTR_TRACKER_INTERNET_BLOCKED] = False
+                
+                total_usage = totals_by_mac.get(mac)
+                if total_usage is not None:
+                    device[ATTR_TRACKER_TOTAL_USAGE] = total_usage
 
                 await self.add_device(device, action=action, integrations=integrations)
 
@@ -1197,6 +1233,12 @@ class LuciUpdater(DataUpdateCoordinator):
 
         with contextlib.suppress(ValueError):
             connection = Connection(int(device["type"])) if "type" in device else None
+            
+        existing = self.devices.get(device[ATTR_TRACKER_MAC], {})
+        total_usage = device.get(
+            ATTR_TRACKER_TOTAL_USAGE,
+            existing.get(ATTR_TRACKER_TOTAL_USAGE),
+        )
 
         return {
             ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
@@ -1219,6 +1261,7 @@ class LuciUpdater(DataUpdateCoordinator):
             ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_attr["ip"]][UPDATER].data.get(ATTR_DEVICE_MAC_ADDRESS, None)
                 if integrations and ip_attr and ip_attr["ip"] in integrations else None,
             ATTR_TRACKER_INTERNET_BLOCKED: device.get(ATTR_TRACKER_INTERNET_BLOCKED, False),
+            ATTR_TRACKER_TOTAL_USAGE: total_usage,
         }
 
 
