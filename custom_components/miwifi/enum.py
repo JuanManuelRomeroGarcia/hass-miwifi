@@ -245,6 +245,7 @@ class Model(str, Enum):
     R4 = "r4"  # Xiaomi Mi Router 4​ ​                      | 2019.11.26
     R4A = "r4a"  # Xiaomi Mi Router 4A ​                   | 2019.11.26
     R4AC = "r4ac"  # Xiaomi Mi Router 4A Gigabit Edition​  | ​2019.11.26
+    R4ACv2 = "r4acv2"  # Xiaomi Mi Router 4A Gigabit Edition (Versión 2)​ | 2023.04.25
     R4AV2 = "r4av2"  # Xiaomi Mi Router 4A (Versión 2)​ ​   | 2022
     R4C = "r4c"  # Xiaomi Mi Router 4C                   ​ | 2019.11.26
     R4CM = "r4cm"  # Xiaomi Mi Router 4C                ​  | 2019.11.26
