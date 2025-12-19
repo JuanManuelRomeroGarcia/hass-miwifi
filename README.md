@@ -140,9 +140,9 @@ Many more Xiaomi and Redmi routers supported by MiWiFi
 | ![](images/RN04.png) | **Xiaomi Whole House BE3600 Pro MASTER**| RN04 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
 | ![](images/RN06.png) | **Xiaomi Mi Router BE3600 2.5G Global** | RN06 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
 | ![](images/RD04v2.png) | **Xiaomi Router AX1500** | RD04v2 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>⚪⚪⚪⚪⚪</sub> |
-| ![](images/RN07.png) | **Xiaomi Router AX3000T ** | RN07 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
-| ![](images/R4ACv2.png) | **Xiaomi Mi Router 4A Gigabit Edition ** | R4ACv2 | <sub>🟢🟢🟢🟢🔴</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
-| ![](images/RC02.png) | **Xiaomi Router AX3000 NE ** | RC02 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>⚪⚪⚪⚪⚪</sub> |
+| ![](images/RN07.png) | **Xiaomi Router AX3000T** | RN07 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
+| ![](images/R4ACv2.png) | **Xiaomi Mi Router 4A Gigabit Edition** | R4ACv2 | <sub>🟢🟢🟢🟢🔴</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
+| ![](images/RC02.png) | **Xiaomi Router AX3000 NE** | RC02 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>⚪⚪⚪⚪⚪</sub> |
 
 
 ## 📢 Créditos
