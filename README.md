@@ -142,6 +142,8 @@ Many more Xiaomi and Redmi routers supported by MiWiFi
 | ![](images/RD04v2.png) | **Xiaomi Router AX1500** | RD04v2 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>⚪⚪⚪⚪⚪</sub> |
 | ![](images/RN07.png) | **Xiaomi Router AX3000T ** | RN07 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
 | ![](images/R4ACv2.png) | **Xiaomi Mi Router 4A Gigabit Edition ** | R4ACv2 | <sub>🟢🟢🟢🟢🔴</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢</sub> |
+| ![](images/RC02.png) | **Xiaomi Router AX3000 NE ** | RC02 | <sub>🟢🟢🟢🟢🟢</sub> | <sub>🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢</sub> | <sub>⚪⚪⚪⚪⚪</sub> |
+
 
 ## 📢 Créditos
 
