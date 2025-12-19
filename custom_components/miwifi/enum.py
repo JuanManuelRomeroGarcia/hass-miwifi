@@ -280,6 +280,7 @@ class Model(str, Enum):
     # RC Series
     
     RC01 = "rc01"  # Mi Router 10000​                      | 2022.12.13
+    RC02 = "rc02"  # Xiaomi Router AX3000NE               | 2022.11.04
     RC06 = "rc06"  # Xiaomi Router BE7000                ​ | 2023.05.05
     
     # RD Series
