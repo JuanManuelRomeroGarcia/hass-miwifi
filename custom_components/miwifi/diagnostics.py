@@ -121,8 +121,8 @@ async def suggest_unsupported_issue(
     )
     
     service_links = "\n".join(
-        f"<a href=\"/api/services/{DOMAIN}/add_unsupported?feature={urllib.parse.quote_plus(feature)}&model={urllib.parse.quote_plus(model_name)}\">"
-        f"➕ Add '{feature}' for {model_name} to unsupported_user.py</a>"
+        f"<a href='/api/{DOMAIN}/add_unsupported?feature={urllib.parse.quote_plus(feature)}&model={urllib.parse.quote_plus(model_name)}'>"
+        f"➕ Add '{feature}' for {model_name} to unsupported_user.json</a>"
         for feature in failed
     )
 

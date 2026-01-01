@@ -146,9 +146,14 @@ class CompatibilityChecker:
         for feature, func in features.items():
             unsupported_models = combined_unsupported.get(feature, [])
             if self.model and self.model in unsupported_models:
-                # IMPORTANT: keep key present for downstream code/diagnostics
-                self.result[feature] = False
-                await self._log(_LOGGER.debug,"[MiWiFi] ⏭️ Skipping '%s' check for model '%s' (predefined unsupported)",feature,self.model,)
+                # IMPORTANT: None = "skip / not applicable" (NO es fallo)
+                self.result[feature] = None
+                await self._log(
+                    _LOGGER.debug,
+                    "[MiWiFi] ⏭️ Skipping '%s' check for model '%s' (predefined unsupported)",
+                    feature,
+                    self.model,
+                )
                 continue
 
             supported = await self._safe_call(func, feature)
@@ -219,11 +224,41 @@ class CompatibilityChecker:
             return False
 
     async def _check_guest_wifi(self) -> bool | None:
+        """Non-invasive guest Wi-Fi detection.
+
+        True  -> vemos interfaz guest en wifi info
+        None  -> endpoints OK pero no hay guest (N/A, no lo marques como fail)
+        False -> no podemos consultar wifi info en absoluto
+        """
+        diag = None
+        details = None
+
         try:
-            await self.client.guest_wifi()
-            return True
+            diag = await self.client.wifi_diag_detail_all()
         except LuciError:
+            diag = None
+
+        try:
+            details = await self.client.wifi_detail_all()
+        except LuciError:
+            details = None
+
+        if diag is None and details is None:
             return False
+
+        def _has_guest(payload: dict | None) -> bool:
+            for it in (payload or {}).get("info", []) or []:
+                if str(it.get("iftype")) == "3":
+                    return True
+                ifname = str(it.get("ifname") or "").lower()
+                if ifname in ("wl14", "wl33") or "guest" in ifname:
+                    return True
+            return False
+
+        if _has_guest(diag) or _has_guest(details):
+            return True
+
+        return None
 
     async def _check_wifi_config(self) -> bool | None:
         try:

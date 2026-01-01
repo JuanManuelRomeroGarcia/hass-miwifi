@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from .http import async_register_http_views
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import websocket_api
 from homeassistant.const import (
@@ -181,6 +182,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Program auto-purge
     schedule_auto_purge(hass, entry, kickoff=True)
 
+    await async_register_http_views(hass)
 
     return True
 
