@@ -14,11 +14,16 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfInformation, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, UnitOfInformation, UnitOfTemperature, UnitOfDataRate
 from homeassistant.core import HomeAssistant
+from homeassistant.core import callback
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback, EntityPlatform, async_get_current_platform
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_SENSOR_AP_SIGNAL,
@@ -55,6 +60,22 @@ from .const import (
     ATTR_SENSOR_WAN_IP_NAME,
     ATTR_SENSOR_WAN_TYPE,
     ATTR_SENSOR_WAN_TYPE_NAME,
+    # Device tracker attrs (per-device sensors)
+    ATTR_TRACKER_CONNECTION,
+    ATTR_TRACKER_DOWN_SPEED,
+    ATTR_TRACKER_FIRST_SEEN,
+    ATTR_TRACKER_INTERNET_BLOCKED,
+    ATTR_TRACKER_IP,
+    ATTR_TRACKER_LAST_ACTIVITY,
+    ATTR_TRACKER_MAC,
+    ATTR_TRACKER_NAME,
+    ATTR_TRACKER_ONLINE,
+    ATTR_TRACKER_OPTIONAL_MAC,
+    ATTR_TRACKER_SIGNAL,
+    ATTR_TRACKER_TOTAL_USAGE,
+    ATTR_TRACKER_UP_SPEED,
+    SIGNAL_NEW_DEVICE,
+    SIGNAL_PURGE_DEVICE,
     ATTR_STATE,
     CONF_WAN_SPEED_UNIT,
     DEFAULT_WAN_SPEED_UNIT,
@@ -62,7 +83,8 @@ from .const import (
     UPDATER,
 )
 from .entity import MiWifiEntity
-from .enum import DeviceClass
+from .enum import Connection, DeviceClass
+from .helper import detect_manufacturer, map_signal_quality
 from .logger import _LOGGER
 from .updater import LuciUpdater, async_get_updater
 
@@ -226,10 +248,63 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up MiWiFi sensors without blocking startup."""
+
+    updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
+
+    # Needed for dynamic entity creation on SIGNAL_NEW_DEVICE
+    try:
+        platform: EntityPlatform = async_get_current_platform()
+    except RuntimeError:
+        platform = None  # type: ignore[assignment]
+
+    @callback
+    def _handle_new_device(new_device: dict) -> None:
+        if platform is None:
+            return
+
+        mac = str(new_device.get(ATTR_TRACKER_MAC, "")).upper()
+        if not mac:
+            return
+
+        # Avoid duplicates if they already exist in the entity registry.
+        registry = er.async_get(hass)
+        to_add: list[SensorEntity] = []
+        for desc in MIWIFI_DEVICE_SENSORS:
+            uid = f"{_device_base_unique_id(config_entry.entry_id, mac)}-{desc.key}"
+            if registry.async_get_entity_id("sensor", DOMAIN, uid):
+                continue
+            to_add.append(MiWifiDeviceAttributeSensor(updater, config_entry.entry_id, new_device, desc))
+
+        if to_add:
+            platform.async_add_entities(to_add)
+
+    @callback
+    def _handle_purge(entry_id: str, mac: str) -> None:
+        if entry_id != config_entry.entry_id:
+            return
+
+        mac_u = (mac or "").upper()
+        if not mac_u:
+            return
+
+        registry = er.async_get(hass)
+        base_unique = _device_base_unique_id(entry_id, mac_u)
+
+        # Remove all per-device sensor entities from the registry.
+        for desc in MIWIFI_DEVICE_SENSORS:
+            uid = f"{base_unique}-{desc.key}"
+            ent_id = registry.async_get_entity_id("sensor", DOMAIN, uid)
+            if ent_id:
+                registry.async_remove(ent_id)
+
+    # Connect dispatcher signals (and auto-unsubscribe on unload)
+    config_entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device))
+    config_entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_PURGE_DEVICE, _handle_purge))
+
+    # Defer initial entity creation to avoid blocking startup.
     hass.async_create_task(
         _async_add_all_sensors_later(hass, config_entry, async_add_entities)
     )
-
 
 class MiWifiSensor(MiWifiEntity, SensorEntity):
     """MiWiFi sensor entity."""
@@ -325,6 +400,207 @@ class MiWifiTopologyGraphSensor(SensorEntity):
         pass
 
 
+# ────────────────────────────────────────────────────────────────────────────────
+# Per-device sensors (mirrors device_tracker attributes)
+# ────────────────────────────────────────────────────────────────────────────────
+
+KEY_SIGNAL_QUALITY: Final = "signal_quality"
+
+MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
+    SensorEntityDescription(
+        key=ATTR_TRACKER_IP,
+        name="IP",
+        icon="mdi:ip-network",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_CONNECTION,
+        name="Connection",
+        icon="mdi:lan-connect",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_ONLINE,
+        name="Online",
+        icon="mdi:timer-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_DOWN_SPEED,
+        name="Down speed",
+        icon="mdi:download-network",
+        device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABYTES,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_UP_SPEED,
+        name="Up speed",
+        icon="mdi:upload-network",
+        device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABYTES,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_TOTAL_USAGE,
+        name="Total usage",
+        icon="mdi:counter",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.MEGABYTES,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_SIGNAL,
+        name="Signal",
+        icon="mdi:wifi",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement="dBm",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key=KEY_SIGNAL_QUALITY,
+        name="Signal quality",
+        icon="mdi:wifi-strength-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_LAST_ACTIVITY,
+        name="Last activity",
+        icon="mdi:clock-outline",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_FIRST_SEEN,
+        name="First seen",
+        icon="mdi:clock-start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key=ATTR_TRACKER_INTERNET_BLOCKED,
+        name="Internet blocked",
+        icon="mdi:shield-off-outline",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+)
+
+
+def _device_base_unique_id(entry_id: str, mac: str) -> str:
+    mac_u = (mac or "").upper()
+    return f"{DOMAIN}-{entry_id}-{mac_u}"
+
+
+class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
+    """Per-device sensor backed by LuciUpdater.devices."""
+
+    _attr_should_poll = False
+    _attr_has_entity_name = True
+
+    def __init__(
+        self,
+        updater: LuciUpdater,
+        entry_id: str,
+        device: dict[str, Any],
+        description: SensorEntityDescription,
+    ) -> None:
+        super().__init__(updater)
+        self._updater = updater
+        self._entry_id = entry_id
+        self.entity_description = description
+        self._mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
+
+        base_unique = _device_base_unique_id(entry_id, self._mac)
+        self._attr_unique_id = f"{base_unique}-{description.key}"
+
+        # Group under the same HA "device" as device_tracker (same identifiers base_unique)
+        optional_mac = device.get(ATTR_TRACKER_OPTIONAL_MAC)
+        conns = {(dr.CONNECTION_NETWORK_MAC, self._mac)}
+        if optional_mac:
+            conns.add((dr.CONNECTION_NETWORK_MAC, str(optional_mac).upper()))
+
+        self._attr_device_info = DeviceInfo(
+            connections=conns,
+            identifiers={(DOMAIN, base_unique)},
+            name=device.get(ATTR_TRACKER_NAME) or self._mac,
+            manufacturer=detect_manufacturer(self._mac),
+        )
+
+    def _handle_coordinator_update(self) -> None:
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> Any:
+        dev = (self._updater.devices or {}).get(self._mac, {}) or {}
+        key = str(self.entity_description.key)
+
+        # Normalise "connection"
+        conn = dev.get(ATTR_TRACKER_CONNECTION)
+        if isinstance(conn, Connection):
+            conn_phrase = conn.phrase
+        else:
+            conn_phrase = conn
+
+        if key == ATTR_TRACKER_CONNECTION:
+            return conn_phrase
+
+        if key == KEY_SIGNAL_QUALITY:
+            # Mirrors device_tracker extra_state_attributes logic.
+            sig = dev.get(ATTR_TRACKER_SIGNAL, None)
+            if conn == Connection.LAN:
+                sig = None
+            try:
+                sig_int = int(sig) if sig not in ("", None) else None
+            except (TypeError, ValueError):
+                sig_int = None
+            return map_signal_quality(sig_int) if sig_int is not None else "no_signal"
+
+        if key == ATTR_TRACKER_SIGNAL:
+            # Keep blank/no-signal for LAN like the tracker UI.
+            if conn == Connection.LAN:
+                return None
+            sig = dev.get(ATTR_TRACKER_SIGNAL, None)
+            try:
+                return int(sig) if sig not in ("", None) else None
+            except (TypeError, ValueError):
+                return None
+
+        if key in (ATTR_TRACKER_LAST_ACTIVITY, ATTR_TRACKER_FIRST_SEEN):
+            value = dev.get(key)
+            if isinstance(value, str) and value:
+                dt = dt_util.parse_datetime(value)
+                return dt_util.as_local(dt) if dt else None
+            return None
+
+        return dev.get(key)
+
+
+def _build_device_sensors(
+    updater: LuciUpdater, entry_id: str, device: dict[str, Any]
+) -> list[SensorEntity]:
+    mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
+    if not mac:
+        return []
+
+    return [
+        MiWifiDeviceAttributeSensor(updater, entry_id, device, desc)
+        for desc in MIWIFI_DEVICE_SENSORS
+    ]
 class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
     """Sensor to represent the NAT rules of the main router."""
 
@@ -458,5 +734,10 @@ async def _async_add_all_sensors_later(
                 updater,
             )
         )
+
+
+    # Per-device sensors (clients)
+    for device in (updater.devices or {}).values():
+        entities.extend(_build_device_sensors(updater, config_entry.entry_id, device))
 
     async_add_entities(entities)

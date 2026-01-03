@@ -167,9 +167,19 @@ async def async_setup_entry(
     for device in updater.devices.values():
         add_device(device)
 
-    updater.new_device_callback = async_dispatcher_connect(
-        hass, SIGNAL_NEW_DEVICE, add_device
-    )
+    # Chain dispatcher unsubs (sensor/device_tracker) safely.
+    _unsub_new_device = async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, add_device)
+    _prev_unsub = getattr(updater, "new_device_callback", None)
+
+    if _prev_unsub:
+        def _unsub_all() -> None:
+            try:
+                _prev_unsub()
+            finally:
+                _unsub_new_device()
+        updater.new_device_callback = _unsub_all
+    else:
+        updater.new_device_callback = _unsub_new_device
 
     @callback
     def _handle_purge(entry_id: str, mac: str) -> None:
