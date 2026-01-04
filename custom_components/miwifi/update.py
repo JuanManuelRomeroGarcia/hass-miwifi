@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import httpx
+
+try:
+    from homeassistant.helpers.httpx_client import get_async_client
+except ImportError:  # pragma: no cover
+    get_async_client = None  # type: ignore[assignment]
 from .logger import _LOGGER
 from typing import Any, Final
 from .enum import Connection
@@ -295,8 +300,15 @@ class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
 
         try:
             url = f"https://api.github.com/repos/JuanManuelRomeroGarcia/miwifi-panel-frontend/releases/tags/v{version}"
-            async with httpx.AsyncClient(timeout=10) as client:
-                response = await client.get(url)
+
+            # Use Home Assistant's shared HTTPX client to avoid blocking SSL CA loading
+            if get_async_client is not None:
+                client = get_async_client(self.hass)
+                response = await client.get(url, timeout=10.0)
+            else:
+                # Fallback for very old Home Assistant versions
+                async with httpx.AsyncClient(timeout=10) as client:
+                    response = await client.get(url)
 
             if response.status_code == 200:
                 data = response.json()

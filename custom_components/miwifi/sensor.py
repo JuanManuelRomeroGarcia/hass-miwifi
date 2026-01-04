@@ -276,7 +276,11 @@ async def async_setup_entry(
             to_add.append(MiWifiDeviceAttributeSensor(updater, config_entry.entry_id, new_device, desc))
 
         if to_add:
-            platform.async_add_entities(to_add)
+            # In HA recent versions, EntityPlatform.async_add_entities is async.
+            # Do not leave the coroutine un-awaited; schedule it safely.
+            res = platform.async_add_entities(to_add)
+            if asyncio.iscoroutine(res):
+                hass.async_create_task(res)
 
     @callback
     def _handle_purge(entry_id: str, mac: str) -> None:
