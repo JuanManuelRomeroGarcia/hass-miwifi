@@ -1,23 +1,19 @@
-"""Luci data updater."""
 
-
+"""Luci data updater (dispatch inline + device scan toggle + async_stop)."""
 from __future__ import annotations
-
 import asyncio
 import aiohttp
 import contextlib
-from .logger import _LOGGER
-from .notifier import MiWiFiNotifier
-from .miwifi_utils import parse_memory_to_mb
-
-from .unsupported import UNSUPPORTED
+import time
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import Any, Final
-
-from homeassistant.util import dt as dt_util
-
-import homeassistant.components.persistent_notification as pn
+from .logger import _LOGGER
+from .notifier import MiWiFiNotifier
+from .miwifi_utils import parse_memory_to_mb
+from .unsupported import UNSUPPORTED
+from homeassistant.util import dt as dt_util  # noqa: F401
+import homeassistant.components.persistent_notification as pn  # noqa: F401
 from homeassistant.const import CONF_IP_ADDRESS
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import event
@@ -26,15 +22,14 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.httpx_client import get_async_client
-from homeassistant.helpers.storage import Store, STORAGE_DIR
+from homeassistant.helpers.storage import Store, STORAGE_DIR  # noqa: F401
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.helpers.translation import async_get_translations
+from homeassistant.helpers.translation import async_get_translations  # noqa: F401
 from homeassistant.util import utcnow
+from homeassistant.config_entries import ConfigEntry
 from httpx import codes
-
 from .const import (
     ATTR_BINARY_SENSOR_WAN_LINK,
-    ATTR_BINARY_SENSOR_WAN_LINK_NAME,
     ATTR_BINARY_SENSOR_DUAL_BAND,
     ATTR_BINARY_SENSOR_VPN_STATE,
     ATTR_BINARY_SENSOR_WAN_STATE,
@@ -63,7 +58,6 @@ from .const import (
     ATTR_SENSOR_WAN_UPLOAD_SPEED,
     ATTR_SENSOR_WAN_IP,
     ATTR_SENSOR_WAN_TYPE,
-    ATTR_SENSOR_WAN_TYPE_NAME,
     ATTR_STATE,
     ATTR_SWITCH_WIFI_5_0_GAME,
     ATTR_TRACKER_CONNECTION,
@@ -105,6 +99,7 @@ from .const import (
     NAME,
     SIGNAL_NEW_DEVICE,
     UPDATER,
+    CONF_IS_TRACK_DEVICES,
 )
 from .enum import (
     Connection,
@@ -151,7 +146,7 @@ REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_OPTIONAL_MAC,
 )
 
-# pylint: disable=too-many-branches,too-many-lines,too-many-arguments
+
 class LuciUpdater(DataUpdateCoordinator):
     """Luci data updater for interaction with Luci API."""
 
@@ -161,14 +156,13 @@ class LuciUpdater(DataUpdateCoordinator):
     new_device_callback: CALLBACK_TYPE | None = None
     is_force_load: bool = False
     supports_guest: bool = True
-
     _store: Store | None = None
-
     _entry_id: str | None = None
     _scan_interval: int
     _activity_days: int
     _is_only_login: bool = False
     _is_reauthorization: bool = True
+    disable_device_scan: bool = False
 
     def __init__(
         self,
@@ -185,23 +179,6 @@ class LuciUpdater(DataUpdateCoordinator):
         entry_id: str | None = None,
         protocol: str = DEFAULT_PROTOCOL,
     ) -> None:
-        """Initialize updater.
-
-        :rtype: object
-        :param hass: HomeAssistant: Home Assistant object
-        :param ip: str: device ip address
-        :param password: str: device password
-        :param encryption: str: password encryption algorithm
-        :param scan_interval: int: Update interval
-        :param timeout: int: Query execution timeout
-        :param is_force_load: bool: Force boot devices when using repeater and mesh mode
-        :param activity_days: int: Allowed number of days to wait after the last activity
-        :param store: Store | None: Device store
-        :param is_only_login: bool: Only config flow
-        :param entry_id: str | None: Entry ID
-        :param protocol: str: Connection protocol (auto, http, https)
-        """
-
         self.luci = LuciClient(
             get_async_client(hass, False),
             ip,
@@ -210,13 +187,16 @@ class LuciUpdater(DataUpdateCoordinator):
             timeout,
             protocol,
         )
-
-        self.ip = ip  # pylint: disable=invalid-name
+        self.ip = ip
         self.is_force_load = is_force_load
         self._entry_id = entry_id
         self._scan_interval = scan_interval
         self._activity_days = activity_days
         self._is_only_login = is_only_login
+
+        # WAN counters cache for delta fallback
+        self._last_wan_counters: dict[str, int] | None = None
+        self._last_wan_t: float | None = None
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -235,43 +215,55 @@ class LuciUpdater(DataUpdateCoordinator):
         self.data: dict[str, Any] = {}
         self.devices: dict[str, dict[str, Any]] = {}
         self._signals: dict[str, int] = {}
-        self._moved_devices: list = []
+        self._moved_devices: list[str] = []
         self._is_first_update: bool = True
 
+        # Read option: is_track_devices; convert to disable flag
+        if self._entry_id:
+            entry: ConfigEntry | None = self.hass.config_entries.async_get_entry(self._entry_id)
+            if entry is not None:
+                is_track_devices = entry.options.get(
+                    CONF_IS_TRACK_DEVICES,
+                    entry.data.get(CONF_IS_TRACK_DEVICES, True),
+                )
+                self.disable_device_scan = not bool(is_track_devices)
+                _LOGGER.debug("[MiWiFi] disable_device_scan=%s (entry_id=%s)", self.disable_device_scan, self._entry_id)
+                if self.disable_device_scan:
+                    if len(self.devices) > 0:
+                        _LOGGER.debug("[MiWiFi] Purging %s remembered devices because tracking is disabled", len(self.devices))
+                        self.devices.clear()
+                        self._signals.clear()
+                        self.reset_counter(is_remove=True)
+
     async def async_stop(self, clean_store: bool = False) -> None:
-        """Stop updater
-
-        :param clean_store: bool
-        """
-
+        """Stop updater and optionally clean stored devices."""
         if self.new_device_callback is not None:
-            self.new_device_callback()  # pylint: disable=not-callable
+            try:
+                self.new_device_callback()  # type: ignore[misc]
+            except Exception:
+                pass
 
-        if clean_store and self._store is not None:
-            await self._store.async_remove()
-        else:
-            await self._async_save_devices()
+        try:
+            if clean_store and self._store is not None:
+                await self._store.async_remove()
+            else:
+                await self._async_save_devices()
+        except Exception:
+            pass
 
-        await self.luci.logout()
+        with contextlib.suppress(Exception):
+            await self.luci.logout()
+
+        # GC help
+        self._signals.clear()
+        self.devices.clear()
 
     @cached_property
     def _update_interval(self) -> timedelta:
-        """Update interval
-
-        :return timedelta: update_interval
-        """
-
         return timedelta(seconds=self._scan_interval)
 
     async def update(self, retry: int = 1) -> dict:
-        """Update miwifi information.
-
-        :param retry: int: Retry count
-        :return dict: dict with luci data.
-        """
-
         self.code = codes.OK
-
         _is_before_reauthorization: bool = self._is_reauthorization
         _err: LuciError | None = None
 
@@ -280,37 +272,76 @@ class LuciUpdater(DataUpdateCoordinator):
                 if self._is_first_update and retry == 1:
                     await self.luci.logout()
                     await asyncio.sleep(DEFAULT_CALL_DELAY)
-
                 await self.luci.login()
 
-            for method in PREPARE_METHODS:
-                if not self._is_only_login or method == "init":
-                    
-                    if method in ("devices", "device_list") and "new_status" in self.data and self.is_force_load:
-                        continue
-                    await self._async_prepare(method, self.data)
+                # Init defaults
+                self.data = self.data or {}
+                for _k in (
+                    ATTR_SENSOR_DEVICES,
+                    ATTR_SENSOR_DEVICES_LAN,
+                    ATTR_SENSOR_DEVICES_GUEST,
+                    ATTR_SENSOR_DEVICES_2_4,
+                    ATTR_SENSOR_DEVICES_5_0,
+                    ATTR_SENSOR_DEVICES_5_0_GAME,
+                ):
+                    self.data.setdefault(_k, 0)
+                self.data.setdefault("new_status", None)
+                # Ensure WAN speed keys exist
+                self.data.setdefault(ATTR_SENSOR_WAN_DOWNLOAD_SPEED, 0)
+                self.data.setdefault(ATTR_SENSOR_WAN_UPLOAD_SPEED, 0)
+
+                # Dispatch inline, skipping device scan if disabled
+                methods = PREPARE_METHODS
+                if self.disable_device_scan:
+                    methods = tuple(m for m in methods if m not in ("devices", "device_list", "new_status"))
+                    _LOGGER.debug("[MiWiFi] device_scan_disabled=True; skipping devices/device_list/new_status")
+
+                for method in methods:
+                    if not self._is_only_login or method == "init":
+                        if (
+                            method in ("devices", "device_list")
+                            and self.is_force_load
+                            and self.data.get("new_status") is not None
+                        ):
+                            continue
+                        if (
+                            method in UNSUPPORTED
+                            and self.data.get(ATTR_MODEL, Model.NOT_KNOWN) in UNSUPPORTED[method]
+                        ):
+                            await self.hass.async_add_executor_job(
+                                _LOGGER.debug,
+                                "[MiWiFi] Skipping '%s' for model '%s' (unsupported)",
+                                method,
+                                self.data.get(ATTR_MODEL),
+                            )
+                            continue
+                        action = getattr(self, f"_async_prepare_{method}", None)
+                        if action is None:
+                            _LOGGER.debug("[MiWiFi] No handler '_async_prepare_%s'; skipping.", method)
+                            continue
+                        await action(self.data)
 
         except LuciConnectionError as _e:
             _err = _e
             self._is_reauthorization = False
             self.code = codes.NOT_FOUND
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] LuciConnectionError en login: %s", _e)
-            
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning, "[MiWiFi] LuciConnectionError en login: %s", _e
+            )
         except LuciRequestError as _e:
             _err = _e
             self._is_reauthorization = True
             self.code = codes.FORBIDDEN
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] LuciRequestError en login: %s", _e)
-
-
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning, "[MiWiFi] LuciRequestError en login: %s", _e
+            )
         else:
             self._is_reauthorization = False
 
-            if self._is_first_update:
-                self._is_first_update = False
+        if self._is_first_update:
+            self._is_first_update = False
 
         self.data[ATTR_STATE] = codes.is_success(self.code)
-
         if (
             not self._is_first_update
             and not _is_before_reauthorization
@@ -325,98 +356,85 @@ class LuciUpdater(DataUpdateCoordinator):
         ):
             if retry > DEFAULT_RETRY and _err is not None:
                 raise _err
-
             if retry <= DEFAULT_RETRY:
-                await self.hass.async_add_executor_job(_LOGGER.warning, 
+                await self.hass.async_add_executor_job(
+                    _LOGGER.warning,
                     "Error connecting to router (attempt #%s of %s): %r",
                     retry,
                     DEFAULT_RETRY,
                     _err,
                 )
-
                 await asyncio.sleep(retry)
-
                 return await self.update(retry + 1)
 
         if not self._is_only_login:
             self._clean_devices()
+            if "new_status" not in self.data and not self.disable_device_scan:
+                await self._async_prepare_new_status(self.data)
+            await self._async_prepare_topo()
+            await self._async_prepare_compatibility()
+            if isinstance(getattr(self, "capabilities", None), dict) and self.capabilities.get("portforward", False):
+                await self._async_prepare_nat_rules()
 
-        if "new_status" not in self.data:
-            await self._async_prepare_new_status(self.data)
-            
-        await self._async_prepare_topo()
-
-        await self._async_prepare_compatibility()
-        
-        if isinstance(getattr(self, "capabilities", None), dict) and self.capabilities.get("portforward", False):
-            await self._async_prepare_nat_rules()
-        
-        # Panel frontend version check (local + remote)
+        # Frontend panel version check → use HA shared aiohttp session
         try:
             from .frontend import read_local_version, read_remote_version
-            async with aiohttp.ClientSession() as session:
-                local = await read_local_version(self.hass)
-                remote = await read_remote_version(session)
-                self.data["panel_local_version"] = local
-                self.data["panel_remote_version"] = remote
+            from homeassistant.helpers.aiohttp_client import async_get_clientsession
+            session = async_get_clientsession(self.hass)
+            local = await read_local_version(self.hass)
+            remote = await read_remote_version(session)
+            self.data["panel_local_version"] = local
+            self.data["panel_remote_version"] = remote
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] The frontend panel version could not be updated: %s", e)
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] The frontend panel version could not be updated: %s",
+                e,
+            )
+
+        self.data.setdefault("miwifi_flags", {})
+        self.data["miwifi_flags"]["disable_device_scan"] = self.disable_device_scan
+
+        # Always refresh WAN speeds
+        try:
+            await self._async_prepare_status(self.data)
+        except Exception as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug, "[MiWiFi] status refresh failed: %s", e
+            )
 
         if self._is_only_login:
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s",
+                self.code,
+                self.data.get(ATTR_STATE),
+            )
 
         return self.data
 
     @property
     def is_repeater(self) -> bool:
-        """Is repeater property
-
-        :return bool: is_repeater
-        """
-
         return self.data.get(ATTR_SENSOR_MODE, Mode.DEFAULT).value > 0
 
     @property
     def supports_wan(self) -> bool:
-        """Is supports wan
-
-        :return bool
-        """
-
         return self.data.get(ATTR_BINARY_SENSOR_WAN_STATE, False)
 
     @property
     def supports_game(self) -> bool:
-        """Is supports game mode
-
-        :return bool
-        """
-
         return self.data.get(ATTR_SWITCH_WIFI_5_0_GAME, None) is not None
 
     @property
     def supports_update(self) -> bool:
-        """Is supports update
-
-        :return bool
-        """
-
         return len(self.data.get(ATTR_UPDATE_FIRMWARE, {})) != 0
 
     @property
     def device_info(self):
-        """Device info.
-
-        :return DeviceInfo: Service DeviceInfo.
-        """
-
         return DeviceInfo(
             identifiers={(DOMAIN, self.data.get(ATTR_DEVICE_MAC_ADDRESS, self.ip))},
             connections={
-                (
-                    CONNECTION_NETWORK_MAC,
-                    self.data.get(ATTR_DEVICE_MAC_ADDRESS, self.ip),
-                ),
+                (CONNECTION_NETWORK_MAC, self.data.get(ATTR_DEVICE_MAC_ADDRESS, self.ip)),
                 (CONF_IP_ADDRESS, self.ip),
             },
             name=self.data.get(ATTR_DEVICE_NAME, DEFAULT_NAME),
@@ -428,47 +446,18 @@ class LuciUpdater(DataUpdateCoordinator):
         )
 
     def schedule_refresh(self, offset: timedelta) -> None:
-        """Schedule refresh.
-
-        :param offset: timedelta
-        """
-
-        if self._unsub_refresh:  # type: ignore
-            self._unsub_refresh()  # type: ignore
+        if getattr(self, "_unsub_refresh", None):  # type: ignore[attr-defined]
+            self._unsub_refresh()  # type: ignore[attr-defined]
             self._unsub_refresh = None
-
         self._unsub_refresh = event.async_track_point_in_utc_time(
             self.hass,
-            self._job,
+            self._job,  # type: ignore[attr-defined]
             utcnow().replace(microsecond=0) + offset,
         )
 
-    async def _async_prepare(self, method: str, data: dict) -> None:
-        """Prepare data.
-
-        :param method: str
-        :param data: dict
-        """
-
-        if (
-            method in UNSUPPORTED
-            and data.get(ATTR_MODEL, Model.NOT_KNOWN) in UNSUPPORTED[method]
-        ):
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping '%s' for model '%s' (unsupported)", method, data.get(ATTR_MODEL))
-            
-            return
-
-        if action := getattr(self, f"_async_prepare_{method}"):
-            await action(data)
+    # ---- Handlers ----
 
     async def _async_prepare_init(self, data: dict) -> None:
-        """Prepare init info.
-
-        :param data: dict
-        """
-
-        '''if not self._is_first_update:
-            return'''
         if (
             not self._is_first_update
             and ATTR_DEVICE_NAME in data
@@ -478,11 +467,9 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         response: dict = await self.luci.init_info()
-
         if "model" in response:
             data[ATTR_DEVICE_MODEL] = response["model"]
-
-            manufacturer: list = response["model"].split(".")
+            manufacturer: list[str] = response["model"].split(".")
             data[ATTR_DEVICE_MANUFACTURER] = manufacturer[0].title()
         elif "hardware" in response:
             data[ATTR_DEVICE_MODEL] = response["hardware"]
@@ -491,56 +478,34 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_DEVICE_NAME] = response["routername"]
 
         if "romversion" in response and "countrycode" in response:
-            data[
-                ATTR_DEVICE_SW_VERSION
-            ] = f"{response['romversion']} ({response['countrycode']})"
+            data[ATTR_DEVICE_SW_VERSION] = f"{response['romversion']} ({response['countrycode']})"
 
         if "hardware" in response:
             try:
                 data[ATTR_MODEL] = Model(response["hardware"].lower())
-
             except ValueError as _e:
                 await async_self_check(self.hass, self.luci, response["hardware"])
-
                 if not self._is_only_login:
-                    raise LuciError(f"Router {self.ip} not supported") from _e
-
-                self.code = codes.CONFLICT
-
-            return
-
-
-        notifier = MiWiFiNotifier(self.hass)
-        translations = await notifier.get_translations()
-
-        title = translations.get("notifications", {}).get(
-            "unsupported_router_title", "Unsupported Router"
-        )
-        message_template = translations.get("notifications", {}).get(
-            "unsupported_router_message",
-            f"⚠️ Router at {self.ip} is not supported by the MiWiFi integration."
-        )
-        message = message_template.replace("{ip}", self.ip)
-
-        await notifier.notify(
-            message=message,
-            title=title,
-            notification_id=f"miwifi_unsupported_router_{self.ip.replace('.', '_')}"
-        )
-
-        if not self._is_only_login:
-            raise LuciError(f"Router {self.ip} not supported")
+                    notifier = MiWiFiNotifier(self.hass)
+                    translations = await notifier.get_translations()
+                    title = translations.get("notifications", {}).get("unsupported_router_title", "Unsupported Router")
+                    message_template = translations.get("notifications", {}).get(
+                        "unsupported_router_message",
+                        f"⚠️ Router at {self.ip} is not supported by the MiWiFi integration."
+                    )
+                    message = message_template.replace("{ip}", self.ip)
+                    await notifier.notify(
+                        message=message,
+                        title=title,
+                        notification_id=f"miwifi_unsupported_router_{self.ip.replace('.', '_')}"
+                    )
+                raise LuciError(f"Router {self.ip} not supported") from _e
 
         self.code = codes.CONFLICT
+        return
 
     async def _async_prepare_status(self, data: dict) -> None:
-        """Prepare status.
-
-        :param data: dict
-        """
-
         response: dict = await self.luci.status()
-
         if "hardware" in response and isinstance(response["hardware"], dict):
             if "mac" in response["hardware"]:
                 data[ATTR_DEVICE_MAC_ADDRESS] = response["hardware"]["mac"]
@@ -550,87 +515,97 @@ class LuciUpdater(DataUpdateCoordinator):
                 data[ATTR_UPDATE_CURRENT_VERSION] = response["hardware"]["version"]
 
         if "upTime" in response:
-            data[ATTR_SENSOR_UPTIME] = str(
-                timedelta(seconds=int(float(response["upTime"])))
-            )
+            data[ATTR_SENSOR_UPTIME] = str(timedelta(seconds=int(float(response["upTime"]))))
 
         if "mem" in response and isinstance(response["mem"], dict):
             if "usage" in response["mem"]:
                 data[ATTR_SENSOR_MEMORY_USAGE] = int(float(response["mem"]["usage"]) * 100)
-
             if "total" in response["mem"]:
                 data[ATTR_SENSOR_MEMORY_TOTAL] = parse_memory_to_mb(response["mem"]["total"])
-                
 
         if "temperature" in response:
             data[ATTR_SENSOR_TEMPERATURE] = float(response["temperature"])
 
-        if "wan" in response and isinstance(response["wan"], dict):
-            # fmt: off
-            data[ATTR_SENSOR_WAN_DOWNLOAD_SPEED] = float(
-                response["wan"]["downspeed"]
-            ) if "downspeed" in response["wan"] else 0
+        # WAN speeds (with fallbacks)
+        def _to_int(v) -> int:
+            try:
+                if v is None:
+                    return 0
+                return int(float(v))
+            except Exception:
+                return 0
 
-            data[ATTR_SENSOR_WAN_UPLOAD_SPEED] = float(
-                response["wan"]["upspeed"]
-            ) if "upspeed" in response["wan"] else 0
-            # fmt: on
+        wan = response.get("wan", {}) if isinstance(response, dict) else {}
+        down_bps = _to_int(wan.get("downspeed"))
+        up_bps = _to_int(wan.get("upspeed"))
+
+        if down_bps == 0 and up_bps == 0:
+            try:
+                stats = await self.luci.wan_statistics()
+            except Exception as e:
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug, "[MiWiFi] wan_statistics failed: %s", e
+                )
+                stats = {}
+
+            st = stats.get("statistics", {}) if isinstance(stats, dict) else {}
+            down_bps = _to_int(st.get("downspeed")) or 0
+            up_bps = _to_int(st.get("upspeed")) or 0
+
+            # Fallback por delta de contadores
+            now = time.time()
+            download_c = _to_int(st.get("download"))
+            upload_c = _to_int(st.get("upload"))
+            if (down_bps == 0 and up_bps == 0) and download_c and upload_c:
+                if self._last_wan_counters and self._last_wan_t:
+                    dt = max(1.0, now - self._last_wan_t)
+                    down_bps = max(0, int((download_c - self._last_wan_counters.get("download", 0)) / dt))
+                    up_bps = max(0, int((upload_c - self._last_wan_counters.get("upload", 0)) / dt))
+                self._last_wan_counters = {"download": download_c, "upload": upload_c}
+                self._last_wan_t = now
+
+        data[ATTR_SENSOR_WAN_DOWNLOAD_SPEED] = int(down_bps or 0)
+        data[ATTR_SENSOR_WAN_UPLOAD_SPEED] = int(up_bps or 0)
+
+        await self.hass.async_add_executor_job(
+            _LOGGER.debug,
+            "[MiWiFi] WAN speeds → down=%s B/s, up=%s B/s",
+            data[ATTR_SENSOR_WAN_DOWNLOAD_SPEED],
+            data[ATTR_SENSOR_WAN_UPLOAD_SPEED],
+        )
 
     async def _async_prepare_vpn(self, data: dict) -> None:
-        """Prepare vpn.
-
-        :param data: dict
-        """
-
         with contextlib.suppress(LuciError):
             response: dict = await self.luci.vpn_status()
-
-            data |= {
-                ATTR_SENSOR_VPN_UPTIME: 0,
-                ATTR_BINARY_SENSOR_VPN_STATE: False,
-            }
-
+            data = {ATTR_SENSOR_VPN_UPTIME: 0, ATTR_BINARY_SENSOR_VPN_STATE: False}
             if "uptime" in response:
-                data |= {
-                    ATTR_SENSOR_VPN_UPTIME: str(
-                        timedelta(seconds=int(float(response["uptime"])))
-                    ),
+                data = {
+                    ATTR_SENSOR_VPN_UPTIME: str(timedelta(seconds=int(float(response["uptime"])))),
                     ATTR_BINARY_SENSOR_VPN_STATE: int(float(response["uptime"])) > 0,
                 }
 
     async def _async_prepare_rom_update(self, data: dict) -> None:
-        """Prepare rom update.
-
-        :param data: dict
-        """
-
         if ATTR_UPDATE_CURRENT_VERSION not in data:
             return
-
         _rom_info: dict = {
             ATTR_UPDATE_CURRENT_VERSION: data[ATTR_UPDATE_CURRENT_VERSION],
             ATTR_UPDATE_LATEST_VERSION: data[ATTR_UPDATE_CURRENT_VERSION],
             ATTR_UPDATE_TITLE: f"{data.get(ATTR_DEVICE_MANUFACTURER, DEFAULT_MANUFACTURER)}"
-            + f" {data.get(ATTR_MODEL, Model.NOT_KNOWN).name}"
-            + f" ({data.get(ATTR_DEVICE_NAME, DEFAULT_NAME)})",
+                               f" {data.get(ATTR_MODEL, Model.NOT_KNOWN).name}"
+                               f" ({data.get(ATTR_DEVICE_NAME, DEFAULT_NAME)})",
         }
-
         try:
             response: dict = await self.luci.rom_update()
         except LuciError:
             response = {}
 
-        if (
-            not isinstance(response, dict)
-            or "needUpdate" not in response
-            or response["needUpdate"] != 1
-        ):
+        if not isinstance(response, dict) or "needUpdate" not in response or response["needUpdate"] != 1:
             data[ATTR_UPDATE_FIRMWARE] = _rom_info
-
             return
 
         with contextlib.suppress(KeyError):
-            data[ATTR_UPDATE_FIRMWARE] = _rom_info | {
+            data[ATTR_UPDATE_FIRMWARE] = {
+                **_rom_info,
                 ATTR_UPDATE_LATEST_VERSION: response["version"],
                 ATTR_UPDATE_DOWNLOAD_URL: response["downloadUrl"],
                 ATTR_UPDATE_RELEASE_URL: response["changelogUrl"],
@@ -639,35 +614,24 @@ class LuciUpdater(DataUpdateCoordinator):
             }
 
     async def _async_prepare_mode(self, data: dict) -> None:
-        """Prepare mode.
-
-        :param data: dict
-        """
-
         if data.get(ATTR_SENSOR_MODE, Mode.DEFAULT) == Mode.MESH:
             return
 
         response: dict = await self.luci.mode()
-
         if "mode" in response:
             with contextlib.suppress(ValueError):
                 try:
                     data[ATTR_SENSOR_MODE] = Mode(int(response["mode"]))
-                except:
+                except Exception:
                     data[ATTR_SENSOR_MODE] = Mode(0)
-
-                return
-
+            return
         data[ATTR_SENSOR_MODE] = Mode.DEFAULT
 
     async def _async_prepare_wan(self, data: dict) -> None:
-        """Prepare WAN state, link status, IP address and type."""
-
         try:
             response: dict = await self.luci.wan_info()
-            
             await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info response: %s", response)
-            
+
             info = response.get("info") if isinstance(response, dict) else {}
             if not isinstance(info, dict):
                 await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info['info'] is not a dict, got: %s", type(info))
@@ -675,26 +639,17 @@ class LuciUpdater(DataUpdateCoordinator):
             elif not info:
                 await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info['info'] is empty.")
 
-
-            # WAN State (based on uptime)
             data[ATTR_BINARY_SENSOR_WAN_STATE] = info.get("uptime", 0) > 0
-
-            # WAN Link (based on link status)
             data[ATTR_BINARY_SENSOR_WAN_LINK] = info.get("link", 0) == 1
 
-            # WAN IP
             ipv4_list = info.get("ipv4", [])
             if isinstance(ipv4_list, list) and ipv4_list and isinstance(ipv4_list[0], dict):
                 data[ATTR_SENSOR_WAN_IP] = ipv4_list[0].get("ip")
             else:
                 data[ATTR_SENSOR_WAN_IP] = None
 
-            # WAN Type
             details = info.get("details")
-            if isinstance(details, dict):
-                data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown")
-            else:
-                data[ATTR_SENSOR_WAN_TYPE] = "unknown"
+            data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown") if isinstance(details, dict) else "unknown"
 
         except Exception as e:
             await self.hass.async_add_executor_job(_LOGGER.error, "Error while preparing WAN info: %s", e)
@@ -703,68 +658,37 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_SENSOR_WAN_IP] = None
             data[ATTR_SENSOR_WAN_TYPE] = "unknown"
 
-                
-
     async def _async_prepare_led(self, data: dict) -> None:
-        """Prepare led.
-
-        :param data: dict
-        """
-
         response: dict = await self.luci.led()
-
-        if "status" in response:
-            data[ATTR_LIGHT_LED] = response["status"] == 1
-
-            return
-
-        data[ATTR_LIGHT_LED] = False
+        data[ATTR_LIGHT_LED] = response.get("status") == 1
 
     async def _async_prepare_wifi(self, data: dict) -> None:
-        """Prepare wifi.
-
-        :param data: dict
-        """
-
         try:
             response: dict = await self.luci.wifi_detail_all()
         except LuciError:
             return
 
-        # fmt: off
-        data[ATTR_BINARY_SENSOR_DUAL_BAND] = int(response["bsd"]) == 1 \
-            if "bsd" in response else False
-        # fmt: on
-
+        data[ATTR_BINARY_SENSOR_DUAL_BAND] = int(response.get("bsd", 0)) == 1 if "bsd" in response else False
         if "info" not in response or len(response["info"]) == 0:
             return
 
         _adapters: list = await self._async_prepare_wifi_guest(response["info"])
-
         length: int = 0
-
-        # Support only 5G , 2.4G, 5G Game and Guest
         for wifi in _adapters:
             if "ifname" not in wifi:
                 continue
-
             try:
                 adapter: IfName = IfName(wifi["ifname"])
             except ValueError:
                 continue
 
-            # Guest network is not an adapter
             if adapter != IfName.WL14:
                 length += 1
 
             if "status" in wifi:
                 data[adapter.phrase] = int(wifi["status"]) > 0  # type: ignore
-
             if "channelInfo" in wifi and "channel" in wifi["channelInfo"]:
-                data[f"{adapter.phrase}_channel"] = str(  # type: ignore
-                    wifi["channelInfo"]["channel"]
-                )
-
+                data[f"{adapter.phrase}_channel"] = str(wifi["channelInfo"]["channel"])  # type: ignore
             if "txpwr" in wifi:
                 data[f"{adapter.phrase}_signal_strength"] = wifi["txpwr"]  # type: ignore
 
@@ -774,80 +698,50 @@ class LuciUpdater(DataUpdateCoordinator):
         data[ATTR_WIFI_ADAPTER_LENGTH] = length
 
     async def _async_prepare_wifi_guest(self, adapters: list) -> list:
-        """Prepare wifi guest.
-
-        :param adapters: list
-        :return list: adapters
-        """
-
-        if not self.supports_guest:  # pragma: no cover
+        if not self.supports_guest:
             return adapters
-
         self.supports_guest = False
-
         with contextlib.suppress(LuciError):
             response_diag = await self.luci.wifi_diag_detail_all()
             _adapters_len: int = len(adapters)
-
             if "info" in response_diag:
                 adapters += [
                     _adapter
                     for _adapter in response_diag["info"]
                     if "ifname" in _adapter and _adapter["ifname"] == IfName.WL14.value
                 ]
-
             if _adapters_len < len(adapters):
                 self.supports_guest = True
-
         return adapters
 
     @staticmethod
     def _prepare_wifi_data(data: dict) -> dict:
-        """Prepare wifi data
-
-        :param data:
-        :return: dict: wifi data
-        """
-
         wifi_data: dict = {}
-
         for data_field, field in ATTR_WIFI_DATA_FIELDS.items():
             if "channelInfo" in data_field and "channelInfo" in data:
-                data_field = data_field.replace("channelInfo.", "")
-
-                if data_field in data["channelInfo"]:
-                    wifi_data[field] = data["channelInfo"][data_field]
+                key = data_field.replace("channelInfo.", "")
+                if key in data["channelInfo"]:
+                    wifi_data[field] = data["channelInfo"][key]
             elif data_field in data:
                 wifi_data[field] = data[data_field]
-
         return wifi_data
 
     async def _async_prepare_channels(self, data: dict) -> None:
-        """Prepare channels.
-
-        :param data: dict
-        """
-
         if not self._is_first_update or ATTR_WIFI_ADAPTER_LENGTH not in data:
             return
-
         for index in range(1, data.get(ATTR_WIFI_ADAPTER_LENGTH, 2) + 1):
             response: dict = await self.luci.avaliable_channels(index)
-
             if "list" not in response or len(response["list"]) == 0:
                 continue
-
             data[f"{Wifi(index).phrase}_channels"] = [  # type: ignore
-                str(channel["c"])
-                for channel in response["list"]
-                if "c" in channel and int(channel["c"]) > 0
+                str(channel["c"]) for channel in response["list"] if "c" in channel and int(channel["c"]) > 0
             ]
 
     async def _async_prepare_devices(self, data: dict) -> None:
-        """Prepare devices."""
+        if self.disable_device_scan:
+            return
 
         self.reset_counter()
-
         response: dict = await self.luci.wifi_connect_devices()
 
         macfilter_info: dict = {}
@@ -862,12 +756,10 @@ class LuciUpdater(DataUpdateCoordinator):
             )
 
         filter_macs: dict[str, int] = {}
-
         for entry in macfilter_info.get("flist", []):
             mac = entry.get("mac", "").upper()
             wan = entry.get("authority", {}).get("wan", 1)
             filter_macs[mac] = wan
-
         for entry in macfilter_info.get("list", []):
             mac = entry.get("mac", "").upper()
             wan = entry.get("authority", {}).get("wan", 1)
@@ -875,47 +767,37 @@ class LuciUpdater(DataUpdateCoordinator):
 
         if "list" in response:
             integrations: dict[str, dict] = {}
-
             if self.is_repeater and self.is_force_load:
                 integrations = async_get_integrations(self.hass)
-
             for device in response["list"]:
                 mac = device.get("mac", "").upper()
-
                 self._signals[mac] = device["signal"] if "signal" in device else 0
-
                 if mac in self.devices:
                     self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
                         datetime.now().replace(microsecond=0).isoformat()
                     )
 
-                if mac in filter_macs:
-                    device[ATTR_TRACKER_INTERNET_BLOCKED] = (filter_macs[mac] == 0)
-                else:
-                    device[ATTR_TRACKER_INTERNET_BLOCKED] = False
+                device[ATTR_TRACKER_INTERNET_BLOCKED] = (filter_macs.get(mac, 1) == 0)
 
                 if self.is_repeater and self.is_force_load:
-                    device |= {
+                    dev_stub = {
                         ATTR_TRACKER_ENTRY_ID: self._entry_id,
                         ATTR_TRACKER_UPDATER_ENTRY_ID: self._entry_id,
+                        ATTR_TRACKER_MAC: mac,
                     }
-
                     action: DeviceAction = DeviceAction.ADD
-                    if self._mass_update_device(device, integrations):
+                    if self._mass_update_device(dev_stub, integrations):
                         action = DeviceAction.SKIP
-
-                    if ATTR_TRACKER_MAC in device:
-                        await self.add_device(device, action=action)
-                        
+                    if ATTR_TRACKER_MAC in dev_stub:
+                        await self.add_device(dev_stub, action=action)
 
     async def _async_prepare_device_list(self, data: dict) -> None:
-        """Prepare device list"""
-
+        if self.disable_device_scan:
+            return
         if self.is_repeater:
             return
-        
-        totals_by_mac: dict[str, int] = {}
 
+        totals_by_mac: dict[str, int] = {}
         try:
             misystem = await self.luci.misystem_info()
         except Exception as e:
@@ -931,25 +813,22 @@ class LuciUpdater(DataUpdateCoordinator):
                 mac_dev = (dev.get("mac") or "").upper()
                 if not mac_dev:
                     continue
-
                 try:
                     down = int(dev.get("download") or 0)
                     up = int(dev.get("upload") or 0)
                 except (TypeError, ValueError):
                     continue
-
                 total = down + up
                 if total >= 0:
                     totals_by_mac[mac_dev] = total
 
         response: dict = await self.luci.device_list()
-
         if "list" not in response or len(response["list"]) == 0:
             if len(self._signals) > 0 and not self.is_repeater:
                 self.reset_counter(is_remove=True)
-                data[ATTR_SENSOR_MODE] = Mode.MESH
-                if self.is_force_load:
-                    await self._async_prepare_devices(data)
+            data[ATTR_SENSOR_MODE] = Mode.MESH
+            if self.is_force_load:
+                await self._async_prepare_devices(data)
             return
 
         macfilter_info: dict = {}
@@ -962,28 +841,25 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.ip,
                 e,
             )
-        filter_macs: dict[str, int] = {}
 
+        filter_macs: dict[str, int] = {}
         for entry in macfilter_info.get("flist", []):
             mac = entry.get("mac", "").upper()
             wan = entry.get("authority", {}).get("wan", 1)
             filter_macs[mac] = wan
-
         for entry in macfilter_info.get("list", []):
             mac = entry.get("mac", "").upper()
             wan = entry.get("authority", {}).get("wan", 1)
             filter_macs[mac] = wan
 
         integrations: dict[str, dict] = async_get_integrations(self.hass)
-
         mac_to_ip: dict[str, str] = {
             device[ATTR_TRACKER_MAC]: device["ip"][0]["ip"]
             for device in response["list"]
             if "ip" in device and len(device["ip"]) > 0 and ATTR_TRACKER_MAC in device
         }
 
-        add_to: dict = {}
-
+        add_to: dict[str, dict] = {}
         self.reset_counter(is_force=True)
 
         for device in response["list"]:
@@ -997,7 +873,6 @@ class LuciUpdater(DataUpdateCoordinator):
                 and mac_to_ip[device["parent"]] != self.ip
             ):
                 integration: dict = integrations[mac_to_ip[device["parent"]]]
-
                 if (
                     ATTR_TRACKER_MAC in device
                     and device[ATTR_TRACKER_MAC] not in integration[UPDATER].devices
@@ -1008,157 +883,119 @@ class LuciUpdater(DataUpdateCoordinator):
                     action = DeviceAction.SKIP
 
                 device[ATTR_TRACKER_ENTRY_ID] = integration[ATTR_TRACKER_ENTRY_ID]
-
                 if ATTR_DEVICE_MAC_ADDRESS in integration[UPDATER].data:
-                    if mac_to_ip[device["parent"]] not in add_to:
-                        add_to[mac_to_ip[device["parent"]]] = {}
+                    add_to.setdefault(mac_to_ip[device["parent"]], {})
+                    add_to[mac_to_ip[device["parent"]]][device[ATTR_TRACKER_MAC]] = (device, action)
 
-                    add_to[mac_to_ip[device["parent"]]][device[ATTR_TRACKER_MAC]] = (
-                        device,
-                        action,
-                    )
+                if integration[UPDATER].is_force_load:
+                    continue
 
-                    if integration[UPDATER].is_force_load:
-                        continue
             else:
                 device[ATTR_TRACKER_ENTRY_ID] = self._entry_id
 
-                if (
-                    ATTR_TRACKER_MAC in device
-                    and device[ATTR_TRACKER_MAC] in self._moved_devices
-                ):
-                    device[ATTR_TRACKER_UPDATER_ENTRY_ID] = self._entry_id
-                    device[ATTR_TRACKER_ROUTER_MAC_ADDRESS] = (
-                        self.data.get(ATTR_DEVICE_MAC_ADDRESS, None),
-                    )
+            if (
+                ATTR_TRACKER_MAC in device
+                and device[ATTR_TRACKER_MAC] in self._moved_devices
+            ):
+                device[ATTR_TRACKER_UPDATER_ENTRY_ID] = self._entry_id
 
-                    if self._mass_update_device(device, integrations):
-                        action = DeviceAction.SKIP
+            device[ATTR_TRACKER_ROUTER_MAC_ADDRESS] = (
+                self.data.get(ATTR_DEVICE_MAC_ADDRESS, None),
+            )
 
-                    self._moved_devices.remove(device[ATTR_TRACKER_MAC])
+            if self._mass_update_device(device, integrations):
+                action = DeviceAction.SKIP
 
             if (
                 ATTR_TRACKER_MAC in device
                 and device[ATTR_TRACKER_MAC] not in self._moved_devices
             ):
                 device[ATTR_TRACKER_UPDATER_ENTRY_ID] = self._entry_id
-                mac = device.get("mac", "").upper()
 
-                if mac in filter_macs:
-                    device[ATTR_TRACKER_INTERNET_BLOCKED] = (filter_macs[mac] == 0)
-                else:
-                    device[ATTR_TRACKER_INTERNET_BLOCKED] = False
+            mac = device.get("mac", "").upper()
+            device[ATTR_TRACKER_INTERNET_BLOCKED] = (filter_macs.get(mac, 1) == 0)
 
-                # 🔢 Aquí aplicamos el total de tráfico si lo tenemos
-                total_usage = totals_by_mac.get(mac)
-                if total_usage is not None:
-                    device[ATTR_TRACKER_TOTAL_USAGE] = total_usage
+            total_usage = totals_by_mac.get(mac)
+            if total_usage is not None:
+                device[ATTR_TRACKER_TOTAL_USAGE] = total_usage
 
-                await self.add_device(device, action=action, integrations=integrations)
+            await self.add_device(device, action=action, integrations=integrations)
 
         if not add_to:
             return
-
         await asyncio.sleep(DEFAULT_CALL_DELAY)
-
         for _ip, devices in add_to.items():
             if not integrations[_ip][UPDATER].is_force_load:
                 integrations[_ip][UPDATER].reset_counter(is_force=True)
-
-            for device, action in devices.values():
-                if ATTR_TRACKER_MAC in device:
+            for dev, action in devices.values():
+                if ATTR_TRACKER_MAC in dev:
                     await integrations[_ip][UPDATER].add_device(
-                        device,
-                        True,
-                        action,
-                        integrations,
+                        dev, True, action, integrations,
                     )
 
-
     async def _async_prepare_device_restore(self, data: dict) -> None:
-        """Restore devices
-
-        :param data: dict
-        """
-
         if not self._is_first_update or (self.is_repeater and self.is_force_load):
             return
 
         devices: dict | None = await self._async_load_devices()
-
         if devices is None:
             return
 
         integrations: dict = async_get_integrations(self.hass)
-
         for mac, device in devices.items():
             if mac in self.devices:
                 continue
 
             try:
-                # fmt: off
-                device[ATTR_TRACKER_CONNECTION] = Connection(int(device[ATTR_TRACKER_CONNECTION])) \
-                    if ATTR_TRACKER_CONNECTION in device \
-                    and device[ATTR_TRACKER_CONNECTION] is not None \
+                device[ATTR_TRACKER_CONNECTION] = (
+                    Connection(int(device[ATTR_TRACKER_CONNECTION]))
+                    if ATTR_TRACKER_CONNECTION in device and device[ATTR_TRACKER_CONNECTION] is not None
                     else None
-                # fmt: on
+                )
             except ValueError:
                 device[ATTR_TRACKER_CONNECTION] = None
 
             _is_add: bool = True
             if device[ATTR_TRACKER_ENTRY_ID] != self._entry_id:
                 for integration in integrations.values():
-                    if (
-                        integration[ATTR_TRACKER_ENTRY_ID]
-                        != device[ATTR_TRACKER_ENTRY_ID]
-                    ):
+                    if integration[ATTR_TRACKER_ENTRY_ID] != device[ATTR_TRACKER_ENTRY_ID]:
                         continue
-
                     if integration[UPDATER].is_force_load:
                         if mac in integration[UPDATER].devices:
-                            integration[UPDATER].devices[mac] |= {
+                            integration[UPDATER].devices[mac] = {
                                 attr: device[attr]
                                 for attr in [ATTR_TRACKER_NAME, ATTR_TRACKER_IP]
                                 if attr in device and device[attr] is not None
                             }
-
-                        _is_add = False
-
-                        break
-
-                    if mac not in integration[UPDATER].devices:
-                        device |= {
-                            ATTR_TRACKER_ROUTER_MAC_ADDRESS: integration[
-                                UPDATER
-                            ].data.get(
-                                ATTR_DEVICE_MAC_ADDRESS,
-                                device[ATTR_TRACKER_ROUTER_MAC_ADDRESS],
-                            ),
-                            ATTR_TRACKER_UPDATER_ENTRY_ID: self._entry_id,
-                        }
-
-                        integration[UPDATER].devices[mac] = device
-
-                        self._moved_devices.append(mac)
-
-                        break
+                            _is_add = False
+                            break
+                        if mac not in integration[UPDATER].devices:
+                            # Crear stub mínimo en el otro updater y marcar como movido
+                            _dev = {
+                                ATTR_TRACKER_ROUTER_MAC_ADDRESS: integration[UPDATER].data.get(
+                                    ATTR_DEVICE_MAC_ADDRESS,
+                                    device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
+                                ),
+                                ATTR_TRACKER_UPDATER_ENTRY_ID: self._entry_id,
+                                ATTR_TRACKER_MAC: mac,
+                            }
+                            integration[UPDATER].devices[mac] = _dev
+                            self._moved_devices.append(mac)
+                            break
 
             if not _is_add:
                 continue
 
             if mac not in self._moved_devices:
-                device |= {
+                _dev2 = {
                     ATTR_TRACKER_UPDATER_ENTRY_ID: self._entry_id,
                     ATTR_TRACKER_ENTRY_ID: self._entry_id,
+                    ATTR_TRACKER_MAC: mac,
                 }
-
-            self.devices[mac] = device
-
-            async_dispatcher_send(
-                self.hass, SIGNAL_NEW_DEVICE, device | {ATTR_TRACKER_IS_RESTORED: True}
-            )
-
-            #await self.hass.async_add_executor_job(_LOGGER.debug, "Restore device: %s, %s", mac, device)
+                self.devices[mac] = _dev2
+                async_dispatcher_send(
+                    self.hass, SIGNAL_NEW_DEVICE, self.devices[mac] | {ATTR_TRACKER_IS_RESTORED: True}
+                )
 
         self._clean_devices()
 
@@ -1169,14 +1006,6 @@ class LuciUpdater(DataUpdateCoordinator):
         action: DeviceAction = DeviceAction.ADD,
         integrations: dict[str, Any] | None = None,
     ) -> None:
-        """Prepare device.
-
-        :param device: dict
-        :param is_from_parent: bool: The call came from a third party integration
-        :param action: DeviceAction: Device action
-        :param integrations: dict[str, Any]: Integrations list
-        """
-
         is_new: bool = device[ATTR_TRACKER_MAC] not in self.devices
         _device: dict[str, Any] = self._build_device(device, integrations)
 
@@ -1185,7 +1014,7 @@ class LuciUpdater(DataUpdateCoordinator):
             and self.is_force_load
             and device[ATTR_TRACKER_MAC] in self.devices
         ):
-            self.devices[device[ATTR_TRACKER_MAC]] |= {
+            self.devices[device[ATTR_TRACKER_MAC]] = {
                 key: value
                 for key, value in _device.items()
                 if (
@@ -1209,8 +1038,9 @@ class LuciUpdater(DataUpdateCoordinator):
             async_dispatcher_send(
                 self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
             )
-            await self.hass.async_add_executor_job(_LOGGER.debug, "Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
-
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug, "Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]]
+            )
             if ATTR_TRACKER_FIRST_SEEN not in self.devices[device[ATTR_TRACKER_MAC]]:
                 self.hass.async_create_task(
                     self._async_notify_new_device(
@@ -1218,9 +1048,10 @@ class LuciUpdater(DataUpdateCoordinator):
                         device[ATTR_TRACKER_MAC],
                     )
                 )
-
         elif action == DeviceAction.MOVE:
-            await self.hass.async_add_executor_job(_LOGGER.debug, "Move device: %s", device[ATTR_TRACKER_MAC])
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug, "Move device: %s", device[ATTR_TRACKER_MAC]
+            )
 
         if device[ATTR_TRACKER_MAC] in self._moved_devices or (
             self.is_repeater and self.is_force_load
@@ -1228,29 +1059,23 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         if "new_status" not in self.data:
-            self.data[ATTR_SENSOR_DEVICES] += 1
+            self.data[ATTR_SENSOR_DEVICES] = self.data.get(ATTR_SENSOR_DEVICES, 0) + 1
             connection = _device.get(ATTR_TRACKER_CONNECTION)
             code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
             code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
-            self.data[code] += 1
-
-
+            self.data[code] = self.data.get(code, 0) + 1
 
     def _build_device(
         self, device: dict, integrations: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-
         ip_attr: dict | None = device["ip"][0] if "ip" in device and device["ip"] else None
-
         if self.is_force_load and "wifiIndex" in device:
             device["type"] = 6 if device["wifiIndex"] == 3 else device["wifiIndex"]
 
         connection: Connection | None = None
-
         with contextlib.suppress(ValueError):
-            connection = Connection(int(device["type"])) if "type" in device else None
+            connection = Connection(int(device.get("type"))) if "type" in device else None
 
-   
         existing = self.devices.get(device[ATTR_TRACKER_MAC], {})
         total_usage = device.get(
             ATTR_TRACKER_TOTAL_USAGE,
@@ -1258,161 +1083,97 @@ class LuciUpdater(DataUpdateCoordinator):
         )
 
         return {
-            ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
+            ATTR_TRACKER_ENTRY_ID: device.get(ATTR_TRACKER_ENTRY_ID, self._entry_id),
             ATTR_TRACKER_UPDATER_ENTRY_ID: device.get(
-                ATTR_TRACKER_UPDATER_ENTRY_ID, device[ATTR_TRACKER_ENTRY_ID]
+                ATTR_TRACKER_UPDATER_ENTRY_ID, device.get(ATTR_TRACKER_ENTRY_ID, self._entry_id)
             ),
             ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC],
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: self.data.get(
-                ATTR_DEVICE_MAC_ADDRESS, None
-            ),
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: self.data.get(ATTR_DEVICE_MAC_ADDRESS, None),
             ATTR_TRACKER_SIGNAL: self._signals.get(device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_IP: ip_attr["ip"] if ip_attr is not None else None,
             ATTR_TRACKER_CONNECTION: connection,
             ATTR_TRACKER_DOWN_SPEED: float(ip_attr["downspeed"]) if ip_attr and "downspeed" in ip_attr else 0.0,
             ATTR_TRACKER_UP_SPEED: float(ip_attr["upspeed"]) if ip_attr and "upspeed" in ip_attr else 0.0,
-            ATTR_TRACKER_ONLINE: str(
-                timedelta(
-                    seconds=int(ip_attr["online"] if ip_attr else 0)
-                )
-            ),
-            ATTR_TRACKER_LAST_ACTIVITY: datetime.now()
-            .replace(microsecond=0)
-            .isoformat(),
+            ATTR_TRACKER_ONLINE: str(timedelta(seconds=int(ip_attr["online"] if ip_attr else 0))),
+            ATTR_TRACKER_LAST_ACTIVITY: datetime.now().replace(microsecond=0).isoformat(),
             ATTR_TRACKER_FIRST_SEEN: self.devices.get(
                 device[ATTR_TRACKER_MAC], {}
             ).get(
                 ATTR_TRACKER_FIRST_SEEN,
                 datetime.now().replace(microsecond=0).isoformat(),
             ),
-            ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_attr["ip"]][UPDATER]
-            .data.get(ATTR_DEVICE_MAC_ADDRESS, None)
-            if integrations
-            and ip_attr
-            and ip_attr["ip"] in integrations
-            else None,
-            ATTR_TRACKER_INTERNET_BLOCKED: device.get(
-                ATTR_TRACKER_INTERNET_BLOCKED, False
-            ),
- 
+            ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_attr["ip"]][UPDATER].data.get(ATTR_DEVICE_MAC_ADDRESS, None)
+                if integrations and ip_attr and ip_attr["ip"] in integrations
+                else None,
+            ATTR_TRACKER_INTERNET_BLOCKED: device.get(ATTR_TRACKER_INTERNET_BLOCKED, False),
             ATTR_TRACKER_TOTAL_USAGE: total_usage,
         }
 
-
     def _mass_update_device(self, device: dict, integrations: dict) -> bool:
-        """Mass update devices
-
-        :param device: dict: Device data
-        :param integrations: dict: Integration list
-        :return bool: is found
-        """
-
         is_found: bool = False
-
         for _ip, integration in integrations.items():
-            if (
-                device[ATTR_TRACKER_MAC] not in integration[UPDATER].devices
-                or _ip == self.ip
-            ):
+            if device[ATTR_TRACKER_MAC] not in integration[UPDATER].devices or _ip == self.ip:
                 continue
-
             _device: dict[str, Any] = self._build_device(device, integrations)
             if self.is_repeater and self.is_force_load:
                 for attr in REPEATER_SKIP_ATTRS:
-                    if attr in _device:
-                        del _device[attr]
-
-            integration[UPDATER].devices[device[ATTR_TRACKER_MAC]] |= _device
+                    _device.pop(attr, None)
+            integration[UPDATER].devices[device[ATTR_TRACKER_MAC]] = _device
             is_found = True
-
         return is_found
 
     async def _async_prepare_ap(self, data: dict) -> None:
-        """Prepare wifi ap.
-
-        :param data: dict
-        """
-
         if self.data.get(ATTR_SENSOR_MODE, Mode.DEFAULT) != Mode.REPEATER:
             return
-
         response: dict = await self.luci.wifi_ap_signal()
-
         if "signal" in response and isinstance(response["signal"], int):
             data[ATTR_SENSOR_AP_SIGNAL] = response["signal"]
 
     async def _async_prepare_new_status(self, data: dict) -> None:
-        """Prepare new status.
-
-        :param data: dict
-        """
-
-        if not self.is_force_load:
-            #await self.hass.async_add_executor_job(_LOGGER.warning, "⚠️ [new_status] is_force_load is False. Skipping new_status.")
+        if self.disable_device_scan:
             return
-
+        if not self.is_force_load:
+            return
         response: dict = await self.luci.new_status()
-        #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 [new_status] Raw response: %s", response)
-
         if "count" in response:
             data[ATTR_SENSOR_DEVICES] = response["count"]
-            #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Total devices count: %s", response["count"])
-
         for key, attr in NEW_STATUS_MAP.items():
             if key in response and "online_sta_count" in response[key]:
                 data[attr] = response[key]["online_sta_count"]
-                #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Set %s = %s", attr, response[key]["online_sta_count"])
 
-        _other_devices = sum(
-            int(data[attr]) for attr in NEW_STATUS_MAP.values() if attr in data
-        )
-
+        _other_devices = sum(int(data[attr]) for attr in NEW_STATUS_MAP.values() if attr in data)
         if _other_devices > 0 and ATTR_SENSOR_DEVICES in data:
             _other_devices = int(data[ATTR_SENSOR_DEVICES]) - _other_devices
-            data[ATTR_SENSOR_DEVICES_LAN] = max(_other_devices, 0)
-            #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Calculated LAN devices: %s", data[ATTR_SENSOR_DEVICES_LAN])
-
+        data[ATTR_SENSOR_DEVICES_LAN] = max(_other_devices, 0)
 
     def _clean_devices(self) -> None:
-        """Clean devices."""
-
         if self._activity_days == 0 or len(self.devices) == 0:
             return
-
         now = datetime.now().replace(microsecond=0)
         devices: dict = self.devices.copy()
-
         for mac, device in devices.items():
             if ATTR_TRACKER_LAST_ACTIVITY not in device or not isinstance(
                 device[ATTR_TRACKER_LAST_ACTIVITY], str
             ):
-                # fmt: off
-                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = \
+                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
                     datetime.now().replace(microsecond=0).isoformat()
-                # fmt: on
-
+                )
                 continue
 
             delta = now - datetime.strptime(
                 device[ATTR_TRACKER_LAST_ACTIVITY], "%Y-%m-%dT%H:%M:%S"
             )
-
             if int(delta.days) <= self._activity_days:
                 continue
 
+            # Purga también señales
             del self.devices[mac]
+            self._signals.pop(mac, None)
 
     def reset_counter(self, is_force: bool = False, is_remove: bool = False) -> None:
-        """Reset counter
-
-        :param is_force: bool: Force reset
-        :param is_remove: bool: Force remove
-        """
-
         if self.is_repeater and not self.is_force_load and not is_force:
             return
-
         for attr in [
             ATTR_SENSOR_DEVICES,
             ATTR_SENSOR_DEVICES_LAN,
@@ -1427,42 +1188,27 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.data[attr] = 0
 
     async def _async_load_devices(self) -> dict | None:
-        """Async load devices from Store"""
-
         if self._store is None:
             return None
-
         devices: dict | None = await self._store.async_load()
-
         if devices is None or not isinstance(devices, dict) or len(devices) == 0:
             return None
-
         return devices
 
     async def _async_save_devices(self) -> None:
-        """Async save devices to Store"""
-
-        if (
-            self._store is None
-            or (self.is_repeater and not self.is_force_load)
-            or len(self.devices) == 0
-        ):
+        if self._store is None or (self.is_repeater and not self.is_force_load) or len(self.devices) == 0:
             return
-
         await self._store.async_save(self.devices)
 
     async def _async_prepare_topo(self) -> None:
-        """Prepare topology graph information."""
         try:
             topo_data = await self.luci.topo_graph()
-
             if not topo_data or not isinstance(topo_data, dict) or "graph" not in topo_data:
                 await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] No topology graph data available for router at %s", self.ip)
                 self.data["topo_graph"] = None
                 return
 
             graph = topo_data["graph"]
-
             if not isinstance(graph, dict):
                 await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Invalid topology graph format (not dict): %s", graph)
                 self.data["topo_graph"] = None
@@ -1476,8 +1222,6 @@ class LuciUpdater(DataUpdateCoordinator):
             try:
                 show = int(topo_data.get("show", -1))
                 mode = int(graph.get("mode", -1))
-
-                # Normaliza assoc de forma segura
                 assoc_raw = graph.get("assoc", None)
                 assoc = None
                 if assoc_raw is not None and str(assoc_raw).strip() != "":
@@ -1493,10 +1237,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
 
                 if assoc is not None:
-                    if assoc == 1 and (
-                        (show == 1) or
-                        (show == 0 and mode in (0, 3))
-                    ):
+                    if assoc == 1 and ((show == 1) or (show == 0 and mode in (0, 3))):
                         graph["is_main"] = True
                         auto_main = True
                 else:
@@ -1506,14 +1247,10 @@ class LuciUpdater(DataUpdateCoordinator):
 
                 graph["is_main_auto"] = auto_main
                 graph["auto_reason"] = f"show={show}, mode={mode}, assoc={assoc}"
-                await self.hass.async_add_executor_job(
-                    _LOGGER.debug, "[MiWiFi] Auto-main => %s (%s)", auto_main, graph["auto_reason"]
-                )
+                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Auto-main => %s (%s)", auto_main, graph["auto_reason"])
 
             except Exception as e:
-                await self.hass.async_add_executor_job(
-                    _LOGGER.warning, "[MiWiFi] Error interpreting topology: %s", e
-                )
+                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error interpreting topology: %s", e)
 
             if not auto_main:
                 from custom_components.miwifi.frontend import async_load_manual_main_mac
@@ -1525,12 +1262,10 @@ class LuciUpdater(DataUpdateCoordinator):
                     else:
                         graph.pop("is_main", None)
                 else:
-                    # Fallback: if only one integration exists, assume it's the main one.
-                    from .updater import async_get_integrations
                     integrations = async_get_integrations(self.hass)
                     if len(integrations) == 1:
                         graph["is_main"] = True
-                        auto_main = True # Treat as auto for logic purposes
+                        auto_main = True
                         graph["is_main_auto"] = True
                         graph["auto_reason"] = "single_integration_fallback"
                         await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Main router set by single integration fallback")
@@ -1538,18 +1273,18 @@ class LuciUpdater(DataUpdateCoordinator):
                         graph.pop("is_main", None)
             else:
                 graph["is_main"] = True
-
-            graph["is_main_auto"] = auto_main
+                graph["is_main_auto"] = auto_main
 
             self.data["topo_graph"] = topo_data
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
 
+            # Compat: actualizar sensores de topología heredados si existieran
             for entity in self.hass.states.async_all("sensor"):
                 eid = entity.entity_id or ""
                 if eid.startswith("sensor.topologia_miwifi") or eid.startswith("sensor.miwifi_topology"):
                     g = entity.attributes.get("graph", {}) or {}
                     mac_entity = (g.get("mac") or "").lower()
-                    mac_graph  = (graph.get("mac") or "").lower()
+                    mac_graph = (graph.get("mac") or "").lower()
                     if mac_entity and mac_entity == mac_graph:
                         clean_attributes = {
                             "graph": dict(graph),
@@ -1577,19 +1312,15 @@ class LuciUpdater(DataUpdateCoordinator):
         except LuciError as e:
             await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Failed to get topology graph for router at %s: %s", self.ip, e)
             self.data["topo_graph"] = None
-
         except Exception as e:
             await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Unexpected error while getting topology graph for router at %s: %s", self.ip, e)
             self.data["topo_graph"] = None
 
     @property
     def entry_id(self) -> str | None:
-        """Return the config entry ID."""
         return self._entry_id
-    
-    async def _async_prepare_compatibility(self) -> None:
-        """Run compatibility detection if main and not already checked."""
 
+    async def _async_prepare_compatibility(self) -> None:
         if not isinstance(self.data, dict):
             await self.hass.async_add_executor_job(
                 _LOGGER.warning,
@@ -1628,7 +1359,6 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         is_manual_main = not graph.get("is_main_auto", False)
-
         if getattr(self, "capabilities", None):
             await self.hass.async_add_executor_job(
                 _LOGGER.debug,
@@ -1640,12 +1370,9 @@ class LuciUpdater(DataUpdateCoordinator):
             from .compatibility import CompatibilityChecker
             checker = CompatibilityChecker(self.hass, self.luci)
             checker.silent_mode = is_manual_main
-
             self.capabilities = await checker.run() or {}
-
             router_ip = graph.get("ip", "unknown")
             router_model = self.data.get("model", self.data.get(ATTR_MODEL, "unknown"))
-
             await self.hass.async_add_executor_job(
                 _LOGGER.info,
                 "[MiWiFi] ✅ Capabilities detected (final) for %s (%s) → %s",
@@ -1653,7 +1380,6 @@ class LuciUpdater(DataUpdateCoordinator):
                 router_model,
                 self.capabilities
             )
-
             if not is_manual_main and ATTR_MODEL in self.data:
                 from .diagnostics import suggest_unsupported_issue
                 await suggest_unsupported_issue(
@@ -1662,7 +1388,6 @@ class LuciUpdater(DataUpdateCoordinator):
                     self.capabilities,
                     getattr(checker, "mode", None),
                 )
-
         except Exception as e:
             await self.hass.async_add_executor_job(
                 _LOGGER.warning,
@@ -1670,10 +1395,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 e
             )
 
-
-                    
     async def _async_prepare_nat_rules(self) -> None:
-        """Prepare NAT rules for the main router."""
         try:
             data1 = await self.luci.portforward(ftype=1)
             data2 = await self.luci.portforward(ftype=2)
@@ -1685,25 +1407,18 @@ class LuciUpdater(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
         except Exception as e:
             await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error while retrieving NAT rules for sensor: %s", e)
-            self.data["nat_rules"] = {
-                "ftype_1": [],
-                "ftype_2": [],
-                "total": 0,
-            }
-                
+            self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+
     async def _async_notify_new_device(self, name: str, mac: str) -> None:
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
-
         notify_trans = translations.get("notifications", {})
         title = notify_trans.get("new_device_title", "New Device Detected on MiWiFi")
-
         message_template = notify_trans.get(
             "new_device_message",
             "📶 New device connected: {name} ({mac})"
         )
         message = message_template.replace("{name}", name).replace("{mac}", mac)
-
         await notifier.notify(
             message,
             title=title,
@@ -1713,13 +1428,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
 @callback
 def async_get_integrations(hass: HomeAssistant) -> dict[str, dict]:
-    """Return integrations map.
-
-    :param hass: HomeAssistant
-    :return dict[str, dict]
-    """
     integrations: dict[str, dict] = {}
-
     for entry_id, integration in hass.data.get(DOMAIN, {}).items():
         if (
             isinstance(integration, dict)
@@ -1730,28 +1439,16 @@ def async_get_integrations(hass: HomeAssistant) -> dict[str, dict]:
                 UPDATER: integration[UPDATER],
                 ATTR_TRACKER_ENTRY_ID: entry_id,
             }
-
     return integrations
 
 
-
 @callback
-def async_get_updater(hass: HomeAssistant, identifier: str) -> LuciUpdater:
-    """Return LuciUpdater for ip address or entry id.
-
-    :param hass: HomeAssistant
-    :param identifier: str
-    :return LuciUpdater
-    """
-
+def async_get_updater(hass: HomeAssistant, identifier: str) -> "LuciUpdater":
     _error: str = f"Integration with identifier: {identifier} not found."
-
     if DOMAIN not in hass.data:
         raise ValueError(_error)
-
     if identifier in hass.data[DOMAIN] and UPDATER in hass.data[DOMAIN][identifier]:
         return hass.data[DOMAIN][identifier][UPDATER]
-
     if integrations := [
         integration[UPDATER]
         for integration in hass.data[DOMAIN].values()
@@ -1761,24 +1458,20 @@ def async_get_updater(hass: HomeAssistant, identifier: str) -> LuciUpdater:
         and integration[CONF_IP_ADDRESS] == identifier
     ]:
         return integrations[0]
-
     raise ValueError(_error)
 
 
-async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, async_add_entities=None):
+async def async_update_panel_entity(hass: HomeAssistant, updater: "LuciUpdater", async_add_entities=None):
     from .update import MiWifiPanelUpdate
-    """Handle dynamic creation/removal of panel update entity."""
-
     entity_registry = er.async_get(hass)
     mac = updater.data.get(ATTR_DEVICE_MAC_ADDRESS)
+    if not mac:
+        return
     entity_id = f"update.miwifi_{mac.replace(':','_')}_miwifi_panel_frontend"
-
     topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
     is_main = topo_graph.get("is_main")
     is_auto = topo_graph.get("is_main_auto", False)
-
     entry = entity_registry.async_get(entity_id)
-
     if is_main:
         source = "auto" if is_auto else "manual"
         if not entry and async_add_entities:
