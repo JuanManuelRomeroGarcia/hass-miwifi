@@ -250,18 +250,32 @@ UNSUPPORTED: dict[str, list[Model]] = {
         Model.D01,
         Model.RN06,
     ],
-
     "wifi_config": [
         Model.CR8806,
     ],
+    
+    "device_list": [
+        Model.R3600,
+    ],
 
     "mac_filter": [
-        Model.RM1800
+        Model.R3600,
     ],
 
     "mac_filter_info": [
+        Model.R3600,
     ],
 
-    "qos_info": [],
+    "rom_update": [
+        Model.R3600,
+
+    ],
+    "per_device_qos": [
+        Model.R3600,
+    ],
+    "qos_info": [
+        Model.R3600,
+    ],
+
     "vpn_control": [],
 }

@@ -1,5 +1,5 @@
-"""Sensor component."""
 
+"""Sensor component."""
 from __future__ import annotations
 import asyncio
 from datetime import datetime
@@ -161,10 +161,12 @@ MIWIFI_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
     ),
+    # WAN speeds: set device_class to DATA_RATE; unit is decided dynamically
     SensorEntityDescription(
         key=ATTR_SENSOR_WAN_DOWNLOAD_SPEED,
         name=ATTR_SENSOR_WAN_DOWNLOAD_SPEED_NAME,
         icon="mdi:speedometer",
+        device_class=SensorDeviceClass.DATA_RATE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
@@ -173,6 +175,7 @@ MIWIFI_SENSORS: tuple[SensorEntityDescription, ...] = (
         key=ATTR_SENSOR_WAN_UPLOAD_SPEED,
         name=ATTR_SENSOR_WAN_UPLOAD_SPEED_NAME,
         icon="mdi:speedometer",
+        device_class=SensorDeviceClass.DATA_RATE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
@@ -248,7 +251,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up MiWiFi sensors without blocking startup."""
-
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
 
     # Needed for dynamic entity creation on SIGNAL_NEW_DEVICE
@@ -261,7 +263,6 @@ async def async_setup_entry(
     def _handle_new_device(new_device: dict) -> None:
         if platform is None:
             return
-
         mac = str(new_device.get(ATTR_TRACKER_MAC, "")).upper()
         if not mac:
             return
@@ -286,14 +287,11 @@ async def async_setup_entry(
     def _handle_purge(entry_id: str, mac: str) -> None:
         if entry_id != config_entry.entry_id:
             return
-
         mac_u = (mac or "").upper()
         if not mac_u:
             return
-
         registry = er.async_get(hass)
         base_unique = _device_base_unique_id(entry_id, mac_u)
-
         # Remove all per-device sensor entities from the registry.
         for desc in MIWIFI_DEVICE_SENSORS:
             uid = f"{base_unique}-{desc.key}"
@@ -309,6 +307,7 @@ async def async_setup_entry(
     hass.async_create_task(
         _async_add_all_sensors_later(hass, config_entry, async_add_entities)
     )
+
 
 class MiWifiSensor(MiWifiEntity, SensorEntity):
     """MiWiFi sensor entity."""
@@ -326,45 +325,58 @@ class MiWifiSensor(MiWifiEntity, SensorEntity):
     def _handle_coordinator_update(self) -> None:
         """Update state from coordinator."""
         is_available: bool = self._updater.data.get(ATTR_STATE, False)
-
         new_value = self._compute_value()
         new_unit = self._compute_unit()
-
         if (
             self._attr_native_value == new_value
             and self._attr_native_unit_of_measurement == new_unit
             and self._attr_available == is_available  # type: ignore
         ):
             return
-
         self._attr_available = is_available
         self._attr_native_value = new_value
         self._attr_native_unit_of_measurement = new_unit
         self.async_write_ha_state()
 
     def _compute_value(self):
-        """Compute sensor value with conversion if needed."""
+        """Compute sensor value with proper conversion for WAN speeds."""
         value = self._updater.data.get(self.entity_description.key)
 
+        # Normaliza posibles strings
+        if isinstance(value, str):
+            try:
+                value = int(value)
+            except Exception:
+                pass
+
+        # Conversión para WAN speed
         if self.entity_description.key in (
             ATTR_SENSOR_WAN_DOWNLOAD_SPEED,
             ATTR_SENSOR_WAN_UPLOAD_SPEED,
         ):
+            # La API de MiWiFi reporta B/s; convertir a Mb/s si el usuario elige Mbps
             unit = (
                 self._updater.config_entry.options.get(CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)
                 if self._updater.config_entry
                 else DEFAULT_WAN_SPEED_UNIT
             )
-            if unit == "Mbps" and isinstance(value, (int, float)):
-                return round(value / 1024 / 1024, 2)
+            # Acepta variantes 'Mbps', 'Mb/s', 'Mb'
+            unit_norm = str(unit).lower().replace(" ", "")
+            is_mbps = unit_norm in ("mbps", "mb/s", "mb")
+
+            if isinstance(value, (int, float)):
+                if is_mbps:
+                    # B/s -> Mb/s : (B * 8) / 1_000_000
+                    return round((value * 8) / 1_000_000, 3)
+                # B/s nativo
+                return value
 
         if isinstance(value, Enum):
             return value.phrase
-
         return value
 
     def _compute_unit(self):
-        """Determine unit based on user setting."""
+        """Determine unit based on user setting (Mb/s or B/s)."""
         if self.entity_description.key in (
             ATTR_SENSOR_WAN_DOWNLOAD_SPEED,
             ATTR_SENSOR_WAN_UPLOAD_SPEED,
@@ -374,8 +386,10 @@ class MiWifiSensor(MiWifiEntity, SensorEntity):
                 if self._updater.config_entry
                 else DEFAULT_WAN_SPEED_UNIT
             )
-            return "Mb/s" if unit == "Mbps" else "B/s"
-
+            unit_norm = str(unit).lower().replace(" ", "")
+            if unit_norm in ("mbps", "mb/s", "mb"):
+                return UnitOfDataRate.MEGABITS_PER_SECOND
+            return UnitOfDataRate.BYTES_PER_SECOND
         return self.entity_description.native_unit_of_measurement
 
 
@@ -407,7 +421,6 @@ class MiWifiTopologyGraphSensor(SensorEntity):
 # ────────────────────────────────────────────────────────────────────────────────
 # Per-device sensors (mirrors device_tracker attributes)
 # ────────────────────────────────────────────────────────────────────────────────
-
 KEY_SIGNAL_QUALITY: Final = "signal_quality"
 
 MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
@@ -504,7 +517,6 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
-
 def _device_base_unique_id(entry_id: str, mac: str) -> str:
     mac_u = (mac or "").upper()
     return f"{DOMAIN}-{entry_id}-{mac_u}"
@@ -528,7 +540,6 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
         self._entry_id = entry_id
         self.entity_description = description
         self._mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
-
         base_unique = _device_base_unique_id(entry_id, self._mac)
         self._attr_unique_id = f"{base_unique}-{description.key}"
 
@@ -600,11 +611,12 @@ def _build_device_sensors(
     mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
     if not mac:
         return []
-
     return [
         MiWifiDeviceAttributeSensor(updater, entry_id, device, desc)
         for desc in MIWIFI_DEVICE_SENSORS
     ]
+
+
 class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
     """Sensor to represent the NAT rules of the main router."""
 
@@ -617,8 +629,7 @@ class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
         self._attr_should_poll = False
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
         self._attr_state_class = SensorStateClass.MEASUREMENT
-        
-    
+
     async def async_update_from_updater(self):
         """Compatibility shim for services expecting this method."""
         # Si tu updater es DataUpdateCoordinator, esto pedirá el refresh
@@ -629,7 +640,6 @@ class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
         """Return the total number of NAT rules."""
         rules_data = self._updater.data.get("nat_rules", {})
         total = 0
-
         for key in ("ftype_1", "ftype_2"):
             rules = rules_data.get(key, [])
             if isinstance(rules, list):
@@ -691,7 +701,6 @@ class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
         log_level = await get_global_log_level(self._updater.hass)
         panel_version = await read_local_version(self._updater.hass)
         config = self._updater.config_entry.options
-
         self._extra_attrs = {
             "panel_active": config.get("enable_panel", True),
             "speed_unit": config.get("wan_speed_unit", "MB"),
@@ -699,7 +708,6 @@ class MiWifiConfigSensor(CoordinatorEntity, SensorEntity):
             "panel_version": panel_version,
             "last_checked": datetime.now().isoformat(),
         }
-
         self.async_write_ha_state()
 
 
@@ -724,13 +732,10 @@ async def _async_add_all_sensors_later(
     for description in MIWIFI_SENSORS:
         if description.key == ATTR_SENSOR_DEVICES_5_0_GAME and not updater.supports_game:
             continue
-
         if description.key in DISABLE_ZERO and updater.data.get(description.key, 0) == 0:
             continue
-
         if description.key in ONLY_WAN and not updater.supports_wan:
             continue
-
         entities.append(
             MiWifiSensor(
                 f"{config_entry.entry_id}-{description.key}",
@@ -738,7 +743,6 @@ async def _async_add_all_sensors_later(
                 updater,
             )
         )
-
 
     # Per-device sensors (clients)
     for device in (updater.devices or {}).values():
