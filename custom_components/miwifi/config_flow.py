@@ -45,6 +45,12 @@ from .const import (
     CONF_AUTO_PURGE_AT, 
     DEFAULT_AUTO_PURGE_AT,
     PROTOCOL_OPTIONS,
+    CONF_ENABLE_DEVICE_SENSORS,
+    DEFAULT_ENABLE_DEVICE_SENSORS,
+    CONF_ENABLE_PORT_PROBE,
+    DEFAULT_ENABLE_PORT_PROBE,
+
+
 )
 from .discovery import async_start_discovery
 from .enum import EncryptionAlgorithm
@@ -148,12 +154,15 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
+            vol.Optional(CONF_ENABLE_DEVICE_SENSORS, default=DEFAULT_ENABLE_DEVICE_SENSORS): cv.boolean,
+            
         }
 
         if step_id == "discovery_confirm":
             schema_dict[vol.Optional(CONF_ENABLE_PANEL, default=panel_state)] = cv.boolean
             schema_dict[vol.Optional(CONF_WAN_SPEED_UNIT, default=DEFAULT_WAN_SPEED_UNIT)] = vol.In(WAN_SPEED_UNIT_OPTIONS)
             schema_dict[vol.Optional(CONF_LOG_LEVEL, default=log_level)] = vol.In(LOG_LEVEL_OPTIONS)
+            schema_dict[vol.Optional(CONF_ENABLE_PORT_PROBE, default=DEFAULT_ENABLE_PORT_PROBE)] = cv.boolean
 
         schema = vol.Schema(schema_dict)
 
@@ -304,6 +313,8 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_WAN_SPEED_UNIT, default=get_config_value(self._config_entry, CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)): vol.In(WAN_SPEED_UNIT_OPTIONS),
                 vol.Optional(CONF_AUTO_PURGE_EVERY_DAYS, default=ap_every): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
                 vol.Optional(CONF_AUTO_PURGE_AT, default=ap_at): str,
+                vol.Optional(CONF_ENABLE_DEVICE_SENSORS,default=get_config_value(self._config_entry,CONF_ENABLE_DEVICE_SENSORS,DEFAULT_ENABLE_DEVICE_SENSORS,),): cv.boolean,
+                vol.Optional(CONF_ENABLE_PORT_PROBE, default=get_config_value(self._config_entry, CONF_ENABLE_PORT_PROBE, DEFAULT_ENABLE_PORT_PROBE)): cv.boolean,
             }
 
             with contextlib.suppress(ValueError):

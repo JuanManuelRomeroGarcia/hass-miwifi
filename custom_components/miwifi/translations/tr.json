@@ -24,7 +24,9 @@
           "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
           "activity_days": "Son etkinlikten izin verilen günler [PRO]",
           "log_level": "Günlük seviyesi (global)",
-          "enable_panel": "Kontrol panelini etkinleştir"
+          "enable_panel": "Kontrol panelini etkinleştir",
+          "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)",
+          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)"
         }
       }
     }
@@ -55,7 +57,9 @@
           "log_level": "Günlük seviyesi (global)",
           "enable_panel": "Kontrol panelini etkinleştir",
           "auto_purge_every_days": "Otomatik temizleme (her X günde bir, 0 = kapalı) [PRO]",
-          "auto_purge_at": "Otomatik temizleme saati (0–23) [PRO]"
+          "auto_purge_at": "Otomatik temizleme saati (0–23) [PRO]",
+          "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)",
+          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)"
         }
       }
     }

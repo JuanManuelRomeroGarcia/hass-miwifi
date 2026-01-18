@@ -24,7 +24,9 @@
           "is_force_load": "在中继模式下强制加载设备 [PRO]",
           "activity_days": "允许的上次活动天数 [PRO]",
           "log_level": "日志级别（全局）",
-          "enable_panel": "启用控制面板"
+          "enable_panel": "启用控制面板",
+          "enable_device_sensors": "创建设备传感器（客户端）",
+          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL"
         }
       }
     }
@@ -55,7 +57,9 @@
           "log_level": "日志级别（全局）",
           "enable_panel": "启用控制面板",
           "auto_purge_every_days": "自动清理（每 X 天，0 = 禁用）[PRO]",
-          "auto_purge_at": "自动清理时间 (0–23) [PRO]"
+          "auto_purge_at": "自动清理时间 (0–23) [PRO]",
+          "enable_device_sensors": "创建设备传感器（客户端）",
+          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL"
         }
       }
     }

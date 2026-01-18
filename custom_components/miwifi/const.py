@@ -61,6 +61,10 @@ CONF_BODY: Final = "body"
 CONF_WAN_SPEED_UNIT: Final = "wan_speed_unit"
 DEFAULT_WAN_SPEED_UNIT: Final = "Mbps"
 WAN_SPEED_UNIT_OPTIONS: Final = ["B/s", "Mbps"]
+CONF_ENABLE_DEVICE_SENSORS = "enable_device_sensors"
+DEFAULT_ENABLE_DEVICE_SENSORS = False
+CONF_ENABLE_PORT_PROBE: Final = "enable_port_probe"
+DEFAULT_ENABLE_PORT_PROBE: Final = False
 
 """Protocol constants"""
 PROTOCOL_AUTO: Final = "auto"

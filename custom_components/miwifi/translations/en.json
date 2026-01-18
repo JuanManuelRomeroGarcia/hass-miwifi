@@ -24,7 +24,9 @@
           "is_force_load": "Forced loading of devices in repeater mode [PRO]",
           "activity_days": "Allowed days since last activity [PRO]",
           "log_level": "Log level (global)",
-          "enable_panel": "Enable control panel"
+          "enable_panel": "Enable control panel",
+          "enable_device_sensors": "Create device sensors (clients)",
+          "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
         }
       }
     }
@@ -55,7 +57,9 @@
           "log_level": "Log level (global)",
           "enable_panel": "Enable control panel",
           "auto_purge_every_days": "Auto-purge every X days (0 = disabled) [PRO]",
-          "auto_purge_at": "Auto-purge at hour (0-23) [PRO]"
+          "auto_purge_at": "Auto-purge at hour (0-23) [PRO]",
+          "enable_device_sensors": "Create device sensors (clients)",
+          "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
         }
       }
     }

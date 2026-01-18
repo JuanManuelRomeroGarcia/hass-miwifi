@@ -10,7 +10,7 @@ from .logger import _LOGGER
 from .notifier import MiWiFiNotifier
 from .miwifi_utils import parse_memory_to_mb
 
-from .unsupported import UNSUPPORTED
+from .unsupported import get_combined_unsupported
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import Any, Final
@@ -26,7 +26,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.httpx_client import get_async_client
-from homeassistant.helpers.storage import Store, STORAGE_DIR
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.translation import async_get_translations
 from homeassistant.util import utcnow
@@ -217,6 +217,7 @@ class LuciUpdater(DataUpdateCoordinator):
         self._scan_interval = scan_interval
         self._activity_days = activity_days
         self._is_only_login = is_only_login
+        self._unsupported: dict[str, list] = {}
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -252,7 +253,8 @@ class LuciUpdater(DataUpdateCoordinator):
         else:
             await self._async_save_devices()
 
-        await self.luci.logout()
+        with contextlib.suppress(Exception):
+            await self.luci.logout()
 
     @cached_property
     def _update_interval(self) -> timedelta:
@@ -282,6 +284,8 @@ class LuciUpdater(DataUpdateCoordinator):
                     await asyncio.sleep(DEFAULT_CALL_DELAY)
 
                 await self.luci.login()
+
+            self._unsupported = await get_combined_unsupported(self.hass)
 
             for method in PREPARE_METHODS:
                 if not self._is_only_login or method == "init":
@@ -433,9 +437,10 @@ class LuciUpdater(DataUpdateCoordinator):
         :param offset: timedelta
         """
 
-        if self._unsub_refresh:  # type: ignore
-            self._unsub_refresh()  # type: ignore
-            self._unsub_refresh = None
+        unsub = getattr(self, "_unsub_refresh", None)
+        if unsub:
+            unsub()
+            self._unsub_refresh = None  # type: ignore[attr-defined]
 
         self._unsub_refresh = event.async_track_point_in_utc_time(
             self.hass,
@@ -450,16 +455,31 @@ class LuciUpdater(DataUpdateCoordinator):
         :param data: dict
         """
 
+        unsupported = getattr(self, "_unsupported", {}) or {}
         if (
-            method in UNSUPPORTED
-            and data.get(ATTR_MODEL, Model.NOT_KNOWN) in UNSUPPORTED[method]
+            method in unsupported
+            and data.get(ATTR_MODEL, Model.NOT_KNOWN) in unsupported[method]
         ):
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Skipping '%s' for model '%s' (unsupported)", method, data.get(ATTR_MODEL))
-            
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Skipping '%s' for model '%s' (unsupported by registry/storage)",
+                method,
+                data.get(ATTR_MODEL),
+            )
             return
 
-        if action := getattr(self, f"_async_prepare_{method}"):
-            await action(data)
+
+        action = getattr(self, f"_async_prepare_{method}", None)
+        if action is None:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] No handler for prepare method '%s' (skipping)",
+                method,
+            )
+            return
+
+        await action(data)
+
 
     async def _async_prepare_init(self, data: dict) -> None:
         """Prepare init info.
@@ -852,7 +872,15 @@ class LuciUpdater(DataUpdateCoordinator):
 
         macfilter_info: dict = {}
         try:
-            macfilter_info = await self.luci.macfilter_info()
+            # Avoid HA bootstrap cancellation: enforce a short per-call timeout
+            macfilter_info = await asyncio.wait_for(self.luci.macfilter_info(), timeout=4)
+        except asyncio.TimeoutError as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] macfilter_info timed out for %s: %s",
+                self.ip,
+                e,
+            )
         except Exception as e:
             await self.hass.async_add_executor_job(
                 _LOGGER.warning,
@@ -954,7 +982,15 @@ class LuciUpdater(DataUpdateCoordinator):
 
         macfilter_info: dict = {}
         try:
-            macfilter_info = await self.luci.macfilter_info()
+            # Avoid HA bootstrap cancellation: enforce a short per-call timeout
+            macfilter_info = await asyncio.wait_for(self.luci.macfilter_info(), timeout=4)
+        except asyncio.TimeoutError as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] macfilter_info timed out for %s (device_list): %s",
+                self.ip,
+                e,
+            )
         except Exception as e:
             await self.hass.async_add_executor_job(
                 _LOGGER.warning,
@@ -962,6 +998,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.ip,
                 e,
             )
+
         filter_macs: dict[str, int] = {}
 
         for entry in macfilter_info.get("flist", []):
@@ -1228,13 +1265,20 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         if "new_status" not in self.data:
+            # Defensive defaults to avoid KeyError on cold start / edge-cases
+            self.data.setdefault(ATTR_SENSOR_DEVICES, 0)
+            self.data.setdefault(ATTR_SENSOR_DEVICES_LAN, 0)
+            self.data.setdefault(ATTR_SENSOR_DEVICES_GUEST, 0)
+            self.data.setdefault(ATTR_SENSOR_DEVICES_2_4, 0)
+            self.data.setdefault(ATTR_SENSOR_DEVICES_5_0, 0)
+            self.data.setdefault(ATTR_SENSOR_DEVICES_5_0_GAME, 0)
+
             self.data[ATTR_SENSOR_DEVICES] += 1
             connection = _device.get(ATTR_TRACKER_CONNECTION)
             code: str = (connection or Connection.LAN).name.replace("WIFI_", "")
             code = f"{ATTR_SENSOR_DEVICES}_{code}".lower()
+            self.data.setdefault(code, 0)
             self.data[code] += 1
-
-
 
     def _build_device(
         self, device: dict, integrations: dict[str, Any] | None = None

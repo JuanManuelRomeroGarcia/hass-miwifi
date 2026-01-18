@@ -24,7 +24,9 @@
           "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
           "activity_days": "Erlaubte Tage seit der letzten Aktivität [PRO]",
           "log_level": "Log-Level (global)",
-          "enable_panel": "Steuerungs-Panel aktivieren"
+          "enable_panel": "Steuerungs-Panel aktivieren",
+          "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
+          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren"
         }
       }
     }
@@ -55,7 +57,9 @@
           "log_level": "Log-Level (global)",
           "enable_panel": "Steuerungs-Panel aktivieren",
           "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
-          "auto_purge_at": "Zeit für automatische Bereinigung (0–23) [PRO]"
+          "auto_purge_at": "Zeit für automatische Bereinigung (0–23) [PRO]",
+          "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
+          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren"
         }
       }
     }

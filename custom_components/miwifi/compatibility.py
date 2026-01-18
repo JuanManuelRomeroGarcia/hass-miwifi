@@ -30,6 +30,11 @@ class CompatibilityChecker:
 
         self.max_retries = max_retries
         self.silent_mode: bool = False
+        
+        # NEW: during HA bootstrap, be fast to avoid setup cancellation (Bootstrap stage timeout)
+        self._is_bootstrap = bool(self.hass is not None and not self.hass.is_running)
+        if self._is_bootstrap:
+            self.max_retries = 1
 
         self.mode: Mode | None = None
         self.model: Model | None = None
@@ -68,7 +73,7 @@ class CompatibilityChecker:
         self,
         func: Callable[[], Awaitable[bool | None]],
         name: str,
-        timeout: float = 6.0,
+        timeout: float = 4.0,
     ) -> bool | None:
         """Run a call with retries.
 
@@ -100,7 +105,9 @@ class CompatibilityChecker:
                 await self._log(_LOGGER.debug,"[MiWiFi] '%s' luci error (attempt %d/%d): %s",name,attempt,self.max_retries,e,)
             except Exception as e:
                 await self._log(_LOGGER.debug,"[MiWiFi] '%s' unexpected error (attempt %d/%d): %s",name,attempt,self.max_retries,e,)
-            await asyncio.sleep(1)
+                
+            if not getattr(self, "_is_bootstrap", False):
+                await asyncio.sleep(1)
         return False
 
     async def run(self) -> dict[str, bool | None]:
@@ -130,7 +137,6 @@ class CompatibilityChecker:
 
         # Feature checks
         features: dict[str, Callable[[], Awaitable[bool | None]]] = {
-            "mac_filter": self._check_mac_filter,
             "mac_filter_info": self._check_mac_filter_info,
             "per_device_qos": self._check_qos_info,
             "rom_update": self._check_rom_update,
@@ -186,6 +192,8 @@ class CompatibilityChecker:
             return True
         except LuciError:
             return False
+        except Exception:
+            return None
 
     async def _check_qos_info(self) -> bool | None:
         if self.mode in {Mode.REPEATER, Mode.ACCESS_POINT, Mode.MESH, Mode.MESH_LEAF, Mode.MESH_NODE}:

@@ -17,7 +17,15 @@
           "is_track_devices": "Track devices",
           "stay_online": "Minimum stay online in seconds",
           "scan_interval": "Scan interval in seconds [PRO]",
-          "timeout": "Timeout of requests in seconds [PRO]"
+          "timeout": "Timeout of requests in seconds [PRO]",
+          "wan_speed_unit": "WAN speed unit",
+          "is_force_load": "Forced booting of devices in repeater mode [PRO]",
+          "activity_days": "Allowed number of days to wait after the last activity [PRO]",
+          "log_level": "Log level (global)",
+          "enable_panel": "Enable control panel",
+          "enable_device_sensors": "Create device sensors (clients)",
+          "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
+
         }
       }
     }
@@ -42,7 +50,15 @@
           "scan_interval": "Scan interval in seconds [PRO]",
           "activity_days": "Allowed number of days to wait after the last activity [PRO]",
           "timeout": "Timeout of requests in seconds [PRO]",
-          "is_force_load": "Forced booting of devices in repeater mode [PRO]"
+          "is_force_load": "Forced booting of devices in repeater mode [PRO]",
+          "wan_speed_unit": "WAN speed unit",
+          "log_level": "Log level (global)",
+          "enable_panel": "Enable control panel",
+          "auto_purge_every_days": "Auto-purge frequency (every N days)",
+          "auto_purge_at": "Daily auto-purge time (HH:MM)",
+          "enable_device_sensors": "Create device sensors (clients)",
+          "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
+
         }
       }
     }

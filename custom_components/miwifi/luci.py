@@ -137,11 +137,11 @@ class LuciClient:
         for protocol in protocols_to_try:
             test_url = CLIENT_URL.format(protocol=protocol, ip=self.ip)
             try:
-                async with self._client as client:
-                    response = await client.get(f"{test_url}/", timeout=5)
-                    if response.status_code < 500:  # Any response except server error
-                        self._detected_protocol = protocol
-                        return protocol
+                
+                response = await self._client.get(f"{test_url}/", timeout=5)
+                if response.status_code < 500:  # Any response except server error
+                    self._detected_protocol = protocol
+                    return protocol
             except Exception:
                 continue
                 
@@ -183,12 +183,11 @@ class LuciClient:
         try:
             self._debug("Start request", _url, json.dumps(_request_data), _method, True)
 
-            async with self._client as client:
-                response: Response = await client.post(
-                    _url,
-                    data=_request_data,
-                    timeout=self._timeout,
-                )
+            response: Response = await self._client.post(
+                _url,
+                data=_request_data,
+                timeout=self._timeout,
+            )
 
             self._debug("Successful request", _url, response.content, _method)
 
@@ -224,10 +223,9 @@ class LuciClient:
         _url: str = f"{self._url}/;stok={self._token}/{_method}"
 
         try:
-            async with self._client as client:
-                response: Response = await client.get(_url, timeout=self._timeout)
-
-                self._debug("Successful request", _url, response.content, _method)
+            response: Response = await self._client.get(_url, timeout=self._timeout)
+            self._debug("Successful request", _url, response.content, _method)
+            
         except (HTTPError, ConnectError, TransportError, ValueError, TypeError) as _e:
             self._debug("Logout error", _url, _e, _method)
 
@@ -237,6 +235,7 @@ class LuciClient:
         query_params: dict | None = None,
         use_stok: bool = True,
         errors: dict[int, str] | None = None,
+        timeout: float | None = None,
     ) -> dict:
         """GET method.
 
@@ -264,8 +263,9 @@ class LuciClient:
         _url: str = f"{self._url}/{_stok}api/{path}"
 
         try:
-            async with self._client as client:
-                response: Response = await client.get(_url, timeout=self._timeout)
+            _call_timeout = self._timeout if timeout is None else timeout
+            response: Response = await self._client.get(_url, timeout=_call_timeout)
+
 
             self._debug("Successful request", _url, response.content, path)
 
@@ -520,7 +520,8 @@ class LuciClient:
 
             :return dict: dict with API data.
             """
-            return await self.get(self._api_paths["mac_filter_info"])
+            # Some firmwares can hang on this endpoint; keep it short to avoid HA bootstrap cancellation.
+            return await self.get(self._api_paths["mac_filter_info"], timeout=4)
 
     async def check_mac_filter_support(self) -> bool:
         """Check if the router supports set_mac_filter API."""
@@ -559,8 +560,7 @@ class LuciClient:
             "ip": ip,
             "dport": dport,
         }
-        async with self._client as client:
-            response = await client.post(_url, data=data, timeout=self._timeout)
+        response = await self._client.post(_url, data=data, timeout=self._timeout)
         _data = json.loads(response.content)
         if response.status_code != 200 or _data.get("code", 1) != 0:
             raise LuciRequestError(f"Failed to add rule: {_data}")
@@ -582,8 +582,7 @@ class LuciClient:
             "tport": tport,
             "ip": ip,
         }
-        async with self._client as client:
-            response = await client.post(_url, data=data, timeout=self._timeout)
+        response = await self._client.post(_url, data=data, timeout=self._timeout)
         _data = json.loads(response.content)
         if response.status_code != 200 or _data.get("code", 1) != 0:
             raise LuciRequestError(f"Failed to add port range: {_data}")
@@ -603,13 +602,11 @@ class LuciClient:
             
         _url = f"{self._url}/;stok={self._token}/api/{self._api_paths['delete_redirect']}"
         data = {"port": port, "proto": proto}
-        async with self._client as client:
-            response = await client.post(_url, data=data, timeout=self._timeout)
+        response = await self._client.post(_url, data=data, timeout=self._timeout)
         _data = json.loads(response.content)
         if response.status_code != 200 or _data.get("code", 1) != 0:
             raise LuciRequestError(f"Failed to delete rule: {_data}")
         return _data
-
 
 
     async def rom_update(self) -> dict:

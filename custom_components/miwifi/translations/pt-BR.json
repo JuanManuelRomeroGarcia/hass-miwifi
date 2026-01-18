@@ -24,7 +24,9 @@
           "is_force_load": "Forçar carregamento de dispositivos em modo repetidor [PRO]",
           "activity_days": "Dias permitidos desde a última atividade [PRO]",
           "log_level": "Nível de log (global)",
-          "enable_panel": "Ativar painel de controle"
+          "enable_panel": "Ativar painel de controle",
+          "enable_device_sensors": "Criar sensores de dispositivo (clientes)",
+          "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo"
         }
       }
     }
@@ -55,7 +57,9 @@
           "log_level": "Nível de log (global)",
           "enable_panel": "Ativar painel de controle",
           "auto_purge_every_days": "Limpeza automática a cada X dias (0 = desativado) [PRO]",
-          "auto_purge_at": "Hora da limpeza automática (0–23) [PRO]"
+          "auto_purge_at": "Hora da limpeza automática (0–23) [PRO]",
+          "enable_device_sensors": "Criar sensores de dispositivo (clientes)",
+          "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo"
         }
       }
     }

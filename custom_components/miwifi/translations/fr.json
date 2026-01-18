@@ -24,7 +24,9 @@
           "is_force_load": "Chargement forcé des appareils en mode répéteur [PRO]",
           "activity_days": "Jours autorisés depuis la dernière activité [PRO]",
           "log_level": "Niveau de log (global)",
-          "enable_panel": "Activer le panneau de contrôle"
+          "enable_panel": "Activer le panneau de contrôle",
+          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
+          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil"
         }
       }
     }
@@ -55,7 +57,9 @@
           "log_level": "Niveau de log (global)",
           "enable_panel": "Activer le panneau de contrôle",
           "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
-          "auto_purge_at": "Heure de purge automatique (0–23) [PRO]"
+          "auto_purge_at": "Heure de purge automatique (0–23) [PRO]",
+          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
+          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil"
         }
       }
     }
