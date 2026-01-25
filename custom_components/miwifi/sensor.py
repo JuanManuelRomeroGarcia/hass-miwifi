@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime
 from enum import Enum
 from typing import Any, Final
+from dataclasses import replace
 
 from homeassistant.components.sensor import (
     ENTITY_ID_FORMAT,
@@ -92,6 +93,8 @@ from .const import (
     DEFAULT_WAN_SPEED_UNIT,
     DOMAIN,
     UPDATER,
+    ATTR_TRACKER_ROUTER_MAC_ADDRESS,
+    ATTR_TRACKER_UPDATER_ENTRY_ID,
 )
 from .entity import MiWifiEntity
 from .enum import Connection, DeviceClass
@@ -266,21 +269,21 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         name="IP",
         icon="mdi:ip-network",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_CONNECTION,
         name="Connection",
         icon="mdi:lan-connect",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_ONLINE,
         name="Online",
         icon="mdi:timer-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_DOWN_SPEED,
@@ -290,7 +293,7 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_UP_SPEED,
@@ -300,7 +303,7 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_TOTAL_USAGE,
@@ -350,15 +353,14 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         name="Internet blocked",
         icon="mdi:shield-off-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
-        entity_registry_enabled_default=False,
+        entity_registry_enabled_default=True,
     ),
 )
 
-
 def _device_base_unique_id(mac: str) -> str:
     """Base unique id for a client device, independent of the router/entry."""
-    mac_u = (mac or "").upper()
-    return f"{DOMAIN}-dev-{mac_u}"
+    mac_lc = (mac or "").strip().lower()
+    return f"{DOMAIN}-dev-{mac_lc}"
 
 
 class MiWifiSensor(MiWifiEntity, SensorEntity):
@@ -485,35 +487,45 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
         super().__init__(updater)
         self._updater = updater
         self.entity_description = description
+
+        # IMPORTANT: keep entity disabled by default (as per description)
+        self._attr_entity_registry_enabled_default = bool(
+            getattr(description, "entity_registry_enabled_default", True)
+        )
+
         self._mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
 
         base_unique = _device_base_unique_id(self._mac)
         self._attr_unique_id = f"{base_unique}-{description.key}"
 
-        # Stable entity_id (avoid "_2" duplicates). Must be unique per MAC + key.
+        # Stable entity_id
         mac_norm = self._mac.lower().replace(":", "_")
         key_norm = str(description.key).lower().replace(" ", "_").replace(".", "_")
         self.entity_id = f"sensor.miwifi_{mac_norm}_{key_norm}"
 
-        # Group under a stable HA "device" for this client (independent of router)
+        # Link to the SAME HA device as device_tracker (identifier = MAC)
+        mac_lc = self._mac.lower()
+
         optional_mac = device.get(ATTR_TRACKER_OPTIONAL_MAC)
-        conns = {(dr.CONNECTION_NETWORK_MAC, self._mac)}
+        conns = {(dr.CONNECTION_NETWORK_MAC, mac_lc)}
         if optional_mac:
-            conns.add((dr.CONNECTION_NETWORK_MAC, str(optional_mac).upper()))
+            conns.add((dr.CONNECTION_NETWORK_MAC, str(optional_mac).strip().lower()))
 
         self._attr_device_info = DeviceInfo(
             connections=conns,
-            identifiers={(DOMAIN, base_unique)},
+            identifiers={(DOMAIN, mac_lc)},
             name=device.get(ATTR_TRACKER_NAME) or self._mac,
             manufacturer=detect_manufacturer(self._mac),
         )
+
 
     def _handle_coordinator_update(self) -> None:
         self.async_write_ha_state()
 
     @property
     def native_value(self) -> Any:
-        dev = (self._updater.devices or {}).get(self._mac, {}) or {}
+        cache = (self.hass.data.get(DOMAIN) or {}).get("devices_cache") or {}
+        dev = cache.get(self._mac) or (self._updater.devices or {}).get(self._mac, {}) or {}
         key = str(self.entity_description.key)
 
         conn = dev.get(ATTR_TRACKER_CONNECTION)
@@ -552,16 +564,51 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
             return None
 
         return dev.get(key)
+    
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose mesh routing info so the panel can show 'connected via'."""
+        cache = (self.hass.data.get(DOMAIN) or {}).get("devices_cache") or {}
+        dev = cache.get(self._mac) or (self._updater.devices or {}).get(self._mac) or {}
+
+        conn = dev.get(ATTR_TRACKER_CONNECTION)
+        conn_text = conn.phrase if isinstance(conn, Connection) else conn
+
+        via_mac = dev.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS)
+        via_entry = dev.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+
+        return {
+            # Keep same attribute names as device_tracker
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: via_mac,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: via_entry,
+
+            # Optional duplicates (your custom keys) for backwards compatibility
+            "connected_via_router_mac": via_mac,
+            "connected_via_entry_id": via_entry,
+
+            "connection": conn_text,
+        }
+
 
 
 def _build_device_sensors(
     updater: LuciUpdater, device: dict[str, Any]
 ) -> list[SensorEntity]:
-    mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
+    """Build per-device sensors for a client.
+
+    Notes:
+    - MIWIFI_DEVICE_SENSORS already define entity_registry_enabled_default=False,
+      so they will be created but disabled by default (as desired).
+    """
+    mac = str(device.get(ATTR_TRACKER_MAC, "")).strip()
     if not mac:
         return []
 
-    return [MiWifiDeviceAttributeSensor(updater, device, desc) for desc in MIWIFI_DEVICE_SENSORS]
+    return [
+        MiWifiDeviceAttributeSensor(updater, device, desc)
+        for desc in MIWIFI_DEVICE_SENSORS
+    ]
+
 
 
 async def async_setup_entry(
@@ -573,87 +620,74 @@ async def async_setup_entry(
 
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
 
-    # Per-device sensors are created only from the main router to avoid duplicates in mesh.
-    is_main_router: bool = bool(
-        updater.data.get("topo_graph", {}).get("graph", {}).get("is_main", False)
-    )
+    def _device_sensors_enabled() -> bool:
+        # OPTIONS override DATA. If not present in options (common on first install),
+        # fallback to config_entry.data.
+        if CONF_ENABLE_DEVICE_SENSORS in (config_entry.options or {}):
+            return bool(config_entry.options.get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS))
+        return bool((config_entry.data or {}).get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS))
 
-    device_sensors_enabled: bool = bool(
-        config_entry.options.get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS)
-    )
+    def _is_main_router() -> bool:
+        return bool(
+            (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False)
+        )
 
     # Migration / cleanup:
-    # - Always remove legacy per-device sensors tied to entry_id (they duplicate in mesh).
+    # - Remove legacy per-device sensor unique_ids tied to entry_id (mesh duplicates).
     # - If per-device sensors are disabled, also remove the new scheme.
-    if is_main_router:
-        registry = er.async_get(hass)
-        for ent in list(registry.entities.values()):
-            if ent.domain != "sensor" or ent.platform != DOMAIN:
-                continue
-            uid = ent.unique_id or ""
-            # Legacy scheme: "miwifi-<entry_id>-<MAC>-<key>"
-            if uid.startswith(f"{DOMAIN}-{config_entry.entry_id}-"):
-                registry.async_remove(ent.entity_id)
-                continue
-            # New scheme: "miwifi-dev-<MAC>-<key>"
-            if not device_sensors_enabled and uid.startswith(f"{DOMAIN}-dev-"):
-                registry.async_remove(ent.entity_id)
+    registry = er.async_get(hass)
+    device_sensors_enabled = _device_sensors_enabled()
 
-    # Needed for dynamic entity creation on SIGNAL_NEW_DEVICE
-    try:
-        platform: EntityPlatform = async_get_current_platform()
-    except RuntimeError:
-        platform = None  # type: ignore[assignment]
+    for ent in list(registry.entities.values()):
+        if ent.domain != "sensor" or ent.platform != DOMAIN:
+            continue
+
+        uid = ent.unique_id or ""
+
+        # Legacy scheme(s) tied to config entry id (avoid mesh duplicates)
+        if uid.startswith(f"{DOMAIN}-{config_entry.entry_id}-"):
+            registry.async_remove(ent.entity_id)
+            continue
+
+        # New scheme: "miwifi-dev-<MAC>-<key>"
+        if not device_sensors_enabled and uid.startswith(f"{DOMAIN}-dev-"):
+            registry.async_remove(ent.entity_id)
 
     @callback
     def _handle_new_device(new_device: dict) -> None:
-        if platform is None:
+        # Evaluate dynamically: topology may arrive AFTER startup
+        if not (_is_main_router() and _device_sensors_enabled()):
             return
 
-        if not (is_main_router and device_sensors_enabled):
-            return
-
-        mac = str(new_device.get(ATTR_TRACKER_MAC, "")).upper()
+        mac = str(new_device.get(ATTR_TRACKER_MAC, "")).strip()
         if not mac:
             return
 
-        # Avoid duplicates if they already exist in the entity registry.
-        registry = er.async_get(hass)
-        to_add: list[SensorEntity] = []
-        base_unique = _device_base_unique_id(mac)
-
-        for desc in MIWIFI_DEVICE_SENSORS:
-            uid = f"{base_unique}-{desc.key}"
-            if registry.async_get_entity_id("sensor", DOMAIN, uid):
-                continue
-            to_add.append(MiWifiDeviceAttributeSensor(updater, new_device, desc))
-
+        # On restart entities may exist in registry but must be instantiated again.
+        to_add: list[SensorEntity] = _build_device_sensors(updater, new_device)
         if to_add:
-            res = platform.async_add_entities(to_add)
-            if asyncio.iscoroutine(res):
-                hass.async_create_task(res)
+            async_add_entities(to_add)
 
     @callback
     def _handle_purge(entry_id: str, mac: str) -> None:
         # Only the main router manages client sensors
-        if not is_main_router:
+        if not _is_main_router():
             return
 
         mac_u = (mac or "").upper()
         if not mac_u:
             return
 
-        registry = er.async_get(hass)
+        reg = er.async_get(hass)
         base_unique = _device_base_unique_id(mac_u)
 
-        # Remove all per-device sensor entities from the registry.
         for desc in MIWIFI_DEVICE_SENSORS:
             uid = f"{base_unique}-{desc.key}"
-            ent_id = registry.async_get_entity_id("sensor", DOMAIN, uid)
+            ent_id = reg.async_get_entity_id("sensor", DOMAIN, uid)
             if ent_id:
-                registry.async_remove(ent_id)
+                reg.async_remove(ent_id)
 
-    # Connect dispatcher signals (and auto-unsubscribe on unload)
+    # Connect signals
     config_entry.async_on_unload(
         async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
     )
@@ -662,8 +696,9 @@ async def async_setup_entry(
     )
 
     # Defer initial entity creation to avoid blocking startup.
-    hass.async_create_task(_async_add_all_sensors_later(hass, config_entry, async_add_entities))
-
+    hass.async_create_task(
+        _async_add_all_sensors_later(hass, config_entry, async_add_entities)
+    )
 
 class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
     """Sensor to represent the NAT rules of the main router."""
@@ -773,12 +808,25 @@ async def _async_add_all_sensors_later(
 
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
 
+    # Ensure we have data (topo_graph + devices) before deciding is_main and creating sensors
+    for _ in range(6):
+        try:
+            await updater.async_request_refresh()
+        except Exception:
+            pass
+
+        topo = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+        if "is_main" in topo:
+            break
+
+        await asyncio.sleep(2)
+
     entities: list[SensorEntity] = [
         MiWifiTopologyGraphSensor(updater),
         MiWifiConfigSensor(updater),
     ]
 
-    if updater.data.get("topo_graph", {}).get("graph", {}).get("is_main", False):
+    if (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False):
         entities.append(MiWifiNATRulesSensor(updater))
 
     for description in MIWIFI_SENSORS:
@@ -799,16 +847,27 @@ async def _async_add_all_sensors_later(
             )
         )
 
-    # Per-device sensors (clients)
-    device_sensors_enabled: bool = bool(
-        config_entry.options.get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS)
-    )
+    # Per-device sensors (clients) only from main router
+    if CONF_ENABLE_DEVICE_SENSORS in (config_entry.options or {}):
+        device_sensors_enabled = bool(
+            config_entry.options.get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS)
+        )
+    else:
+        device_sensors_enabled = bool(
+            (config_entry.data or {}).get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS)
+        )
+
     is_main_router: bool = bool(
-        updater.data.get("topo_graph", {}).get("graph", {}).get("is_main", False)
+        (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False)
     )
 
     if device_sensors_enabled and is_main_router:
+        # IMPORTANT: do not use entity_registry existence to skip.
+        # On restart those entities exist in registry but must be instantiated again.
         for device in (updater.devices or {}).values():
+            mac = str(device.get(ATTR_TRACKER_MAC, "")).strip()
+            if not mac:
+                continue
             entities.extend(_build_device_sensors(updater, device))
 
     async_add_entities(entities)

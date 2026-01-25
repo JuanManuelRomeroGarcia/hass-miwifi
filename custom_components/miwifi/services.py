@@ -274,8 +274,13 @@ class MiWifiBlockDeviceServiceCall:
         device_id: str = service.data[CONF_DEVICE_ID]
 
         entity_registry = er.async_get(self.hass)
-        entities = [e for e in entity_registry.entities.values()
-                    if e.device_id == device_id and e.platform == "miwifi" and e.domain == "device_tracker"]
+        entities = [
+            e
+            for e in entity_registry.entities.values()
+            if e.device_id == device_id
+            and e.platform == DOMAIN
+            and e.domain == "device_tracker"
+        ]
 
         if not entities:
             raise vol.Invalid("No MiWiFi device_tracker entity found for selected device.")
@@ -285,41 +290,80 @@ class MiWifiBlockDeviceServiceCall:
         if state is None:
             raise vol.Invalid("Cannot get state of entity.")
 
-        mac_address = state.attributes.get("mac")
+        mac_address = (
+            state.attributes.get(ATTR_TRACKER_MAC)
+            or state.attributes.get("mac")
+            or state.attributes.get("mac_address")
+        )
         if not mac_address:
             raise vol.Invalid("MAC not found in entity attributes.")
 
-        await self.hass.async_add_executor_job(_LOGGER.debug, f"[MiWiFi] Target MAC: {mac_address}")
+        await self.hass.async_add_executor_job(
+            _LOGGER.debug, "[MiWiFi] Target MAC: %s", mac_address
+        )
 
         integrations = async_get_integrations(self.hass)
-        main_updater = next(
-            (i[UPDATER] for i in integrations.values()
-             if (i[UPDATER].data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False)),
-            None
-        )
+        main_updater: LuciUpdater | None = None
+
+        # Buscar main router de forma segura (evita valores bool u otros tipos)
+        for integration in integrations.values():
+            if not isinstance(integration, dict):
+                continue
+            updater = integration.get(UPDATER)
+            if not isinstance(updater, LuciUpdater):
+                continue
+
+            if (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False):
+                main_updater = updater
+                break
 
         if not main_updater:
             raise vol.Invalid("Main router not found (is_main).")
 
-        if not (getattr(main_updater, "capabilities", {}) or {}).get("mac_filter", False):
+        # Compatibilidad: puede venir como mac_filter_info (o mac_filter en versiones antiguas)
+        caps = getattr(main_updater, "capabilities", {}) or {}
+        supports = bool(caps.get("mac_filter") or caps.get("mac_filter_info"))
+
+        if not supports:
+            # Intentar rellenar capabilities una vez por si aún no estaban cargadas
+            try:
+                await main_updater._async_prepare_compatibility()
+            except Exception:
+                pass
+            caps = getattr(main_updater, "capabilities", {}) or {}
+            supports = bool(caps.get("mac_filter") or caps.get("mac_filter_info"))
+
+        if not supports:
             raise vol.Invalid("This router does not support MAC Filter API.")
 
         allow = service.data["allow"]
 
         try:
             await main_updater.luci.login()
+            # NO tocamos tu lógica: queda exactamente igual
             await main_updater.luci.set_mac_filter(mac_address, not allow)
             await main_updater._async_prepare_devices(main_updater.data)
 
-            await self.hass.async_add_executor_job(_LOGGER.info, f"[MiWiFi] MAC Filter applied: mac={mac_address}, WAN={'Blocked' if allow else 'Allowed'}")
+            await self.hass.async_add_executor_job(
+                _LOGGER.info,
+                "[MiWiFi] MAC Filter applied: mac=%s, WAN=%s",
+                mac_address,
+                "Blocked" if allow else "Allowed",
+            )
         except LuciError as e:
             if "Connection error" in str(e):
-                await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Connection dropped after applying MAC filter (likely successfully applied): %s", e)
+                await self.hass.async_add_executor_job(
+                    _LOGGER.info,
+                    "[MiWiFi] Connection dropped after applying MAC filter (likely successfully applied): %s",
+                    e,
+                )
             else:
-                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error applying MAC filter: %s", e)
+                await self.hass.async_add_executor_job(
+                    _LOGGER.error, "[MiWiFi] Error applying MAC filter: %s", e
+                )
                 raise vol.Invalid(f"Failed to apply mac filter: {e}")
 
-        # Notificación final
+        # Notificación final (sin cambios de lógica)
         device_registry = dr.async_get(self.hass)
         device_entry = device_registry.async_get(device_id)
         friendly_name = device_entry.name_by_user or device_entry.name or mac_address
@@ -332,12 +376,12 @@ class MiWifiBlockDeviceServiceCall:
 
         message_template = notify.get(
             "device_blocked_message",
-            "Device {name} has been automatically {status}."
+            "Device {name} has been automatically {status}.",
         )
 
         status = notify.get(
             "status_blocked" if allow else "status_unblocked",
-            "BLOCKED" if allow else "UNBLOCKED"
+            "BLOCKED" if allow else "UNBLOCKED",
         )
 
         message = message_template.replace("{name}", friendly_name).replace("{status}", status)
@@ -345,7 +389,7 @@ class MiWifiBlockDeviceServiceCall:
         await notifier.notify(
             message,
             title=title,
-            notification_id=f"miwifi_block_{mac_address.replace(':', '_')}",
+            notification_id=f"miwifi_block_{str(mac_address).replace(':', '_')}",
         )
 
 class MiWifiListPortsServiceCall:

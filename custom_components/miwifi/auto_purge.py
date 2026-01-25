@@ -82,15 +82,18 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
     GLOBAL Scheduler (single). ALWAYS reads the GLOBAL configuration from the store:
     - every_days: frequency (N)
     - at: time "HH:MM" or "HH:MM:SS"
-    • Inactivity threshold = frequency → 'days' passed to the service will be N.
+
+    IMPORTANT FIX:
+    - Avoid running purge on every HA restart/reload.
+    - The previous implementation executed a "kickoff" 60s after startup with apply=True.
     """
+
     data = hass.data.setdefault(DOMAIN, {})
     owner_id = data.get(AUTO_PURGE_OWNER)
     if owner_id and owner_id != entry.entry_id and data.get(AUTO_PURGE_UNSUB):
         # Ya hay otro dueño con scheduler activo -> no reprogramar
         return
 
-   
     cancel_auto_purge(hass, entry_id=owner_id)
     data[AUTO_PURGE_OWNER] = entry.entry_id
 
@@ -101,6 +104,14 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         every_days = int(s.get("every_days") or DEFAULT_AUTO_PURGE_EVERY_DAYS)
         return _parse_hhmm(at_str), every_days, at_str
 
+    def _parse_iso(dt_str: str | None):
+        if not dt_str:
+            return None
+        try:
+            return dt_util.parse_datetime(dt_str)
+        except Exception:
+            return None
+
     async def _job(_now=None):
         # 1) Reprogramar siguiente ejecución
         now = dt_util.now()
@@ -108,51 +119,87 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         next_dt = _next_run(now, at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, next_dt)
 
-        # 2) Llamar al servicio de purga con parámetros compatibles
-        #    (only_randomized=False => purga TODOS, no solo MAC aleatorias)
+        # 2) Llamar al servicio de purga (ejecución normal programada)
         params = {
             "days": int(every_days),
             "only_randomized": False,
             "include_orphans": True,
-            "include_orphans_without_age": True, 
+            "include_orphans_without_age": True,
             "verbose": False,
             "apply": True,
         }
 
-        ok, result = True, None
+        ok = True
         try:
-            result = await hass.services.async_call(
-                DOMAIN, "purge_inactive_devices", params, blocking=True
-            )
+            # Nota: async_call devuelve None; el servicio debe gestionar notificación/resultado internamente.
+            await hass.services.async_call(DOMAIN, "purge_inactive_devices", params, blocking=True)
         except Exception:
             ok = False
 
         # 3) Guardar histórico en el store
         sdata = await _load(hass)
         hist = (sdata.get("history") or [])[-29:]
-        rec = {"at": now.isoformat(), "ok": bool(ok)}
-        if isinstance(result, dict):
-            rec.update({"entities": result.get("entities"), "devices": result.get("devices")})
-        hist.append(rec)
+        hist.append({"at": now.isoformat(), "ok": bool(ok)})
 
-        sdata.update({
-            "last_run": now.isoformat(),
-            "last_ok": bool(ok),
-            "last_params": params,
-            "last_result": result if isinstance(result, dict) else None,
-            "next_due": next_dt.isoformat(),
-            "every_days": every_days,
-            "at": at_str,
-            "owner": entry.entry_id,
-        })
+        sdata.update(
+            {
+                "last_run": now.isoformat(),
+                "last_ok": bool(ok),
+                "last_params": params,
+                "next_due": next_dt.isoformat(),
+                "every_days": every_days,
+                "at": at_str,
+                "owner": entry.entry_id,
+                "history": hist,
+            }
+        )
         await _save(hass, sdata)
 
     async def _prime():
-        # Programa la primera ejecución y opcionalmente un kickoff rápido
-        at_time, every_days, _ = await _current_cfg()
-        first = _next_run(dt_util.now(), at_time, every_days)
+        # Programa la próxima ejecución según configuración
+        at_time, every_days, at_str = await _current_cfg()
+        now = dt_util.now()
+
+        first = _next_run(now, at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, first)
+
+        # Kickoff seguro:
+        # - SOLO si kickoff=True
+        # - y si nunca se ha ejecutado (last_run ausente) o está vencido (next_due <= now)
+        # - y NUNCA ejecuta en cada reinicio si ya hay last_run reciente
         if kickoff:
-            data[AUTO_PURGE_FIRST] = async_call_later(hass, 60, _job)
+            s = await _load(hass)
+            last_run = _parse_iso(s.get("last_run"))
+            next_due = _parse_iso(s.get("next_due"))
+
+            should_kick = False
+            if last_run is None:
+                should_kick = True
+            elif next_due is not None and next_due <= now:
+                should_kick = True
+
+            # Además, si la última ejecución fue “hoy” (o dentro de la ventana), no kick.
+            if last_run is not None:
+                try:
+                    if (now - last_run) < timedelta(hours=12):
+                        should_kick = False
+                except Exception:
+                    pass
+
+            if should_kick:
+                # Ejecuta una sola vez, diferida, sin depender del restart continuo
+                data[AUTO_PURGE_FIRST] = async_call_later(hass, 60, _job)
+
+        # Persistimos configuración actual para visibilidad
+        s2 = await _load(hass)
+        s2.update(
+            {
+                "next_due": first.isoformat(),
+                "every_days": every_days,
+                "at": at_str,
+                "owner": entry.entry_id,
+            }
+        )
+        await _save(hass, s2)
 
     hass.async_create_task(_prime())

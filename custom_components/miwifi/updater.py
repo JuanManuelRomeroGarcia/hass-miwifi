@@ -104,6 +104,7 @@ from .const import (
     DOMAIN,
     NAME,
     SIGNAL_NEW_DEVICE,
+    SIGNAL_PURGE_DEVICE,
     UPDATER,
 )
 from .enum import (
@@ -942,6 +943,24 @@ class LuciUpdater(DataUpdateCoordinator):
         if self.is_repeater:
             return
         
+        topo_graph = (self.data or {}).get("topo_graph", {}).get("graph", {}) or {}
+        is_main = bool(topo_graph.get("is_main"))
+
+        if not is_main:
+            integrations = async_get_integrations(self.hass)
+
+            # Si existe otro updater marcado como main, este nodo NO debe gestionar clientes
+            for _ip, integration in integrations.items():
+                up = integration.get(UPDATER)
+                if not up or _ip == self.ip:
+                    continue
+                g = (getattr(up, "data", {}) or {}).get("topo_graph", {}).get("graph", {}) or {}
+                if g.get("is_main"):
+                    # limpiamos lista local para evitar duplicados y salimos
+                    self.devices = {}
+                    self._moved_devices = []
+                    return
+        
         totals_by_mac: dict[str, int] = {}
 
         try:
@@ -1033,7 +1052,8 @@ class LuciUpdater(DataUpdateCoordinator):
                 and mac_to_ip[device["parent"]] in integrations
                 and mac_to_ip[device["parent"]] != self.ip
             ):
-                integration: dict = integrations[mac_to_ip[device["parent"]]]
+                parent_ip: str = mac_to_ip[device["parent"]]
+                integration: dict = integrations[parent_ip]
 
                 if (
                     ATTR_TRACKER_MAC in device
@@ -1046,17 +1066,13 @@ class LuciUpdater(DataUpdateCoordinator):
 
                 device[ATTR_TRACKER_ENTRY_ID] = integration[ATTR_TRACKER_ENTRY_ID]
 
-                if ATTR_DEVICE_MAC_ADDRESS in integration[UPDATER].data:
-                    if mac_to_ip[device["parent"]] not in add_to:
-                        add_to[mac_to_ip[device["parent"]]] = {}
+                if parent_ip not in add_to:
+                    add_to[parent_ip] = {}
 
-                    add_to[mac_to_ip[device["parent"]]][device[ATTR_TRACKER_MAC]] = (
-                        device,
-                        action,
-                    )
+                add_to[parent_ip][device[ATTR_TRACKER_MAC]] = (device, action)
 
-                    if integration[UPDATER].is_force_load:
-                        continue
+                continue
+
             else:
                 device[ATTR_TRACKER_ENTRY_ID] = self._entry_id
 
@@ -1065,9 +1081,9 @@ class LuciUpdater(DataUpdateCoordinator):
                     and device[ATTR_TRACKER_MAC] in self._moved_devices
                 ):
                     device[ATTR_TRACKER_UPDATER_ENTRY_ID] = self._entry_id
-                    device[ATTR_TRACKER_ROUTER_MAC_ADDRESS] = (
-                        self.data.get(ATTR_DEVICE_MAC_ADDRESS, None),
-                    )
+                    device[ATTR_TRACKER_ROUTER_MAC_ADDRESS] = self.data.get(
+                            ATTR_DEVICE_MAC_ADDRESS, None
+                        )
 
                     if self._mass_update_device(device, integrations):
                         action = DeviceAction.SKIP
@@ -1290,16 +1306,21 @@ class LuciUpdater(DataUpdateCoordinator):
             device["type"] = 6 if device["wifiIndex"] == 3 else device["wifiIndex"]
 
         connection: Connection | None = None
-
+        
         with contextlib.suppress(ValueError):
             connection = Connection(int(device["type"])) if "type" in device else None
 
-   
         existing = self.devices.get(device[ATTR_TRACKER_MAC], {})
         total_usage = device.get(
             ATTR_TRACKER_TOTAL_USAGE,
             existing.get(ATTR_TRACKER_TOTAL_USAGE),
         )
+
+        # Mesh: si el dispositivo reporta 'parent', ese es el nodo/AP real al que está asociado
+        router_mac = self.data.get(ATTR_DEVICE_MAC_ADDRESS, None)
+        parent_mac = device.get("parent")
+        if isinstance(parent_mac, str) and parent_mac.strip():
+            router_mac = parent_mac.strip().upper()
 
         return {
             ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
@@ -1307,9 +1328,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 ATTR_TRACKER_UPDATER_ENTRY_ID, device[ATTR_TRACKER_ENTRY_ID]
             ),
             ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC],
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: self.data.get(
-                ATTR_DEVICE_MAC_ADDRESS, None
-            ),
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: router_mac,
             ATTR_TRACKER_SIGNAL: self._signals.get(device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_IP: ip_attr["ip"] if ip_attr is not None else None,
@@ -1339,7 +1358,6 @@ class LuciUpdater(DataUpdateCoordinator):
             ATTR_TRACKER_INTERNET_BLOCKED: device.get(
                 ATTR_TRACKER_INTERNET_BLOCKED, False
             ),
- 
             ATTR_TRACKER_TOTAL_USAGE: total_usage,
         }
 
@@ -1425,17 +1443,16 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         now = datetime.now().replace(microsecond=0)
-        devices: dict = self.devices.copy()
+        integrations: dict[str, dict] = async_get_integrations(self.hass)
 
-        for mac, device in devices.items():
+        # Recorremos copia para poder borrar
+        for mac, device in list(self.devices.items()):
             if ATTR_TRACKER_LAST_ACTIVITY not in device or not isinstance(
                 device[ATTR_TRACKER_LAST_ACTIVITY], str
             ):
-                # fmt: off
-                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = \
+                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
                     datetime.now().replace(microsecond=0).isoformat()
-                # fmt: on
-
+                )
                 continue
 
             delta = now - datetime.strptime(
@@ -1445,7 +1462,28 @@ class LuciUpdater(DataUpdateCoordinator):
             if int(delta.days) <= self._activity_days:
                 continue
 
+            # Si el dispositivo existe en OTRO updater, NO hacemos purge de entidades
+            # (roaming mesh / moved). Solo eliminamos de este updater.
+            still_present_elsewhere = False
+            for _ip, integration in integrations.items():
+                up = integration.get(UPDATER)
+                if not up or up is self:
+                    continue
+                if mac in (getattr(up, "devices", {}) or {}):
+                    still_present_elsewhere = True
+                    break
+
+            # Eliminamos del store interno del updater
             del self.devices[mac]
+            if mac in self._moved_devices:
+                with contextlib.suppress(ValueError):
+                    self._moved_devices.remove(mac)
+
+            # Purga REAL (device_tracker + sensores por MAC) solo si NO está en ningún otro nodo
+            if not still_present_elsewhere:
+                entry_id = self._entry_id or ""
+                async_dispatcher_send(self.hass, SIGNAL_PURGE_DEVICE, entry_id, mac)
+
 
     def reset_counter(self, is_force: bool = False, is_remove: bool = False) -> None:
         """Reset counter
