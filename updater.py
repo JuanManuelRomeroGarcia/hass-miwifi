@@ -1072,7 +1072,10 @@ class LuciUpdater(DataUpdateCoordinator):
                     if self._mass_update_device(device, integrations):
                         action = DeviceAction.SKIP
 
-                    self._moved_devices.remove(device[ATTR_TRACKER_MAC])
+                    
+            _mac_to_remove = device[ATTR_TRACKER_MAC]
+            if _mac_to_remove in self._moved_devices:
+                self._moved_devices.remove(_mac_to_remove)
 
             if (
                 ATTR_TRACKER_MAC in device
@@ -1235,7 +1238,11 @@ class LuciUpdater(DataUpdateCoordinator):
             self.devices[device[ATTR_TRACKER_MAC]] = _device
 
         if not is_from_parent and action == DeviceAction.MOVE:
-            self._moved_devices.append(device[ATTR_TRACKER_MAC])
+            # avoid duplicates in _moved_devices
+            _mac_to_move = device[ATTR_TRACKER_MAC]
+            if _mac_to_move not in self._moved_devices:
+                self._moved_devices.append(_mac_to_move)
+
             action = DeviceAction.ADD
 
         if (
