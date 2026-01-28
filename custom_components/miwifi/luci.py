@@ -10,7 +10,7 @@ import time
 import urllib.parse
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable
 
 from httpx import AsyncClient, ConnectError, HTTPError, Response, TransportError
 
@@ -81,7 +81,7 @@ class LuciClient:
     _timeout: int = DEFAULT_TIMEOUT
 
     _token: str | None = None
-    _url: str
+    _url: str | None
     _api_paths: dict[str, str]
 
     def __init__(
@@ -92,6 +92,7 @@ class LuciClient:
         encryption: str = EncryptionAlgorithm.SHA1,
         timeout: int = DEFAULT_TIMEOUT,
         protocol: str = DEFAULT_PROTOCOL,
+        client_factory: Callable[[], AsyncClient] | None = None,
     ) -> None:
         """Initialize API client.
 
@@ -112,12 +113,41 @@ class LuciClient:
         self._timeout = timeout
         self._protocol = protocol
         self._detected_protocol = None
+        self._client_factory = client_factory
 
         # URL será configurada dinámicamente
         self._url = None
 
         self.diagnostics: dict[str, Any] = {}
         self._api_paths = API_PATHS.copy()
+        
+    async def _request_with_retry(self, method: str, url: str, **kwargs) -> Response:
+        """Execute GET/POST on self._client.
+
+        If the client is closed, recreate it once and retry.
+        (Idea taken from pacorola commit, adapted to HA shared client usage.)
+        """
+        try:
+            func = getattr(self._client, method)
+            return await func(url, **kwargs)
+        except RuntimeError as e:
+            msg = str(e).lower()
+            if "client has been closed" in msg or "closed" in msg:
+                # Close defensively (if half-open) then recreate using factory if available
+                try:
+                    await self._client.aclose()
+                except Exception:
+                    pass
+
+                if self._client_factory is not None:
+                    self._client = self._client_factory()
+                else:
+                    # Fallback (kept as last resort)
+                    self._client = AsyncClient()
+
+                func = getattr(self._client, method)
+                return await func(url, **kwargs)
+            raise
 
     async def _detect_protocol(self) -> str:
         """Detect the correct protocol for the router.
@@ -138,7 +168,7 @@ class LuciClient:
             test_url = CLIENT_URL.format(protocol=protocol, ip=self.ip)
             try:
                 
-                response = await self._client.get(f"{test_url}/", timeout=5)
+                response = await self._request_with_retry("get", f"{test_url}/", timeout=5)
                 if response.status_code < 500:  # Any response except server error
                     self._detected_protocol = protocol
                     return protocol
@@ -183,11 +213,13 @@ class LuciClient:
         try:
             self._debug("Start request", _url, json.dumps(_request_data), _method, True)
 
-            response: Response = await self._client.post(
+            response: Response = await self._request_with_retry(
+                "post",
                 _url,
                 data=_request_data,
                 timeout=self._timeout,
             )
+
 
             self._debug("Successful request", _url, response.content, _method)
 
@@ -223,7 +255,7 @@ class LuciClient:
         _url: str = f"{self._url}/;stok={self._token}/{_method}"
 
         try:
-            response: Response = await self._client.get(_url, timeout=self._timeout)
+            response: Response = await self._request_with_retry("get", _url, timeout=self._timeout)
             self._debug("Successful request", _url, response.content, _method)
             
         except (HTTPError, ConnectError, TransportError, ValueError, TypeError) as _e:
@@ -264,7 +296,7 @@ class LuciClient:
 
         try:
             _call_timeout = self._timeout if timeout is None else timeout
-            response: Response = await self._client.get(_url, timeout=_call_timeout)
+            response: Response = await self._request_with_retry("get", _url, timeout=_call_timeout)
 
 
             self._debug("Successful request", _url, response.content, path)
@@ -560,7 +592,7 @@ class LuciClient:
             "ip": ip,
             "dport": dport,
         }
-        response = await self._client.post(_url, data=data, timeout=self._timeout)
+        response = await self._request_with_retry("post", _url, data=data, timeout=self._timeout)
         _data = json.loads(response.content)
         if response.status_code != 200 or _data.get("code", 1) != 0:
             raise LuciRequestError(f"Failed to add rule: {_data}")
@@ -582,7 +614,7 @@ class LuciClient:
             "tport": tport,
             "ip": ip,
         }
-        response = await self._client.post(_url, data=data, timeout=self._timeout)
+        response = await self._request_with_retry("post", _url, data=data, timeout=self._timeout)
         _data = json.loads(response.content)
         if response.status_code != 200 or _data.get("code", 1) != 0:
             raise LuciRequestError(f"Failed to add port range: {_data}")
@@ -602,7 +634,7 @@ class LuciClient:
             
         _url = f"{self._url}/;stok={self._token}/api/{self._api_paths['delete_redirect']}"
         data = {"port": port, "proto": proto}
-        response = await self._client.post(_url, data=data, timeout=self._timeout)
+        response = await self._request_with_retry("post", _url, data=data, timeout=self._timeout)
         _data = json.loads(response.content)
         if response.status_code != 200 or _data.get("code", 1) != 0:
             raise LuciRequestError(f"Failed to delete rule: {_data}")

@@ -203,13 +203,16 @@ class LuciUpdater(DataUpdateCoordinator):
         :param protocol: str: Connection protocol (auto, http, https)
         """
 
+        client_factory = lambda: get_async_client(hass, False)
+
         self.luci = LuciClient(
-            get_async_client(hass, False),
+            client_factory(),
             ip,
             password,
             EncryptionAlgorithm(encryption),
             timeout,
             protocol,
+            client_factory=client_factory,
         )
 
         self.ip = ip  # pylint: disable=invalid-name
