@@ -122,7 +122,7 @@ class MiWifiMainOrDeviceServiceCall(MiWifiServiceCall):
         integrations = async_get_integrations(self.hass)  # ip -> {UPDATER: LuciUpdater, ...}
         candidates = [data[UPDATER] for data in integrations.values()]
         for upd in candidates:
-            topo = (upd.data or {}).get("topo_graph", {}).get("graph", {})
+            topo = (((upd.data or {}).get("topo_graph") or {}).get("graph") or {})
             if topo.get("is_main"):
                 return upd
 
@@ -313,7 +313,9 @@ class MiWifiBlockDeviceServiceCall:
             if not isinstance(updater, LuciUpdater):
                 continue
 
-            if (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False):
+            graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+            if graph.get("is_main", False):
+
                 main_updater = updater
                 break
 
@@ -409,7 +411,8 @@ class MiWifiListPortsServiceCall:
         main_updater = None
         for integration in integrations.values():
             updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+
             if topo_graph.get("is_main", False):
                 main_updater = updater
                 break
@@ -455,7 +458,8 @@ class MiWifiAddPortServiceCall:
 
         for integration in integrations.values():
             updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+
             if topo_graph.get("is_main", False):
                 main_updater = updater
                 break
@@ -503,7 +507,8 @@ class MiWifiAddRangePortServiceCall:
 
         for integration in integrations.values():
             updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+
             if topo_graph.get("is_main", False):
                 main_updater = updater
                 break
@@ -545,7 +550,8 @@ class MiWifiDeletePortServiceCall:
 
         for integration in integrations.values():
             updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+
             if topo_graph.get("is_main", False):
                 main_updater = updater
                 break
@@ -584,7 +590,8 @@ class MiWifiRefreshNATRulesServiceCall:
 
         for integration in integrations.values():
             updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+
             if topo_graph.get("is_main", False):
                 main_updater = updater
                 break
@@ -764,7 +771,8 @@ class MiWifiDumpRouterDataService:
 
         for integration in integrations.values():
             updater = integration[UPDATER]
-            topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+            topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
+
             if topo_graph.get("is_main", False):
                 main_updater = updater
                 break

@@ -46,6 +46,11 @@ class CompatibilityChecker:
             await self.hass.async_add_executor_job(log_func, msg, *args)
         else:
             log_func(msg, *args)
+            
+    def _looks_unsupported(self, err: Exception) -> bool:
+        msg = str(err).lower()
+        return ("not found" in msg) or ("no such" in msg) or ("unknown api" in msg) or ("404" in msg)
+
 
     def _parse_mode(self, raw_mode: Any) -> Mode:
         """Parse router mode using Mode enum as source of truth."""
@@ -98,7 +103,7 @@ class CompatibilityChecker:
             except asyncio.CancelledError:
                 await self._log(_LOGGER.warning,
                     "[MiWiFi] '%s' cancelada por HA durante el setup (attempt %d/%d).",name,attempt,self.max_retries,)
-                return False
+                return None
             except LuciConnectionError as e:
                 await self._log(_LOGGER.debug,"[MiWiFi] '%s' connection error (attempt %d/%d): %s",name,attempt,self.max_retries,e,)
             except LuciError as e:
@@ -176,22 +181,42 @@ class CompatibilityChecker:
     # -----------------------
 
     async def _check_mac_filter(self) -> bool | None:
-        """Check RW support (inferred) without writing during setup."""
+        """Check RO support (best-effort)."""
         try:
             await self.client.macfilter_info()
             return True
+        except LuciConnectionError:
+            return None
         except LuciError:
-            return False
+            return None
         except Exception:
             return None
 
     async def _check_mac_filter_info(self) -> bool | None:
-        """Check RO support (real info endpoint)."""
+        """Check MAC filter info capability (best-effort).
+
+        """
         try:
-            await self.client.macfilter_info()
+            data = await self.client.macfilter_info()
+            if isinstance(data, dict):
+                code = data.get("code")
+                if code is None or code == 0:
+                    return True
             return True
-        except LuciError:
-            return False
+
+      
+        except LuciConnectionError:
+            return None
+
+        except LuciError as err:
+            msg = str(err).lower()
+
+ 
+            if "not found" in msg or "no such" in msg or "unknown api" in msg:
+                return False
+
+            return None
+
         except Exception:
             return None
 
@@ -201,8 +226,10 @@ class CompatibilityChecker:
         try:
             await self.client.qos_info()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
         except Exception:
             return None
 
@@ -212,8 +239,10 @@ class CompatibilityChecker:
         try:
             await self.client.rom_update()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
         except Exception:
             return None
 
@@ -221,15 +250,23 @@ class CompatibilityChecker:
         try:
             await self.client.flash_permission()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
+        except Exception:
+            return None
 
     async def _check_led(self) -> bool | None:
         try:
             await self.client.led()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
+        except Exception:
+            return None
 
     async def _check_guest_wifi(self) -> bool | None:
         """Non-invasive guest Wi-Fi detection.
@@ -272,8 +309,12 @@ class CompatibilityChecker:
         try:
             await self.client.wifi_detail_all()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
+        except Exception:
+            return None
 
     async def _check_device_list(self) -> bool | None:
         # In AP/repeater/mesh, device_list is often not applicable / unreliable
@@ -282,8 +323,12 @@ class CompatibilityChecker:
         try:
             await self.client.device_list()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
+        except Exception:
+            return None
 
     async def _check_topo_graph(self) -> bool | None:
         if self.mode in {Mode.REPEATER, Mode.ACCESS_POINT, Mode.MESH, Mode.MESH_LEAF, Mode.MESH_NODE}:
@@ -291,8 +336,12 @@ class CompatibilityChecker:
         try:
             await self.client.topo_graph()
             return True
-        except LuciError:
-            return False
+        except LuciConnectionError:
+            return None
+        except LuciError as e:
+            return False if self._looks_unsupported(e) else None
+        except Exception:
+            return None
 
     async def _check_portforward(self) -> bool | None:
         if self.mode in {Mode.REPEATER, Mode.ACCESS_POINT, Mode.MESH, Mode.MESH_LEAF, Mode.MESH_NODE}:

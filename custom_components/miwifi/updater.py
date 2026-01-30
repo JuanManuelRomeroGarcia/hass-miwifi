@@ -458,6 +458,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param method: str
         :param data: dict
         """
+        data = data or {}
 
         unsupported = getattr(self, "_unsupported", {}) or {}
         if (
@@ -946,7 +947,8 @@ class LuciUpdater(DataUpdateCoordinator):
         if self.is_repeater:
             return
         
-        topo_graph = (self.data or {}).get("topo_graph", {}).get("graph", {}) or {}
+        topo_graph = (((data or {}).get("topo_graph") or {}).get("graph") or {})
+        
         is_main = bool(topo_graph.get("is_main"))
 
         if not is_main:
@@ -957,7 +959,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 up = integration.get(UPDATER)
                 if not up or _ip == self.ip:
                     continue
-                g = (getattr(up, "data", {}) or {}).get("topo_graph", {}).get("graph", {}) or {}
+                g = (((getattr(up, "data", {}) or {}).get("topo_graph") or {}).get("graph") or {})
                 if g.get("is_main"):
                     # limpiamos lista local para evitar duplicados y salimos
                     self.devices = {}
@@ -1858,7 +1860,7 @@ async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, a
     mac = updater.data.get(ATTR_DEVICE_MAC_ADDRESS)
     entity_id = f"update.miwifi_{mac.replace(':','_')}_miwifi_panel_frontend"
 
-    topo_graph = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+    topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
     is_main = topo_graph.get("is_main")
     is_auto = topo_graph.get("is_main_auto", False)
 

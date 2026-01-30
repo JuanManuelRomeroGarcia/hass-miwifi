@@ -628,6 +628,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         """Force enabled."""
         return True
 
+
     def _handle_coordinator_update(self) -> None:
         """Update state."""
         is_available: bool = self._updater.data.get(ATTR_STATE, False)
@@ -637,30 +638,63 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         device = self._updater.devices.get(mac_key)
 
         # Fallback: optional MAC (some devices expose a second MAC).
-        if device is None:
-            opt = str(self._device.get(ATTR_TRACKER_OPTIONAL_MAC) or "").strip()
-            opt_key = opt.upper() if opt else ""
-            if opt_key:
-                device = self._updater.devices.get(opt_key)
+        opt = str(self._device.get(ATTR_TRACKER_OPTIONAL_MAC) or "").strip()
+        if device is None and opt:
+            device = self._updater.devices.get(opt.upper())
 
-        if device is None or self._device is None:
-            if self._attr_available:  # type: ignore[truthy-bool]
-                self._attr_available = False
-                self.async_write_ha_state()
+        # Mesh-wide cache (updated by ANY router entry via add_device()).
+        cache = self.hass.data.get(DOMAIN, {}).get("devices_cache", {})
+        if device is None and isinstance(cache, dict):
+            device = cache.get(mac_key)
+            if device is None and opt:
+                device = cache.get(opt.upper())
+
+        # If device is not present in current refresh, keep last known attributes and
+        # compute connectivity based on last_activity + stay_online window.
+        if device is None:
+            last_ts: int = parse_last_activity(
+                str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))
+            )
+            is_connected = False
+            if last_ts:
+                is_connected = (int(time.time()) - last_ts) <= self._stay_online
+
+            if (
+                self._attr_available == is_available
+                and self._is_connected == is_connected
+            ):
+                return
+
+            self._attr_available = is_available
+            self._is_connected = is_connected
+            self.async_write_ha_state()
             return
 
-        device = self._update_entry(device)
+        # Found device data (either from this updater or mesh-wide cache).
+        device = self._update_entry(dict(device))
 
-        before: int = parse_last_activity(str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY)))
-        current: int = parse_last_activity(str(device.get(ATTR_TRACKER_LAST_ACTIVITY)))
+        # Connectivity: last_activity aging window. If router reports the device but we
+        # can't parse a timestamp, treat it as connected.
+        current_ts: int = parse_last_activity(
+            str(device.get(ATTR_TRACKER_LAST_ACTIVITY))
+        )
+        if not current_ts:
+            current_ts = parse_last_activity(
+                str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))
+            )
 
-        is_connected = current > before
-        if before == current:
-            is_connected = (int(time.time()) - current) <= self._stay_online
+        if current_ts:
+            is_connected = (int(time.time()) - current_ts) <= self._stay_online
+        else:
+            is_connected = True
 
         attr_changed: list = [
             attr for attr in ATTR_CHANGES if self._device.get(attr) != device.get(attr)
         ]
+        if self._device.get(ATTR_TRACKER_LAST_ACTIVITY) != device.get(
+            ATTR_TRACKER_LAST_ACTIVITY
+        ):
+            attr_changed.append(ATTR_TRACKER_LAST_ACTIVITY)
 
         if (
             self._attr_available == is_available

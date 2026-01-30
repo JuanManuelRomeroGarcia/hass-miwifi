@@ -545,15 +545,24 @@ class LuciClient:
             data = {"mac": mac, "wan": "1" if allow else "0"}
             return await self.get(self._api_paths["set_mac_filter"], data)
 
-    async def macfilter_info(self) -> dict:
-            """xqnetwork/wifi_macfilter_info method.
+    async def macfilter_info(self, timeout: float | None = None) -> dict:
+        """xqnetwork/wifi_macfilter_info method.
 
-            Returns the current state of the filtered MAC list.
+        Returns the current state of the filtered MAC list.
 
-            :return dict: dict with API data.
-            """
-            # Some firmwares can hang on this endpoint; keep it short to avoid HA bootstrap cancellation.
-            return await self.get(self._api_paths["mac_filter_info"], timeout=4)
+        :return dict: dict with API data.
+        """
+        short_timeout = 4 if timeout is None else timeout
+
+        try:
+            return await self.get(self._api_paths["mac_filter_info"], timeout=short_timeout)
+        except LuciConnectionError:
+            
+            if timeout is not None:
+                raise
+
+            return await self.get(self._api_paths["mac_filter_info"], timeout=8)
+
 
     async def check_mac_filter_support(self) -> bool:
         """Check if the router supports set_mac_filter API."""
