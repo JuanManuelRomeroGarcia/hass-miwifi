@@ -262,18 +262,62 @@ class MiWifiSelectMainNodeServiceCall(MiWifiServiceCall):
 class MiWifiBlockDeviceServiceCall:
     """Block or unblock WAN access for a device automatically."""
 
-    schema = vol.Schema({
-        vol.Required(CONF_DEVICE_ID): str,
-        vol.Required("allow"): bool,
-    })
+    schema = vol.Schema(
+        {
+            vol.Required("allow"): bool,
+            vol.Optional(CONF_DEVICE_ID): str,
+            vol.Optional("entity_id"): str,
+            vol.Optional(ATTR_TRACKER_MAC): str,
+            vol.Optional("mac"): str,
+            vol.Optional("mac_address"): str,
+        },
+        extra=vol.PREVENT_EXTRA,
+    )
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
 
     async def async_call_service(self, service: ServiceCall) -> None:
-        device_id: str = service.data[CONF_DEVICE_ID]
+        device_id: str | None = service.data.get(CONF_DEVICE_ID)
+        entity_id: str | None = service.data.get("entity_id")
+
+        mac_from_service = (
+            service.data.get(ATTR_TRACKER_MAC)
+            or service.data.get("mac")
+            or service.data.get("mac_address")
+        )
+        mac_from_service = (mac_from_service or "").strip()
 
         entity_registry = er.async_get(self.hass)
+
+        if not device_id and entity_id:
+            ent = entity_registry.async_get(entity_id)
+            if not ent or ent.platform != DOMAIN or ent.domain != "device_tracker":
+                raise vol.Invalid("Invalid MiWiFi device_tracker entity_id.")
+            device_id = ent.device_id
+
+        if not device_id and mac_from_service:
+            mac_l = mac_from_service.lower()
+            for e in entity_registry.entities.values():
+                if e.platform != DOMAIN or e.domain != "device_tracker":
+                    continue
+
+                st = self.hass.states.get(e.entity_id)
+                if not st:
+                    continue
+
+                mac_attr = (
+                    st.attributes.get(ATTR_TRACKER_MAC)
+                    or st.attributes.get("mac")
+                    or st.attributes.get("mac_address")
+                )
+                if mac_attr and str(mac_attr).strip().lower() == mac_l:
+                    device_id = e.device_id
+                    break
+
+        if not device_id:
+            raise vol.Invalid("Missing device_id (provide device_id, entity_id or mac).")
+
         entities = [
             e
             for e in entity_registry.entities.values()
@@ -305,7 +349,7 @@ class MiWifiBlockDeviceServiceCall:
         integrations = async_get_integrations(self.hass)
         main_updater: LuciUpdater | None = None
 
-        # Buscar main router de forma segura (evita valores bool u otros tipos)
+    
         for integration in integrations.values():
             if not isinstance(integration, dict):
                 continue
@@ -315,19 +359,16 @@ class MiWifiBlockDeviceServiceCall:
 
             graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
             if graph.get("is_main", False):
-
                 main_updater = updater
                 break
 
         if not main_updater:
             raise vol.Invalid("Main router not found (is_main).")
 
-        # Compatibilidad: puede venir como mac_filter_info (o mac_filter en versiones antiguas)
         caps = getattr(main_updater, "capabilities", {}) or {}
         supports = bool(caps.get("mac_filter") or caps.get("mac_filter_info"))
 
         if not supports:
-            # Intentar rellenar capabilities una vez por si aún no estaban cargadas
             try:
                 await main_updater._async_prepare_compatibility()
             except Exception:
@@ -342,15 +383,14 @@ class MiWifiBlockDeviceServiceCall:
 
         try:
             await main_updater.luci.login()
-            # NO tocamos tu lógica: queda exactamente igual
-            await main_updater.luci.set_mac_filter(mac_address, not allow)
+            await main_updater.luci.set_mac_filter(mac_address, allow)
             await main_updater._async_prepare_devices(main_updater.data)
 
             await self.hass.async_add_executor_job(
                 _LOGGER.info,
                 "[MiWiFi] MAC Filter applied: mac=%s, WAN=%s",
                 mac_address,
-                "Blocked" if allow else "Allowed",
+                "Allowed" if allow else "Blocked",
             )
         except LuciError as e:
             if "Connection error" in str(e):
@@ -365,7 +405,6 @@ class MiWifiBlockDeviceServiceCall:
                 )
                 raise vol.Invalid(f"Failed to apply mac filter: {e}")
 
-        # Notificación final (sin cambios de lógica)
         device_registry = dr.async_get(self.hass)
         device_entry = device_registry.async_get(device_id)
         friendly_name = device_entry.name_by_user or device_entry.name or mac_address
@@ -382,9 +421,10 @@ class MiWifiBlockDeviceServiceCall:
         )
 
         status = notify.get(
-            "status_blocked" if allow else "status_unblocked",
-            "BLOCKED" if allow else "UNBLOCKED",
+            "status_unblocked" if allow else "status_blocked",
+            "UNBLOCKED" if allow else "BLOCKED",
         )
+
 
         message = message_template.replace("{name}", friendly_name).replace("{status}", status)
 
@@ -393,6 +433,7 @@ class MiWifiBlockDeviceServiceCall:
             title=title,
             notification_id=f"miwifi_block_{str(mac_address).replace(':', '_')}",
         )
+
 
 class MiWifiListPortsServiceCall:
     """List NAT port forwarding rules automatically from the main router."""
