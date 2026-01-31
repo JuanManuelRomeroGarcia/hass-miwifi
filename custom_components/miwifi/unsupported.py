@@ -256,12 +256,24 @@ UNSUPPORTED: dict[str, list[Model]] = {
     ],
 
     "mac_filter": [
-        Model.RM1800
+        Model.RM1800,Model.R3600,
     ],
 
     "mac_filter_info": [
+        Model.R3600,
     ],
 
+    "guest_wifi": [
+        Model.R3600,
+    ],
+    
+    "per_device_qos": [
+        Model.R3600,
+    ],
+
+    "device_list": [
+        Model.R3600,
+    ],
     "qos_info": [],
     "vpn_control": [],
 }

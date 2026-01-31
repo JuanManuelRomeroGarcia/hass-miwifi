@@ -188,6 +188,22 @@ class DeviceClass(StrEnum):
     DEVICE_TRACKER = "miwifi__device_tracker"
 
 
+# ---------
+# Model enum
+# ---------
+
+# Alias para normalizar identificadores de hardware/board ID del firmware CN
+# a modelos conocidos de la integración.
+MODEL_ALIASES: dict[str, str] = {
+    # Tu AX3600 CN:
+    # El firmware devuelve algo tipo "29010/E0RV24767"
+    # Usamos tanto el valor completo como el board-id solo.
+    "29010/e0rv24767": "r3600",
+    "29010": "r3600",
+    # Si en el futuro ves otros "29010/XXXXXXX" puedes añadirlos aquí.
+}
+
+
 class Model(str, Enum):
     """Model enum"""
 
@@ -198,8 +214,20 @@ class Model(str, Enum):
         :return Model
         """
 
-        obj = str.__new__(cls, value)  # type: ignore
-        obj._value_ = value
+        # Normalizamos a minúsculas
+        clean = str(value).lower()
+
+        # Si viene algo tipo "29010/E0RV24767", nos quedamos con el board-id
+        # y aplicamos alias si existe.
+        if "/" in clean:
+            board_id, _serial = clean.split("/", 1)
+            # Primero probamos el valor completo, luego el board-id solo
+            clean = MODEL_ALIASES.get(clean, MODEL_ALIASES.get(board_id, clean))
+        else:
+            clean = MODEL_ALIASES.get(clean, clean)
+
+        obj = str.__new__(cls, clean)  # type: ignore
+        obj._value_ = clean
 
         return obj
 
@@ -215,99 +243,99 @@ class Model(str, Enum):
     
     # CB Series
     
-    CB0401 = "cb0401"  # Xiaomi Mi Router CB0401 ​         | 2022
-    CB0401V2 = "cb0401v2" # Xiaomi 5G CPE Pro CB0401V2   ​ | 
+    CB0401 = "cb0401"   # Xiaomi Mi Router CB0401          | 2022
+    CB0401V2 = "cb0401v2"  # Xiaomi 5G CPE Pro CB0401V2   | 
     
     # CR Series
     
-    CR6606 = "cr6606"  # Xiaomi Mi Router CR6606​          |​ 2021.04.25
-    CR8808 = "cr8808"  # Xiaomi Mi Router CR8808​          | 2021.11.26
-    CR8809 = "cr8809"  # Xiaomi Mi Router CR8809​          | 2023-12-13
-    CR8816 = "cr8816"  # Xiaomi Mi Router CR8816 ​         | 2023.10.28
-    CR8806 = "cr8806"  # Xiaomi Mi Router CR8806​          | 2021.11.26
+    CR6606 = "cr6606"   # Xiaomi Mi Router CR6606          | 2021.04.25
+    CR8808 = "cr8808"   # Xiaomi Mi Router CR8808          | 2021.11.26
+    CR8809 = "cr8809"   # Xiaomi Mi Router CR8809          | 2023-12-13
+    CR8816 = "cr8816"   # Xiaomi Mi Router CR8816          | 2023.10.28
+    CR8806 = "cr8806"   # Xiaomi Mi Router CR8806          | 2021.11.26
     
     # D Series
     
-    D01 = "d01"  # Xiaomi Mesh Router D01​                 | 2019.11.26​ 
+    D01 = "d01"         # Xiaomi Mesh Router D01           | 2019.11.26 
     
     # R Series
     
-    R1CL = "r1cl"  #  Xiaomi Mi Router 3 ​                 | 2015
-    R1CM = "r1cm"  # Xiaomi Mi Router 3C​                  | 2014
-    R1D = "r1d"  # Xiaomi MiWiFi R1D ​                     | 2014
-    R2D = "r2d"  # Xiaomi MiWiFi R2D​ ​                     | 2015.08
-    R3 = "r3"  # Xiaomi Mi Router 3​ ​                      | 2016
-    R3A = "r3a"  # Xiaomi Mi Router ​3A                    | 2017.11.16
-    R3D = "r3d"  # Xiaomi MiWiFi HD ​                      | 2017
-    R3G = "r3g"  # Xiaomi Mi Router 3G ​                   | 2017.03
-    R3L = "r3l"  # Xiaomi Mi Router 3 Lite ​               | 2017
-    R3P = "r3p"  # Xiaomi Mi Router Pro ​                  | 2017
-    R4 = "r4"  # Xiaomi Mi Router 4​ ​                      | 2019.11.26
-    R4A = "r4a"  # Xiaomi Mi Router 4A ​                   | 2019.11.26
-    R4AC = "r4ac"  # Xiaomi Mi Router 4A Gigabit Edition​  | ​2019.11.26
-    R4ACv2 = "r4acv2"  # Xiaomi Mi Router 4A Gigabit Edition (Versión 2)​ | 2023.04.25
-    R4AV2 = "r4av2"  # Xiaomi Mi Router 4A (Versión 2)​ ​   | 2022
-    R4C = "r4c"  # Xiaomi Mi Router 4C                   ​ | 2019.11.26
-    R4CM = "r4cm"  # Xiaomi Mi Router 4C                ​  | 2019.11.26
-    R2100 = "r2100"  # Xiaomi Mi Router AC2100        ​    | 2019.11.26
-    R2350 = "r2350"  #  Xiaomi Mi AIoT Router AC2350 ​     | 2020.07.02
-    R1350 = "r1350"  # Xiaomi Mi Router 4A​ ​               | 2020.07.03
-    R3600 = "r3600"  # Xiaomi Mi AIoT Router AX3600 ​      | 2020.03.01
+    R1CL = "r1cl"       # Xiaomi Mi Router 3               | 2015
+    R1CM = "r1cm"       # Xiaomi Mi Router 3C              | 2014
+    R1D = "r1d"         # Xiaomi MiWiFi R1D                | 2014
+    R2D = "r2d"         # Xiaomi MiWiFi R2D                | 2015.08
+    R3 = "r3"           # Xiaomi Mi Router 3               | 2016
+    R3A = "r3a"         # Xiaomi Mi Router 3A              | 2017.11.16
+    R3D = "r3d"         # Xiaomi MiWiFi HD                 | 2017
+    R3G = "r3g"         # Xiaomi Mi Router 3G              | 2017.03
+    R3L = "r3l"         # Xiaomi Mi Router 3 Lite          | 2017
+    R3P = "r3p"         # Xiaomi Mi Router Pro             | 2017
+    R4 = "r4"           # Xiaomi Mi Router 4               | 2019.11.26
+    R4A = "r4a"         # Xiaomi Mi Router 4A              | 2019.11.26
+    R4AC = "r4ac"       # Xiaomi Mi Router 4A Gigabit      | 2019.11.26
+    R4ACV2 = "r4acv2"   # Xiaomi Mi Router 4A Gigabit v2   | 2023.04.25
+    R4AV2 = "r4av2"     # Xiaomi Mi Router 4A v2           | 2022
+    R4C = "r4c"         # Xiaomi Mi Router 4C              | 2019.11.26
+    R4CM = "r4cm"       # Xiaomi Mi Router 4C              | 2019.11.26
+    R2100 = "r2100"     # Xiaomi Mi Router AC2100          | 2019.11.26
+    R2350 = "r2350"     # Xiaomi Mi AIoT Router AC2350     | 2020.07.02
+    R1350 = "r1350"     # Xiaomi Mi Router 4A              | 2020.07.03
+    R3600 = "r3600"     # Xiaomi Mi AIoT Router AX3600     | 2020.03.01
     
     # RA Series
     
-    RA50 = "ra50"  # Xiaomi Mi Router AX1800 ​             | 2021.01.28
-    RA67 = "ra67"  # Redmi Router AX5 ​                    | 2020.06.19
-    RA69 = "ra69"  # Redmi Router AX6​ ​                    | 2020.08.11
-    RA70 = "ra70"  # Xiaomi Mi Router AX9000 ​             | 2021.03.30
-    RA71 = "ra71"  # Redmi Router AX1800 ​                 | 2021.10.22
-    RA72 = "ra72"  # Xiaomi Mi Router AX6000 ​             | 2021.01.08
-    RA74 = "ra74"  # Redmi Router AX5400 ​                 | 2022.03.18
-    RA80 = "ra80"  # Xiaomi Mi Router AX3000 ​             | 2021.08.11
-    RA80V2 = "ra80v2" # Xiaomi AX3000 (CN) ​               | 2024.03.22
-    RA81 = "ra81"  # Xiaomi Mi Router AX3000T ​            | 2021.07.27
-    RA82 = "ra82"  # Xiaomi Mi Router AX3000 ​             | 2021.11.01
+    RA50 = "ra50"       # Xiaomi Mi Router AX1800          | 2021.01.28
+    RA67 = "ra67"       # Redmi Router AX5                 | 2020.06.19
+    RA69 = "ra69"       # Redmi Router AX6                 | 2020.08.11
+    RA70 = "ra70"       # Xiaomi Mi Router AX9000          | 2021.03.30
+    RA71 = "ra71"       # Redmi Router AX1800              | 2021.10.22
+    RA72 = "ra72"       # Xiaomi Mi Router AX6000          | 2021.01.08
+    RA74 = "ra74"       # Redmi Router AX5400              | 2022.03.18
+    RA80 = "ra80"       # Xiaomi Mi Router AX3000          | 2021.08.11
+    RA80V2 = "ra80v2"   # Xiaomi AX3000 (CN)               | 2024.03.22
+    RA81 = "ra81"       # Xiaomi Mi Router AX3000T         | 2021.07.27
+    RA82 = "ra82"       # Xiaomi Mi Router AX3000          | 2021.11.01
     
     # RB Series
     
-    RB01 = "rb01"  # Redmi Router AX5​                     | 2021.10.28
-    RB02 = "rb02"  #  Xiaomi Mi Router AC1200​ ​            | 2022.01.18
-    RB03 = "rb03"  # Redmi Router AX6S​ ​                   | 2021.09.27
-    RB04 = "rb04"  # Redmi Router AX5400 Gaming ​          | 2022.02.17
-    RB06 = "rb06"  # Redmi Router AX6S​ ​                   | 2022.04.02
-    RB08 = "rb08"  # Redmi Router AX6S ​                   | 2022.07.04
+    RB01 = "rb01"       # Redmi Router AX5                 | 2021.10.28
+    RB02 = "rb02"       # Xiaomi Mi Router AC1200          | 2022.01.18
+    RB03 = "rb03"       # Redmi Router AX6S                | 2021.09.27
+    RB04 = "rb04"       # Redmi Router AX5400 Gaming       | 2022.02.17
+    RB06 = "rb06"       # Redmi Router AX6S                | 2022.04.02
+    RB08 = "rb08"       # Redmi Router AX6S                | 2022.07.04
     
     # RC Series
     
-    RC01 = "rc01"  # Mi Router 10000​                      | 2022.12.13
-    RC02 = "rc02"  # Xiaomi Router AX3000NE               | 2022.11.04
-    RC06 = "rc06"  # Xiaomi Router BE7000                ​ | 2023.05.05
+    RC01 = "rc01"       # Mi Router 10000                  | 2022.12.13
+    RC02 = "rc02"       # Xiaomi Router AX3000NE           | 2022.11.04
+    RC06 = "rc06"       # Xiaomi Router BE7000             | 2023.05.05
     
     # RD Series
     
-    RD03 = "rd03"  # Xiaomi Router AX3000T  ​              | 2023.08.31
-    RD05 = "rd05"  # Xiaomi Mi Router 4A  ​                | 2024.09.05
-    RD04 = "rd04"  # Xiaomi Mi Router AX1500              | 2023.12.08
-    RD04v2 = "rd04v2"  # Xiaomi Router AX1500  ​           | 2024.11.08
-    RD08 = "rd08"  # Xiaomi Router 6500 Pro  ​             | 2023.10.23
-    RD12 = "rd12"  # Xiaomi Router AX1500 EU ​             | 2024.02.18
-    RD13 = "rd13"  # Xiaomi Mesh System AC1200 ​           | 2024.06.05
-    RD15 = "rd15"  # Xiaomi Mi Router BE3600 2,5G ​        | 2024.01.30
-    RD16 = "rd16"  # Xiaomi BE3600 Gigabit ​               | 2024.04.02
-    RD18 = "rd18"  # Xiaomi Router BE5000  ​               | 2024.05.09
-    RD23 = "rd23"  # Xiaomi Router AX3000T EU  ​           | 2024.02.20
-    RD28 = "rd28"  # Router Xiaomi RD28 Mesh AX3000 NE ​   | 2024.05.08
+    RD03 = "rd03"       # Xiaomi Router AX3000T            | 2023.08.31
+    RD05 = "rd05"       # Xiaomi Mi Router 4A              | 2024.09.05
+    RD04 = "rd04"       # Xiaomi Mi Router AX1500          | 2023.12.08
+    RD04V2 = "rd04v2"   # Xiaomi Router AX1500             | 2024.11.08
+    RD08 = "rd08"       # Xiaomi Router 6500 Pro           | 2023.10.23
+    RD12 = "rd12"       # Xiaomi Router AX1500 EU          | 2024.02.18
+    RD13 = "rd13"       # Xiaomi Mesh System AC1200        | 2024.06.05
+    RD15 = "rd15"       # Xiaomi Mi Router BE3600 2,5G     | 2024.01.30
+    RD16 = "rd16"       # Xiaomi BE3600 Gigabit            | 2024.04.02
+    RD18 = "rd18"       # Xiaomi Router BE5000             | 2024.05.09
+    RD23 = "rd23"       # Xiaomi Router AX3000T EU         | 2024.02.20
+    RD28 = "rd28"       # Xiaomi RD28 Mesh AX3000 NE       | 2024.05.08
     
     # RM Series
     
-    RM1800 = "rm1800"  # Redmi Router AX5 ​                | 2020.05
-    RM2100 = "rm2100"  # Redmi Router AC2100 ​             | 2019
+    RM1800 = "rm1800"   # Redmi Router AX5                 | 2020.05
+    RM2100 = "rm2100"   # Redmi Router AC2100              | 2019
     
     # RN Series
     
-    RN01 = "rn01" # Xiaomi ROUTER BE3600 Pro Black​        | 2024.10.26
-    RN02 = "rn02" # Xiaomi Router BE6500​                  | 2024.08.15
-    RN04 = "rn04" # Xiaomi Whole House BE3600 Pro MASTER​  | 2024.10.26
-    RN06 = "rn06" # Xiaomi Mi Router BE3600 2.5G (Global)​ | 2024.10.28
-    RN07 = "rn07" # Xiaomi router AX3000E​                 | 2024.08.27
-    RN09 = "rn09" # Xiaomi Mesh System BE3600 Pro​         | 2025.01.07
+    RN01 = "rn01"       # Xiaomi ROUTER BE3600 Pro Black   | 2024.10.26
+    RN02 = "rn02"       # Xiaomi Router BE6500             | 2024.08.15
+    RN04 = "rn04"       # Xiaomi Whole House BE3600 Pro    | 2024.10.26
+    RN06 = "rn06"       # Xiaomi Mi Router BE3600 2.5G (G) | 2024.10.28
+    RN07 = "rn07"       # Xiaomi router AX3000E            | 2024.08.27
+    RN09 = "rn09"       # Xiaomi Mesh System BE3600 Pro    | 2025.01.07

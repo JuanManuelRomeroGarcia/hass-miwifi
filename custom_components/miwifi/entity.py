@@ -7,11 +7,9 @@ from .logger import _LOGGER
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTR_DEVICE_MAC_ADDRESS, ATTR_STATE, ATTRIBUTION, DOMAIN
+from .const import ATTR_DEVICE_MAC_ADDRESS, ATTR_STATE, ATTRIBUTION
 from .helper import generate_entity_id
 from .updater import LuciUpdater
-from homeassistant.helpers import device_registry as dr
-from homeassistant.helpers.entity import DeviceInfo
 
  
 
@@ -50,19 +48,8 @@ class MiWifiEntity(CoordinatorEntity):
         self._attr_name = description.name
         self._attr_unique_id = unique_id
         self._attr_available = updater.data.get(ATTR_STATE, False)
-        
-        router_mac = str(updater.data.get(ATTR_DEVICE_MAC_ADDRESS, "") or "").strip().lower()
-        if router_mac:
-            self._attr_device_info = DeviceInfo(
-                identifiers={(DOMAIN, router_mac)},
-                connections={(dr.CONNECTION_NETWORK_MAC, router_mac)},
-                name=updater.data.get("model", "MiWiFi Router"),
-                manufacturer="Xiaomi",
-            )
-        else:
-            # Fallback: mantener el comportamiento previo si no hay MAC aún
-            self._attr_device_info = updater.device_info
 
+        self._attr_device_info = updater.device_info
 
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
