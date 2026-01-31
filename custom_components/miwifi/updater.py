@@ -222,6 +222,7 @@ class LuciUpdater(DataUpdateCoordinator):
         self._activity_days = activity_days
         self._is_only_login = is_only_login
         self._unsupported: dict[str, list] = {}
+        self._nat_rules_next_try = dt_util.utcnow()
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -688,38 +689,59 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_wan(self, data: dict) -> None:
         """Prepare WAN state, link status, IP address and type."""
 
+        def _get(d: dict, *keys, default=None):
+            for k in keys:
+                if k in d:
+                    return d.get(k)
+            return default
+
         try:
-            response: dict = await self.luci.wan_info()
-            
+            # HARD TIMEOUT: evita que el coordinator se quede colgado por WAN down
+            response: dict = await asyncio.wait_for(self.luci.wan_info(), timeout=6)
+
             await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info response: %s", response)
-            
+
             info = response.get("info") if isinstance(response, dict) else {}
             if not isinstance(info, dict):
-                await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info['info'] is not a dict, got: %s", type(info))
                 info = {}
-            elif not info:
-                await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info['info'] is empty.")
 
+            uptime = int(_get(info, "uptime", default=0) or 0)
+            link = int(_get(info, "link", default=0) or 0)
+            status = int(_get(info, "status", "estado", default=0) or 0)
 
-            # WAN State (based on uptime)
-            data[ATTR_BINARY_SENSOR_WAN_STATE] = info.get("uptime", 0) > 0
+            # Si WAN está claramente down (AP/bridge/repeater), NO insistimos
+            if uptime <= 0 or link != 1 or status != 1:
+                data[ATTR_BINARY_SENSOR_WAN_STATE] = False
+                data[ATTR_BINARY_SENSOR_WAN_LINK] = False
+                data[ATTR_SENSOR_WAN_IP] = None
 
-            # WAN Link (based on link status)
-            data[ATTR_BINARY_SENSOR_WAN_LINK] = info.get("link", 0) == 1
+                details = info.get("details")
+                data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown") if isinstance(details, dict) else "unknown"
+                return
 
-            # WAN IP
+            # WAN up
+            data[ATTR_BINARY_SENSOR_WAN_STATE] = True
+            data[ATTR_BINARY_SENSOR_WAN_LINK] = True
+
             ipv4_list = info.get("ipv4", [])
             if isinstance(ipv4_list, list) and ipv4_list and isinstance(ipv4_list[0], dict):
-                data[ATTR_SENSOR_WAN_IP] = ipv4_list[0].get("ip")
+                data[ATTR_SENSOR_WAN_IP] = ipv4_list[0].get("ip") or None
             else:
                 data[ATTR_SENSOR_WAN_IP] = None
 
-            # WAN Type
             details = info.get("details")
-            if isinstance(details, dict):
-                data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown")
-            else:
-                data[ATTR_SENSOR_WAN_TYPE] = "unknown"
+            data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown") if isinstance(details, dict) else "unknown"
+
+        except asyncio.TimeoutError:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] WAN info timed out for %s (skipping this cycle)",
+                self.ip,
+            )
+            data[ATTR_BINARY_SENSOR_WAN_STATE] = False
+            data[ATTR_BINARY_SENSOR_WAN_LINK] = False
+            data[ATTR_SENSOR_WAN_IP] = None
+            data[ATTR_SENSOR_WAN_TYPE] = "unknown"
 
         except Exception as e:
             await self.hass.async_add_executor_job(_LOGGER.error, "Error while preparing WAN info: %s", e)
@@ -832,6 +854,8 @@ class LuciUpdater(DataUpdateCoordinator):
 
         :param data:
         :return: dict: wifi data
+        
+        
         """
 
         wifi_data: dict = {}
@@ -1761,23 +1785,36 @@ class LuciUpdater(DataUpdateCoordinator):
                     
     async def _async_prepare_nat_rules(self) -> None:
         """Prepare NAT rules for the main router."""
+        now = dt_util.utcnow()
+
+        # Cooldown: si está fallando, no lo intentes en cada refresh
+        if now < getattr(self, "_nat_rules_next_try", now):
+            return
+
         try:
-            data1 = await self.luci.portforward(ftype=1)
-            data2 = await self.luci.portforward(ftype=2)
+            data1 = await asyncio.wait_for(self.luci.portforward(ftype=1), timeout=6)
+            data2 = await asyncio.wait_for(self.luci.portforward(ftype=2), timeout=6)
+
             self.data["nat_rules"] = {
-                "ftype_1": data1.get("list", []),
-                "ftype_2": data2.get("list", []),
-                "total": len(data1.get("list", [])) + len(data2.get("list", [])),
+                "ftype_1": (data1 or {}).get("list", []),
+                "ftype_2": (data2 or {}).get("list", []),
+                "total": len((data1 or {}).get("list", [])) + len((data2 or {}).get("list", [])),
             }
+
+            self._nat_rules_next_try = now  # success -> sin cooldown
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
+
+        except asyncio.TimeoutError:
+            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] NAT rules timed out for %s (cooldown 10m)", self.ip)
+            self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+            self._nat_rules_next_try = now + timedelta(minutes=10)
+
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error while retrieving NAT rules for sensor: %s", e)
-            self.data["nat_rules"] = {
-                "ftype_1": [],
-                "ftype_2": [],
-                "total": 0,
-            }
-                
+            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error while retrieving NAT rules for sensor (cooldown 10m): %s", e)
+            self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+            self._nat_rules_next_try = now + timedelta(minutes=10)
+
+                    
     async def _async_notify_new_device(self, name: str, mac: str) -> None:
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
