@@ -459,8 +459,12 @@ class LuciUpdater(DataUpdateCoordinator):
         :param method: str
         :param data: dict
         """
-        data = data or {}
-
+        if data is None:
+            data = self.data  # o {}
+        
+        if not isinstance(data, dict):
+            data = self.data = {}
+            
         unsupported = getattr(self, "_unsupported", {}) or {}
         if (
             method in unsupported
@@ -691,46 +695,63 @@ class LuciUpdater(DataUpdateCoordinator):
 
         def _get(d: dict, *keys, default=None):
             for k in keys:
-                if k in d:
+                if isinstance(d, dict) and k in d:
                     return d.get(k)
             return default
 
-        try:
-            # HARD TIMEOUT: evita que el coordinator se quede colgado por WAN down
-            response: dict = await asyncio.wait_for(self.luci.wan_info(), timeout=6)
+        def _first_nonempty(*vals):
+            for v in vals:
+                if isinstance(v, str) and v.strip():
+                    return v.strip()
+                if v not in (None, "", [], {}):
+                    return v
+            return None
 
+        try:
+            response: dict = await asyncio.wait_for(self.luci.wan_info(), timeout=6)
             await self.hass.async_add_executor_job(_LOGGER.debug, "WAN info response: %s", response)
 
             info = response.get("info") if isinstance(response, dict) else {}
             if not isinstance(info, dict):
                 info = {}
 
-            uptime = int(_get(info, "uptime", default=0) or 0)
             link = int(_get(info, "link", default=0) or 0)
             status = int(_get(info, "status", "estado", default=0) or 0)
 
-            # Si WAN está claramente down (AP/bridge/repeater), NO insistimos
-            if uptime <= 0 or link != 1 or status != 1:
+            details = info.get("details") if isinstance(info.get("details"), dict) else {}
+            wan_type = _get(details, "wanType", default="unknown") or "unknown"
+
+            # IP fallback (PPPoE firmwares can put it outside ipv4[0].ip)
+            ipv4_list = info.get("ipv4", [])
+            ipv4_0 = ipv4_list[0] if isinstance(ipv4_list, list) and ipv4_list and isinstance(ipv4_list[0], dict) else {}
+
+            ip = _first_nonempty(
+                _get(ipv4_0, "ip"),
+                _get(info, "ip"),
+                _get(info, "wan_ip"),
+                _get(info, "pppoe_ip"),
+                _get(details, "ip"),
+                _get(details, "pppoe_ip"),
+            )
+
+            gateway = _first_nonempty(_get(info, "gateWay"), _get(info, "gateway"))
+            dns = _first_nonempty(_get(info, "dnsAddrs"), _get(info, "dnsAddrs1"))
+
+            # ✅ WAN DOWN solo si TODO está realmente vacío y además flags dicen down
+            wan_down = (link == 0 and status == 0 and not ip and not gateway and not dns)
+
+            if wan_down:
                 data[ATTR_BINARY_SENSOR_WAN_STATE] = False
                 data[ATTR_BINARY_SENSOR_WAN_LINK] = False
                 data[ATTR_SENSOR_WAN_IP] = None
-
-                details = info.get("details")
-                data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown") if isinstance(details, dict) else "unknown"
+                data[ATTR_SENSOR_WAN_TYPE] = wan_type
                 return
 
-            # WAN up
+            # WAN UP (o al menos usable)
             data[ATTR_BINARY_SENSOR_WAN_STATE] = True
-            data[ATTR_BINARY_SENSOR_WAN_LINK] = True
-
-            ipv4_list = info.get("ipv4", [])
-            if isinstance(ipv4_list, list) and ipv4_list and isinstance(ipv4_list[0], dict):
-                data[ATTR_SENSOR_WAN_IP] = ipv4_list[0].get("ip") or None
-            else:
-                data[ATTR_SENSOR_WAN_IP] = None
-
-            details = info.get("details")
-            data[ATTR_SENSOR_WAN_TYPE] = details.get("wanType", "unknown") if isinstance(details, dict) else "unknown"
+            data[ATTR_BINARY_SENSOR_WAN_LINK] = (link == 1 or status == 1)
+            data[ATTR_SENSOR_WAN_IP] = ip
+            data[ATTR_SENSOR_WAN_TYPE] = wan_type
 
         except asyncio.TimeoutError:
             await self.hass.async_add_executor_job(
@@ -749,8 +770,6 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_BINARY_SENSOR_WAN_LINK] = False
             data[ATTR_SENSOR_WAN_IP] = None
             data[ATTR_SENSOR_WAN_TYPE] = "unknown"
-
-                
 
     async def _async_prepare_led(self, data: dict) -> None:
         """Prepare led.
@@ -1787,7 +1806,6 @@ class LuciUpdater(DataUpdateCoordinator):
         """Prepare NAT rules for the main router."""
         now = dt_util.utcnow()
 
-        # Cooldown: si está fallando, no lo intentes en cada refresh
         if now < getattr(self, "_nat_rules_next_try", now):
             return
 
@@ -1801,18 +1819,77 @@ class LuciUpdater(DataUpdateCoordinator):
                 "total": len((data1 or {}).get("list", [])) + len((data2 or {}).get("list", [])),
             }
 
-            self._nat_rules_next_try = now  # success -> sin cooldown
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"])
+            # success -> sin cooldown
+            self._nat_rules_next_try = now
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug, "[MiWiFi] NAT rules loaded for sensor: %s", self.data["nat_rules"]
+            )
+            return
+
+        except LuciRequestError as e:
+            msg = str(e).lower()
+
+            if "invalid token" in msg:
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] NAT rules: invalid token -> re-login and retry once",
+                )
+                try:
+                    await self.luci.login()
+
+                    data1 = await asyncio.wait_for(self.luci.portforward(ftype=1), timeout=6)
+                    data2 = await asyncio.wait_for(self.luci.portforward(ftype=2), timeout=6)
+
+                    self.data["nat_rules"] = {
+                        "ftype_1": (data1 or {}).get("list", []),
+                        "ftype_2": (data2 or {}).get("list", []),
+                        "total": len((data1 or {}).get("list", [])) + len((data2 or {}).get("list", [])),
+                    }
+
+                    self._nat_rules_next_try = now
+                    await self.hass.async_add_executor_job(
+                        _LOGGER.debug, "[MiWiFi] NAT rules loaded after re-login: %s", self.data["nat_rules"]
+                    )
+                    return
+
+                except Exception as e2:
+                    await self.hass.async_add_executor_job(
+                        _LOGGER.debug,
+                        "[MiWiFi] NAT rules retry after re-login failed: %s (cooldown 1m)",
+                        e2,
+                    )
+                    self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+                    self._nat_rules_next_try = now + timedelta(minutes=1)
+                    return
+
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] NAT rules failed: %s (cooldown 10m)",
+                e,
+            )
+            self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+            self._nat_rules_next_try = now + timedelta(minutes=10)
+            return
 
         except asyncio.TimeoutError:
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] NAT rules timed out for %s (cooldown 10m)", self.ip)
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] NAT rules timed out for %s (cooldown 10m)",
+                self.ip,
+            )
             self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
             self._nat_rules_next_try = now + timedelta(minutes=10)
+            return
 
         except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Error while retrieving NAT rules for sensor (cooldown 10m): %s", e)
+            await self.hass.async_add_executor_job(
+                _LOGGER.warning,
+                "[MiWiFi] Error while retrieving NAT rules for sensor (cooldown 10m): %s",
+                e,
+            )
             self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
             self._nat_rules_next_try = now + timedelta(minutes=10)
+            return
 
                     
     async def _async_notify_new_device(self, name: str, mac: str) -> None:

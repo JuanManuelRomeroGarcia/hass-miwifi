@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from .logger import _LOGGER
@@ -113,6 +114,7 @@ class LuciClient:
         self._timeout = timeout
         self._protocol = protocol
         self._detected_protocol = None
+        self._login_lock = asyncio.Lock()
         self._client_factory = client_factory
 
         # URL será configurada dinámicamente
@@ -316,15 +318,37 @@ class LuciClient:
 
         if "code" not in _data or _data["code"] > 0:
             _code: int = -1 if "code" not in _data else int(_data["code"])
-
             self._debug("Invalid error code received", _url, _data, path)
+
+            # Si el router devuelve invalid token, hacemos re-login y reintentamos 1 vez
+            msg = str(_data.get("msg", "")).lower()
+            if use_stok and ("invalid token" in msg):
+                _LOGGER.debug("[MiWiFi] Invalid token detected on GET %s -> re-login and retry once", path)
+
+                async with self._login_lock:
+                    # otro refresh pudo haber relogueado ya; si aun falla, login de nuevo
+                    await self.login()
+
+                # Reintento único (sin recursión infinita)
+                _stok = f";stok={self._token}/" if use_stok else ""
+                _url = f"{self._url}/{_stok}api/{path}"
+
+                _call_timeout = self._timeout if timeout is None else timeout
+                response = await self._request_with_retry("get", _url, timeout=_call_timeout)
+                _data = json.loads(response.content)
+
+                # si vuelve a fallar, caeremos al raise de abajo
+                if "code" in _data and int(_data.get("code", 1)) == 0:
+                    return _data
+
+                # recalculamos para el raise final
+                _code = -1 if "code" not in _data else int(_data["code"])
+                msg = str(_data.get("msg", "")).lower()
 
             if "code" in _data and errors is not None and _data["code"] in errors:
                 raise LuciError(errors[_data["code"]])
 
-            raise LuciRequestError(
-                _data.get("msg", f"Invalid error code received: {_code}")
-            )
+            raise LuciRequestError(_data.get("msg", f"Invalid error code received: {_code}"))
 
         return _data
 
@@ -580,11 +604,19 @@ class LuciClient:
             data = await self.get(self._api_paths["portforward"], {"ftype": ftype})
             _LOGGER.debug("NAT response for ftype=%s → %s", ftype, data)
             return data
+
+        except LuciRequestError as e:
+            # ✅ Si es token inválido, que suba (para que el updater aplique cooldown/gestión)
+            if "invalid token" in str(e).lower():
+                raise
+            _LOGGER.warning("[MiWiFi] Failed to retrieve NAT rules for ftype=%s: %s", ftype, e)
+            return {}
+
         except Exception as e:
             _LOGGER.warning("[MiWiFi] Failed to retrieve NAT rules for ftype=%s: %s", ftype, e)
-            return {} 
+            return {}
 
-
+            
     async def add_redirect(self, name: str, proto: int, sport: int, ip: str, dport: int) -> dict:
         """Add a single port forwarding rule."""
         # Ensure we have a URL configured
