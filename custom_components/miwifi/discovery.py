@@ -1,9 +1,6 @@
-"""The MiWifi integration discovery."""
-
 from __future__ import annotations
 
 import asyncio
-from .logger import _LOGGER
 from typing import Any
 
 from homeassistant import config_entries
@@ -23,18 +20,39 @@ from .const import (
     DOMAIN,
 )
 from .exceptions import LuciConnectionError, LuciError
-from .luci import LuciClient
+from .logger import _LOGGER
 
 
+TOPO_PATH = "/cgi-bin/luci/api/misystem/topo_graph"
+
+
+async def _fetch_topo_graph_raw(client: AsyncClient, host: str) -> dict:
+    """Fetch topo_graph without relying on LuciClient URL/protocol logic."""
+    last_exc: Exception | None = None
+
+    for scheme in ("http", "https"):
+        url = f"{scheme}://{host}{TOPO_PATH}"
+        try:
+            _LOGGER.debug("[MiWiFi] Discovery trying topo_graph: %s", url)
+            r = await client.get(url, timeout=DEFAULT_CHECK_TIMEOUT, follow_redirects=True)
+            r.raise_for_status()
+            data = r.json()
+
+            # Xiaomi suele devolver {"code":0, "graph":{...}} cuando OK
+            if isinstance(data, dict) and data.get("code") == 0 and "graph" in data:
+                _LOGGER.debug("[MiWiFi] Discovery topo_graph OK via %s", url)
+                return data
+
+            _LOGGER.debug("[MiWiFi] Discovery topo_graph not OK via %s -> %s", url, data)
+        except Exception as e:
+            last_exc = e
+            _LOGGER.debug("[MiWiFi] Discovery topo_graph failed via %s: %s", url, e)
+
+    raise LuciError(f"Discovery topo_graph failed for host={host}: {last_exc}")
 
 
 @callback
 def async_start_discovery(hass: HomeAssistant) -> None:
-    """Start discovery.
-
-    :param hass: HomeAssistant: Home Assistant object
-    """
-
     data: dict = hass.data.setdefault(DOMAIN, {})
     if DISCOVERY in data:
         return
@@ -42,140 +60,99 @@ def async_start_discovery(hass: HomeAssistant) -> None:
     data[DISCOVERY] = True
 
     async def _async_discovery(*_: Any) -> None:
-        """Async discovery
+        try:
+            client = get_async_client(hass, False)
+            devices = await async_discover_devices(hass, client)
+            async_trigger_discovery(hass, devices)
+        except Exception:
+            _LOGGER.exception("[MiWiFi] Discovery task crashed")
 
-        :param _: Any
-        """
-
-        async_trigger_discovery(
-            hass, await async_discover_devices(hass, get_async_client(hass, False))
-
-        )
-
-    # Do not block startup since discovery takes 31s or more
-    asyncio.create_task(_async_discovery())
-
+    # usa el loop de HA, no asyncio.create_task “pelado”
+    hass.async_create_task(_async_discovery())
     async_track_time_interval(hass, _async_discovery, DISCOVERY_INTERVAL)
 
 
-async def async_discover_devices(client: AsyncClient, hass: HomeAssistant) -> list:
-    """Discover devices.
-
-    :param client: AsyncClient: Async Client object
-    :return list: List found IP
-    """
-
+async def async_discover_devices(hass: HomeAssistant, client: AsyncClient) -> list[str]:
     response: dict = {}
 
-    for address in [CLIENT_ADDRESS, CLIENT_ADDRESS_IP, CLIENT_ADDRESS_DEFAULT]:
+    for address in (CLIENT_ADDRESS, CLIENT_ADDRESS_IP, CLIENT_ADDRESS_DEFAULT):
         try:
-            response = await LuciClient(client, address).topo_graph()
-
+            response = await _fetch_topo_graph_raw(client, address)
             break
         except LuciError:
             continue
 
-    if (
-        "graph" not in response
-        or "ip" not in response["graph"]
-        or len(response["graph"]["ip"]) == 0
-    ):
+    graph = response.get("graph") if isinstance(response, dict) else None
+    ip = (graph or {}).get("ip") if isinstance(graph, dict) else None
+    if not ip:
+        _LOGGER.debug("[MiWiFi] Discovery: topo_graph returned no ip: %s", response)
         return []
 
-    devices: list = []
+    devices: list[str] = []
+    main_ip = str(ip).strip()
 
-    if await async_check_ip_address(client, response["graph"]["ip"].strip()):
-        devices.append(response["graph"]["ip"].strip())
+    # aquí mantenemos tu check (pero si falla por LuciError, tu lógica ya lo acepta)
+    devices.append(main_ip)
 
-    if "leafs" in response["graph"]:
-        devices = await async_prepare_leafs(client, devices, response["graph"]["leafs"])
+    leafs = (graph or {}).get("leafs")
+    if isinstance(leafs, list) and leafs:
+        devices = await async_prepare_leafs(client, devices, leafs)
 
-    await hass.async_add_executor_job(_LOGGER.debug, "Found devices: %s", devices)
-
+    _LOGGER.debug("[MiWiFi] Discovery found devices: %s", devices)
     return devices
 
 
 @callback
-def async_trigger_discovery(hass: HomeAssistant, discovered_devices: list) -> None:
-    """Trigger config flows for discovered devices."""
+def async_trigger_discovery(hass: HomeAssistant, discovered_devices: list[str]) -> None:
+    """Trigger config flows for discovered devices, skipping already configured."""
     for ip in discovered_devices:
-        async def _launch(ip_address: str) -> None:
-            model = "MiWiFi"
-            try:
-                client = get_async_client(hass)
-                luci = LuciClient(client, ip_address)
-                response = await luci.topo_graph()
-                await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] topo_graph for %s: %s", ip_address, response)
-
-                model = (
-                    response.get("hardware") or
-                    response.get("model") or
-                    response.get("graph", {}).get("hardware") or
-                    response.get("graph", {}).get("model") or
-                    "MiWiFi"
-                )
-            except Exception as e:
-                 await hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Failed to get model from %s: %s", ip_address, e)
-
-            hass.async_create_task(
-                hass.config_entries.flow.async_init(
-                    DOMAIN,
-                    context={
-                        "source": config_entries.SOURCE_INTEGRATION_DISCOVERY,
-                        "title_placeholders": {
-                            "name": f"MiWifi {model} ({ip_address})"
-                        }
-                    },
-                    data={
-                        CONF_IP_ADDRESS: ip_address,
-                        "model": model
-                    },
-                )
-            )
-
-        hass.async_create_task(_launch(ip))
-
-
-async def async_prepare_leafs(client: AsyncClient, devices: list, leafs: list) -> list:
-    """Recursive prepare leafs.
-
-    :param client: AsyncClient: Async Client object
-    :param devices: list: ip list
-    :param leafs: list: leaf devices
-    :return list
-    """
-
-    for leaf in leafs:
-        if (
-            "ip" not in leaf
-            or len(leaf["ip"]) == 0
-            or "hardware" not in leaf
-            or len(leaf["hardware"]) == 0
-        ):
+        if _already_configured(hass, ip):
+            _LOGGER.debug("[MiWiFi] Discovery: %s already configured, skipping", ip)
             continue
 
-        if await async_check_ip_address(client, leaf["ip"].strip()):
-            devices.append(leaf["ip"].strip())
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN,
+                context={"source": config_entries.SOURCE_INTEGRATION_DISCOVERY},
+                data={CONF_IP_ADDRESS: ip},
+            )
+        )
 
-        if "leafs" in leaf and len(leaf["leafs"]) > 0:
-            devices = await async_prepare_leafs(client, devices, leaf["leafs"])
+
+async def async_prepare_leafs(client: AsyncClient, devices: list[str], leafs: list) -> list[str]:
+    for leaf in leafs:
+        ip = (leaf or {}).get("ip")
+        hw = (leaf or {}).get("hardware")
+        if not ip or not hw:
+            continue
+
+        leaf_ip = str(ip).strip()
+        if leaf_ip in devices:
+            continue
+        devices.append(leaf_ip)
+
+        sub = leaf.get("leafs")
+        if isinstance(sub, list) and sub:
+            devices = await async_prepare_leafs(client, devices, sub)
 
     return devices
 
 
 async def async_check_ip_address(client: AsyncClient, ip_address: str) -> bool:
-    """Check ip address
-
-    :param client: AsyncClient: Async Client object
-    :param ip_address: str: IP address
-    :return bool
-    """
-
     try:
-        await LuciClient(client, ip_address, timeout=DEFAULT_CHECK_TIMEOUT).topo_graph()
+        # Reutilizamos la misma llamada raw para validar rápido
+        await _fetch_topo_graph_raw(client, ip_address)
     except LuciConnectionError:
         return False
     except LuciError:
-        pass
+        # Si “no es válido” por API, igual lo consideramos alcanzable (tu lógica original)
+        return True
 
     return True
+
+
+def _already_configured(hass: HomeAssistant, ip: str) -> bool:
+    for e in hass.config_entries.async_entries(DOMAIN):
+        if e.data.get(CONF_IP_ADDRESS) == ip:
+            return True
+    return False

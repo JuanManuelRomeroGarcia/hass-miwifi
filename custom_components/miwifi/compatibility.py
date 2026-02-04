@@ -59,13 +59,12 @@ class CompatibilityChecker:
 
         s = str(raw_mode).strip().lower()
 
-        # Prefer numeric parsing: "0","1","2","3","8","9"
         try:
             return Mode(int(s))
         except Exception:
             pass
 
-        # Phrase-based parsing using enum phrases
+
         phrase_map = {m.phrase.lower(): m for m in Mode}
         alias = {
             "router": Mode.DEFAULT,
@@ -84,36 +83,82 @@ class CompatibilityChecker:
 
         Returns:
           - True  -> supported
-          - False -> failed after retries
-          - None  -> skipped / not applicable
+          - False -> confirmed unsupported / hard fail
+          - None  -> skipped / not applicable / transient failure (timeouts, connection, etc.)
         """
+        last_err: Exception | None = None
+
         for attempt in range(1, self.max_retries + 1):
             try:
                 resp = await asyncio.wait_for(func(), timeout=timeout)
 
-                # IMPORTANT: None means "skip / not applicable"
+
                 if resp is None:
                     return None
+
+
+                if resp is False:
+                    return False
+
 
                 if resp is True:
                     return True
 
-            except asyncio.TimeoutError:
-                await self._log(_LOGGER.debug,"[MiWiFi] '%s' timeout (%ss) (attempt %d/%d)",name,timeout,attempt,self.max_retries,)
+            except asyncio.TimeoutError as e:
+                last_err = e
+                await self._log(
+                    _LOGGER.debug,
+                    "[MiWiFi] '%s' timeout (%ss) (attempt %d/%d)",
+                    name, timeout, attempt, self.max_retries,
+                )
+
             except asyncio.CancelledError:
-                await self._log(_LOGGER.warning,
-                    "[MiWiFi] '%s' cancelada por HA durante el setup (attempt %d/%d).",name,attempt,self.max_retries,)
+                await self._log(
+                    _LOGGER.warning,
+                    "[MiWiFi] '%s' cancelada por HA durante el setup (attempt %d/%d).",
+                    name, attempt, self.max_retries,
+                )
                 return None
+
             except LuciConnectionError as e:
-                await self._log(_LOGGER.debug,"[MiWiFi] '%s' connection error (attempt %d/%d): %s",name,attempt,self.max_retries,e,)
+                last_err = e
+                await self._log(
+                    _LOGGER.debug,
+                    "[MiWiFi] '%s' connection error (attempt %d/%d): %s",
+                    name, attempt, self.max_retries, e,
+                )
+
             except LuciError as e:
-                await self._log(_LOGGER.debug,"[MiWiFi] '%s' luci error (attempt %d/%d): %s",name,attempt,self.max_retries,e,)
+                last_err = e
+
+                if self._looks_unsupported(e):
+                    await self._log(
+                        _LOGGER.debug,
+                        "[MiWiFi] '%s' luci error looks unsupported: %s",
+                        name, e,
+                    )
+                    return False
+
+                await self._log(
+                    _LOGGER.debug,
+                    "[MiWiFi] '%s' luci error (attempt %d/%d): %s",
+                    name, attempt, self.max_retries, e,
+                )
+
             except Exception as e:
-                await self._log(_LOGGER.debug,"[MiWiFi] '%s' unexpected error (attempt %d/%d): %s",name,attempt,self.max_retries,e,)
-                
+                last_err = e
+                await self._log(
+                    _LOGGER.debug,
+                    "[MiWiFi] '%s' unexpected error (attempt %d/%d): %s",
+                    name, attempt, self.max_retries, e,
+                )
+
             if not getattr(self, "_is_bootstrap", False):
                 await asyncio.sleep(1)
-        return False
+
+
+        return None
+
 
     async def run(self) -> dict[str, bool | None]:
         """Run full compatibility checks with retries."""
