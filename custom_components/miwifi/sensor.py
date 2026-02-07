@@ -361,6 +361,10 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
 # CB0401V2 (5G CPE) - Model-specific sensors
 # These keys are filled by updater.py when cpe_profile == "CB0401V2"
 # ────────────────────────────────────────────────────────────────────────────────
+SENSOR_DEVICE_CLASS_IP = (
+    getattr(SensorDeviceClass, "IP_ADDRESS", None)
+    or getattr(SensorDeviceClass, "IP", None)
+)
 
 MIWIFI_CPE_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
@@ -381,7 +385,7 @@ MIWIFI_CPE_SENSORS: tuple[SensorEntityDescription, ...] = (
         key="mobile_ipv4",
         name="Mobile IPv4",
         icon="mdi:ip",
-        device_class=SensorDeviceClass.IP_ADDRESS,
+        device_class=SENSOR_DEVICE_CLASS_IP,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
     ),
