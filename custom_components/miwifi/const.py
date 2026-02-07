@@ -75,7 +75,7 @@ PROTOCOL_OPTIONS: Final = [PROTOCOL_AUTO, PROTOCOL_HTTP, PROTOCOL_HTTPS]
 
 """Panel const"""
 CONF_ENABLE_PANEL = "enable_panel"
-DEFAULT_PANEL_VERSION = "1.2.3" # Minimum version required v 1.2.3
+DEFAULT_PANEL_VERSION = "2026.01" # Minimum version required v 2026.01
 DEFAULT_ENABLE_PANEL = True
 GLOBAL_PANEL_STORE = "miwifi/miwifi_global_panel_state"
 PANEL_REPO_BASE_URL = "https://raw.githubusercontent.com/JuanManuelRomeroGarcia/miwifi-panel-frontend/main/"
@@ -152,6 +152,9 @@ ATTR_WIFI_DATA_FIELDS: Final = {
     "weakenable": "weakenable",
     "weakthreshold": "weakthreshold",
     "kickthreshold": "kickthreshold",
+    # CB0401V2 provider firmwares can return these at top-level (xqnetwork/wifi_detail_all)
+    "channel": "channel",
+    "bandwidth": "bandwidth",
 }
 ATTR_WIFI_2_4_DATA: Final = "wifi_2_4_data"
 ATTR_WIFI_5_0_DATA: Final = "wifi_5_0_data"
@@ -214,6 +217,56 @@ ATTR_SENSOR_DEVICES_5_0_GAME: Final = f"{ATTR_SENSOR_DEVICES}_5_0_game"
 ATTR_SENSOR_DEVICES_5_0_GAME_NAME: Final = f"{ATTR_SENSOR_DEVICES_NAME} 5G game"
 
 ATTR_SENSOR_NAT_ENTITY = "sensor.miwifi_nat_rules"
+
+# ---------------- CB0401V2 / 5G CPE sensors ----------------
+# (These keys are filled by updater.py only when the model is CB0401V2)
+ATTR_CPE_PROFILE: Final = "cpe_profile"
+ATTR_CPE_PROFILE_NAME: Final = "CPE Profile"
+
+ATTR_SENSOR_MOBILE_LINKTYPE: Final = "mobile_linktype"
+ATTR_SENSOR_MOBILE_LINKTYPE_NAME: Final = "Mobile Link Type"
+
+ATTR_SENSOR_MOBILE_OPERATOR: Final = "mobile_operator"
+ATTR_SENSOR_MOBILE_OPERATOR_NAME: Final = "Mobile Operator"
+
+ATTR_SENSOR_MOBILE_IPV4: Final = "mobile_ipv4"
+ATTR_SENSOR_MOBILE_IPV4_NAME: Final = "Mobile IPv4"
+
+ATTR_SENSOR_MOBILE_DATAUSAGE: Final = "mobile_datausage"
+ATTR_SENSOR_MOBILE_DATAUSAGE_NAME: Final = "Mobile Data Usage"
+
+ATTR_SENSOR_MOBILE_DATALIMIT: Final = "mobile_data_limit"
+ATTR_SENSOR_MOBILE_DATALIMIT_NAME: Final = "Mobile Data Limit"
+
+ATTR_SENSOR_MOBILE_RSRP_5G: Final = "mobile_rsrp_5g"
+ATTR_SENSOR_MOBILE_RSRP_5G_NAME: Final = "5G RSRP"
+
+ATTR_SENSOR_MOBILE_SNR_5G: Final = "mobile_snr_5g"
+ATTR_SENSOR_MOBILE_SNR_5G_NAME: Final = "5G SNR"
+
+ATTR_SENSOR_MOBILE_BAND_5G: Final = "mobile_band_5g"
+ATTR_SENSOR_MOBILE_BAND_5G_NAME: Final = "5G Band"
+
+ATTR_SENSOR_MOBILE_BAND: Final = "mobile_band"
+ATTR_SENSOR_MOBILE_BAND_NAME: Final = "LTE Band"
+
+ATTR_SENSOR_SMS_COUNT: Final = "sms_count"
+ATTR_SENSOR_SMS_COUNT_NAME: Final = "SMS Count"
+
+ATTR_SENSOR_SIM_STATUS: Final = "sim_status"
+ATTR_SENSOR_SIM_STATUS_NAME: Final = "SIM Status"
+
+# Extra mobile attributes (usually exposed as attributes on the IPv4 / usage sensors)
+ATTR_MOBILE_NETMASK: Final = "mobile_netmask"
+ATTR_MOBILE_GW: Final = "mobile_gw"
+ATTR_MOBILE_DNS: Final = "mobile_dns"
+ATTR_MOBILE_FLOWSTAT_ENABLE: Final = "mobile_flowstat_enable"
+ATTR_MOBILE_PCI_5G: Final = "mobile_pci_5g"
+ATTR_MOBILE_ARFCN: Final = "mobile_arfcn"
+
+ATTR_SIM_PINLOCK: Final = "sim_pinlock"
+ATTR_SIM_PINRETRY: Final = "sim_pinretry"
+ATTR_SIM_PUKRETRY: Final = "sim_pukretry"
 
 
 """Binary sensor attributes"""

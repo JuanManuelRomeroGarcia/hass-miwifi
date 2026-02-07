@@ -67,6 +67,15 @@ API_PATHS = {
     "rom_update": "xqsystem/check_rom_update",
     "rom_upgrade": "xqsystem/upgrade_rom",
     "flash_permission": "xqsystem/flash_permission",
+    
+    # --- CB0401V2 / 5G CPE (Magenta/Telekom & variants) ---
+    
+    "cpe_newstatus": "xqdtcustom/newstatus",
+    "cpe_detect": "xqdtcustom/cpe_detect",
+    "mobile_net_info": "xqdtcustom/get_mobile_net_info",
+    "msgbox_count": "xqmobile/get_msgbox_count",
+    
+    # -----------------------------------------------
 }
 
 
@@ -410,6 +419,25 @@ class LuciClient:
         """
 
         return await self.get(self._api_paths["new_status"])
+    
+    # ---------------- CB0401V2 / 5G CPE endpoints ----------------
+    async def cpe_newstatus(self, timeout: float | None = None) -> dict:
+        """xqdtcustom/newstatus (CB0401V2) - device/mobile status payload."""
+        return await self.get(self._api_paths["cpe_newstatus"], timeout=timeout)
+
+    async def cpe_detect(self, timeout: float | None = None) -> dict:
+        """xqdtcustom/cpe_detect (CB0401V2) - SIM/registration/network summary."""
+        return await self.get(self._api_paths["cpe_detect"], timeout=timeout)
+
+    async def get_mobile_net_info(self, timeout: float | None = None) -> dict:
+        """xqdtcustom/get_mobile_net_info (CB0401V2) - signal + data usage + ipv4info."""
+        return await self.get(self._api_paths["mobile_net_info"], timeout=timeout)
+
+    async def msgbox_count(self, timeout: float | None = None) -> dict:
+        """xqmobile/get_msgbox_count (CB0401V2) - SMS counter."""
+        return await self.get(self._api_paths["msgbox_count"], timeout=timeout)
+    
+    # ------------------------------------------------------------
 
     async def mode(self) -> dict:
         """xqnetwork/mode method.
@@ -576,7 +604,7 @@ class LuciClient:
 
         :return dict: dict with API data.
         """
-        short_timeout = 4 if timeout is None else timeout
+        short_timeout = 6 if timeout is None else timeout
 
         try:
             return await self.get(self._api_paths["mac_filter_info"], timeout=short_timeout)

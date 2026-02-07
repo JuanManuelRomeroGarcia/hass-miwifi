@@ -14,7 +14,7 @@ from collections import defaultdict
 from .unsupported import get_combined_unsupported
 from datetime import datetime, timedelta
 from functools import cached_property
-from typing import Any, Final
+from typing import Any, Final, Optional
 
 from homeassistant.util import dt as dt_util
 
@@ -127,6 +127,7 @@ PREPARE_METHODS: Final = (
     "vpn",
     "rom_update",
     "mode",
+    "cpe_mobile",
     "wan",
     "led",
     "wifi",
@@ -217,6 +218,7 @@ class LuciUpdater(DataUpdateCoordinator):
         )
 
         self.ip = ip  # pylint: disable=invalid-name
+        self.timeout = timeout
         self.is_force_load = is_force_load
         self._entry_id = entry_id
         self._scan_interval = scan_interval
@@ -224,6 +226,21 @@ class LuciUpdater(DataUpdateCoordinator):
         self._is_only_login = is_only_login
         self._unsupported: dict[str, list] = {}
         self._nat_rules_next_try = dt_util.utcnow()
+        
+        # macfilter_info throttling / cache
+        self._macfilter_next_try = dt_util.utcnow()
+        self._macfilter_warned_at = None
+        self._macfilter_fail_count = 0
+        self._filter_macs: dict[str, int] = {}
+        
+        # --- CB0401V2 / 5G CPE throttling ---
+        self._is_cb0401v2: bool = False
+        self._cpe_mobile_next_try = dt_util.utcnow()
+        self._cpe_mobile_fail_count = 0
+        self._cpe_detect_next_try = dt_util.utcnow()
+        self._sms_next_try = dt_util.utcnow()
+        self._cpe_newstatus_next_try = dt_util.utcnow()
+
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -394,6 +411,13 @@ class LuciUpdater(DataUpdateCoordinator):
         """
 
         return self.data.get(ATTR_BINARY_SENSOR_WAN_STATE, False)
+    
+    def _is_cb0401v2_device(self, data: dict | None = None) -> bool:
+        if getattr(self, "_is_cb0401v2", False):
+            return True
+        d = data or self.data or {}
+        model = str(d.get(ATTR_DEVICE_MODEL) or "").lower()
+        return "cb0401" in model
 
     @property
     def supports_game(self) -> bool:
@@ -462,13 +486,16 @@ class LuciUpdater(DataUpdateCoordinator):
         """
         if data is None:
             data = self.data  # o {}
-        
+
         if not isinstance(data, dict):
             data = self.data = {}
-            
+
         unsupported = getattr(self, "_unsupported", {}) or {}
+
+        # ✅ Never skip cpe_mobile due to unsupported registry/storage
         if (
-            method in unsupported
+            method != "cpe_mobile"
+            and method in unsupported
             and data.get(ATTR_MODEL, Model.NOT_KNOWN) in unsupported[method]
         ):
             await self.hass.async_add_executor_job(
@@ -478,7 +505,6 @@ class LuciUpdater(DataUpdateCoordinator):
                 data.get(ATTR_MODEL),
             )
             return
-
 
         action = getattr(self, f"_async_prepare_{method}", None)
         if action is None:
@@ -490,6 +516,16 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         await action(data)
+
+        
+    def _macfilter_call_timeout(self) -> float:
+        """Timeout razonable para macfilter_info (capado para no bloquear ciclos)."""
+        try:
+            t = int(getattr(self, "_timeout", DEFAULT_TIMEOUT) or DEFAULT_TIMEOUT)
+        except Exception:
+            t = DEFAULT_TIMEOUT
+        # mínimo 6s, máximo 10s (usa opción del usuario como guía)
+        return float(min(10, max(6, t)))
 
 
     async def _async_prepare_init(self, data: dict) -> None:
@@ -527,9 +563,20 @@ class LuciUpdater(DataUpdateCoordinator):
             ] = f"{response['romversion']} ({response['countrycode']})"
 
         if "hardware" in response:
-            try:
-                data[ATTR_MODEL] = Model(response["hardware"].lower())
+            hw = str(response.get("hardware") or "").strip()
+            hw_l = hw.lower()
 
+            # ✅ CB0401V2 / 5G CPE (provider firmwares) - do not block integration
+            if "cb0401" in hw_l:
+                self._is_cb0401v2 = True
+                data["cpe_profile"] = "CB0401V2"
+                data[ATTR_DEVICE_MANUFACTURER] = DEFAULT_MANUFACTURER
+                data.setdefault(ATTR_DEVICE_MODEL, hw)
+                data[ATTR_MODEL] = Model.NOT_KNOWN
+                return
+
+            try:
+                data[ATTR_MODEL] = Model(hw_l)
             except ValueError as _e:
                 await async_self_check(self.hass, self.luci, response["hardware"])
 
@@ -539,7 +586,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 self.code = codes.CONFLICT
 
             return
-
+        
 
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
@@ -569,8 +616,13 @@ class LuciUpdater(DataUpdateCoordinator):
 
         :param data: dict
         """
-
-        response: dict = await self.luci.status()
+        try:
+            response: dict = await self.luci.status()
+        except LuciError:
+            # ✅ CB0401V2 provider firmwares may fail on misystem/status → don't break the cycle
+            if self._is_cb0401v2_device(data):
+                return
+            raise
 
         if "hardware" in response and isinstance(response["hardware"], dict):
             if "mac" in response["hardware"]:
@@ -591,7 +643,6 @@ class LuciUpdater(DataUpdateCoordinator):
 
             if "total" in response["mem"]:
                 data[ATTR_SENSOR_MEMORY_TOTAL] = parse_memory_to_mb(response["mem"]["total"])
-                
 
         if "temperature" in response:
             data[ATTR_SENSOR_TEMPERATURE] = float(response["temperature"])
@@ -690,6 +741,170 @@ class LuciUpdater(DataUpdateCoordinator):
                 return
 
         data[ATTR_SENSOR_MODE] = Mode.DEFAULT
+        
+    async def _async_prepare_cpe_mobile(self, data: dict) -> None:
+        """Prepare CB0401V2 (5G CPE) data: signal/usage/ipv4 + SIM + SMS."""
+
+        if not self._is_cb0401v2_device(data):
+            return
+
+        self._is_cb0401v2 = True
+        now = dt_util.utcnow()
+
+        def _to_float(v):
+            try:
+                if v in ("", None):
+                    return None
+                return float(str(v))
+            except Exception:
+                return None
+
+        def _to_int(v):
+            try:
+                if v in ("", None):
+                    return None
+                return int(float(str(v)))
+            except Exception:
+                return None
+
+        # --- 1) mobile_net_info (critical) ---
+        if now >= getattr(self, "_cpe_mobile_next_try", now):
+            try:
+                resp: dict = await asyncio.wait_for(
+                    self.luci.get_mobile_net_info(), timeout=6
+                )
+                if isinstance(resp, dict):
+                    data["mobile_net_info"] = resp
+
+                    info = resp.get("info") if isinstance(resp.get("info"), dict) else {}
+                    ipv4info = resp.get("ipv4info") if isinstance(resp.get("ipv4info"), dict) else {}
+
+                    data["mobile_info"] = info
+                    data["mobile_ipv4info"] = ipv4info
+
+                    # Flat fields (easy sensors later)
+                    data["mobile_linktype"] = info.get("linktype")
+                    data["mobile_operator"] = info.get("operator")
+                    data["mobile_level"] = info.get("level")
+
+                    # Keep raw strings (compat) + normalized numeric (GB/float)
+                    data["mobile_datausage"] = info.get("datausage")
+                    data["mobile_data_limit"] = info.get("dataLimit")
+                    data["mobile_datausage_gb"] = _to_float(info.get("datausage"))
+                    data["mobile_datalimit_gb"] = _to_float(info.get("dataLimit"))
+
+                    data["mobile_flowstat_enable"] = info.get("flowstatEnable")
+
+                    # Normalize to float if possible
+                    data["mobile_rsrp_5g"] = _to_float(info.get("rsrp_5g"))
+                    data["mobile_snr_5g"] = _to_float(info.get("snr_5g"))
+
+                    data["mobile_band_5g"] = info.get("cell_band_5g")
+                    data["mobile_band"] = info.get("cell_band")
+                    data["mobile_pci_5g"] = info.get("pci_5g")
+                    data["mobile_arfcn"] = info.get("arfcn")
+
+                    ipv4_list = ipv4info.get("ipv4") if isinstance(ipv4info.get("ipv4"), list) else []
+                    ipv4_0 = ipv4_list[0] if ipv4_list and isinstance(ipv4_list[0], dict) else {}
+                    data["mobile_ipv4"] = ipv4_0.get("ip")
+                    data["mobile_netmask"] = ipv4_0.get("mask")
+                    data["mobile_gw"] = ipv4info.get("gw")
+                    data["mobile_dns"] = ipv4info.get("dns")
+
+                self._cpe_mobile_fail_count = 0
+                self._cpe_mobile_next_try = now
+
+            except asyncio.TimeoutError:
+                self._cpe_mobile_fail_count = int(getattr(self, "_cpe_mobile_fail_count", 0) or 0) + 1
+                cooldown = timedelta(minutes=2) if self._cpe_mobile_fail_count < 3 else timedelta(minutes=10)
+                self._cpe_mobile_next_try = now + cooldown
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] CB0401V2 mobile_net_info timed out for %s (cooldown %s)",
+                    self.ip,
+                    cooldown,
+                )
+            except Exception as e:
+                self._cpe_mobile_fail_count = int(getattr(self, "_cpe_mobile_fail_count", 0) or 0) + 1
+                cooldown = timedelta(minutes=5)
+                self._cpe_mobile_next_try = now + cooldown
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] CB0401V2 mobile_net_info failed for %s (cooldown %s): %s",
+                    self.ip,
+                    cooldown,
+                    e,
+                )
+
+        # --- 2) cpe_newstatus (grab MAC if standard status doesn't provide it) ---
+        if not data.get(ATTR_DEVICE_MAC_ADDRESS) and now >= getattr(self, "_cpe_newstatus_next_try", now):
+            try:
+                resp = await asyncio.wait_for(self.luci.cpe_newstatus(), timeout=6)
+                if isinstance(resp, dict):
+                    hw = resp.get("hardware") if isinstance(resp.get("hardware"), dict) else {}
+                    mac = hw.get("mac")
+                    if isinstance(mac, str) and mac.strip():
+                        data[ATTR_DEVICE_MAC_ADDRESS] = mac.strip().upper()
+                    data["cpe_newstatus"] = resp
+                self._cpe_newstatus_next_try = now + timedelta(hours=6)
+            except Exception:
+                self._cpe_newstatus_next_try = now + timedelta(minutes=10)
+
+        # --- 3) cpe_detect (SIM/registration) every ~2 minutes ---
+        if now >= getattr(self, "_cpe_detect_next_try", now):
+            try:
+                resp = await asyncio.wait_for(self.luci.cpe_detect(), timeout=6)
+                if isinstance(resp, dict):
+                    data["cpe_detect"] = resp
+
+                    # Flatten SIM fields for easy sensors
+                    sim = resp.get("sim") if isinstance(resp.get("sim"), dict) else {}
+                    if isinstance(sim, dict):
+                        data["sim_status"] = _to_int(sim.get("status"))
+                        data["sim_pinlock"] = _to_int(sim.get("pinlock"))
+                        data["sim_pinretry"] = _to_int(sim.get("pinretry"))
+                        data["sim_pukretry"] = _to_int(sim.get("pukretry"))
+
+                    # Optional fallback for operator/linktype if mobile_net_info missing
+                    net_info = (
+                        resp.get("net", {}).get("info")
+                        if isinstance(resp.get("net"), dict)
+                        else {}
+                    )
+                    if isinstance(net_info, dict):
+                        if not data.get("mobile_linktype"):
+                            data["mobile_linktype"] = net_info.get("linktype")
+                        if not data.get("mobile_operator"):
+                            data["mobile_operator"] = net_info.get("operator")
+
+                self._cpe_detect_next_try = now + timedelta(minutes=2)
+            except Exception:
+                self._cpe_detect_next_try = now + timedelta(minutes=10)
+
+        # --- 4) SMS count every ~2 minutes ---
+        if now >= getattr(self, "_sms_next_try", now):
+            try:
+                resp = await asyncio.wait_for(self.luci.msgbox_count(), timeout=6)
+                if isinstance(resp, dict):
+                    data["sms"] = resp
+
+                    # Try to derive a flat sms_count
+                    sms_count = None
+                    for cand in ("count", "total", "msg_count", "sms_count"):
+                        if cand in resp:
+                            sms_count = _to_int(resp.get(cand))
+                            if sms_count is not None:
+                                break
+                    if sms_count is None and isinstance(resp.get("data"), dict):
+                        sms_count = _to_int(resp["data"].get("count"))
+
+                    if sms_count is not None:
+                        data["sms_count"] = sms_count
+
+                self._sms_next_try = now + timedelta(minutes=2)
+            except Exception:
+                self._sms_next_try = now + timedelta(minutes=10)
+
 
     async def _async_prepare_wan(self, data: dict) -> None:
         """Prepare WAN state, link status, IP address and type."""
@@ -763,6 +978,16 @@ class LuciUpdater(DataUpdateCoordinator):
             wan_down = (link == 0 and status == 0 and not ip and not gateway and not dns)
 
             if wan_down:
+                # ✅ CB0401V2: fallback to mobile_ipv4 if available
+                if self._is_cb0401v2_device(data):
+                    mobile_ip = data.get("mobile_ipv4")
+                    if isinstance(mobile_ip, str) and mobile_ip.strip():
+                        data[ATTR_BINARY_SENSOR_WAN_STATE] = True
+                        data[ATTR_BINARY_SENSOR_WAN_LINK] = True
+                        data[ATTR_SENSOR_WAN_IP] = mobile_ip.strip()
+                        data[ATTR_SENSOR_WAN_TYPE] = "mobile"
+                        return
+
                 data[ATTR_BINARY_SENSOR_WAN_STATE] = False
                 data[ATTR_BINARY_SENSOR_WAN_LINK] = False
                 data[ATTR_SENSOR_WAN_IP] = None
@@ -785,6 +1010,13 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_BINARY_SENSOR_WAN_LINK] = False
             data[ATTR_SENSOR_WAN_IP] = None
             data[ATTR_SENSOR_WAN_TYPE] = "unknown"
+            if self._is_cb0401v2_device(data):
+                mobile_ip = data.get("mobile_ipv4")
+                if isinstance(mobile_ip, str) and mobile_ip.strip():
+                    data[ATTR_BINARY_SENSOR_WAN_STATE] = True
+                    data[ATTR_BINARY_SENSOR_WAN_LINK] = True
+                    data[ATTR_SENSOR_WAN_IP] = mobile_ip.strip()
+                    data[ATTR_SENSOR_WAN_TYPE] = "mobile"
 
         except Exception as e:
             await self.hass.async_add_executor_job(_LOGGER.error, "Error while preparing WAN info: %s", e)
@@ -792,6 +1024,13 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_BINARY_SENSOR_WAN_LINK] = False
             data[ATTR_SENSOR_WAN_IP] = None
             data[ATTR_SENSOR_WAN_TYPE] = "unknown"
+            if self._is_cb0401v2_device(data):
+                mobile_ip = data.get("mobile_ipv4")
+                if isinstance(mobile_ip, str) and mobile_ip.strip():
+                    data[ATTR_BINARY_SENSOR_WAN_STATE] = True
+                    data[ATTR_BINARY_SENSOR_WAN_LINK] = True
+                    data[ATTR_SENSOR_WAN_IP] = mobile_ip.strip()
+                    data[ATTR_SENSOR_WAN_TYPE] = "mobile"
 
     async def _async_prepare_led(self, data: dict) -> None:
         """Prepare led.
@@ -852,6 +1091,12 @@ class LuciUpdater(DataUpdateCoordinator):
                 data[f"{adapter.phrase}_channel"] = str(  # type: ignore
                     wifi["channelInfo"]["channel"]
                 )
+            elif "channel" in wifi:
+                # CB0401V2 provider firmwares can return channel at top-level
+                data[f"{adapter.phrase}_channel"] = str(wifi["channel"])  # type: ignore
+
+            if "bandwidth" in wifi:
+                data[f"{adapter.phrase}_bandwidth"] = str(wifi["bandwidth"])  # type: ignore
 
             if "txpwr" in wifi:
                 data[f"{adapter.phrase}_signal_strength"] = wifi["txpwr"]  # type: ignore
@@ -940,39 +1185,88 @@ class LuciUpdater(DataUpdateCoordinator):
 
         response: dict = await self.luci.wifi_connect_devices()
 
-        macfilter_info: dict = {}
-        try:
-            # Avoid HA bootstrap cancellation: enforce a short per-call timeout
-            macfilter_info = await asyncio.wait_for(self.luci.macfilter_info(), timeout=4)
-        except asyncio.TimeoutError as e:
-            await self.hass.async_add_executor_job(
-                _LOGGER.warning,
-                "[MiWiFi] macfilter_info timed out for %s: %s",
-                self.ip,
-                e,
-            )
-        except Exception as e:
-            await self.hass.async_add_executor_job(
-                _LOGGER.warning,
-                "[MiWiFi] macfilter_info failed for %s: %s",
-                self.ip,
-                e,
-            )
+        now = dt_util.utcnow()
+        macfilter_info: Optional[dict] = None
 
-        filter_macs: dict[str, int] = {}
+        # cooldown: si falló hace poco, no insistimos cada scan
+        next_try = getattr(self, "_macfilter_next_try", now)
+        if now >= next_try:
+            call_timeout = self._macfilter_call_timeout()
+            try:
+                # Usa timeout real del request (httpx) y evita doble timeout agresivo
+                macfilter_info = await self.luci.macfilter_info(timeout=call_timeout)
+                self._macfilter_fail_count = 0
+                self._macfilter_next_try = now  # sin cooldown en éxito
 
-        for entry in macfilter_info.get("flist", []):
-            mac = entry.get("mac", "").upper()
-            wan = entry.get("authority", {}).get("wan", 1)
-            filter_macs[mac] = wan
+            except (asyncio.TimeoutError, LuciConnectionError) as e:
+                self._macfilter_fail_count = int(getattr(self, "_macfilter_fail_count", 0) or 0) + 1
+                cooldown = timedelta(minutes=10) if self._macfilter_fail_count < 3 else timedelta(minutes=30)
+                self._macfilter_next_try = now + cooldown
 
-        for entry in macfilter_info.get("list", []):
-            mac = entry.get("mac", "").upper()
-            wan = entry.get("authority", {}).get("wan", 1)
-            filter_macs[mac] = wan
+                # rate-limit: 1 warning / hora
+                last_warn = getattr(self, "_macfilter_warned_at", None)
+                if (last_warn is None) or (now - last_warn > timedelta(hours=1)):
+                    _LOGGER.warning(
+                        "[MiWiFi] macfilter_info timed out for %s (cooldown %s, fail_count=%s): %s",
+                        self.ip,
+                        cooldown,
+                        self._macfilter_fail_count,
+                        e,
+                    )
+                    self._macfilter_warned_at = now
+                else:
+                    _LOGGER.debug("[MiWiFi] macfilter_info timed out for %s: %s", self.ip, e)
 
-        # Store for the device_list stage (used to mark internet_blocked for all clients)
-        self._filter_macs = filter_macs
+            except (LuciRequestError, LuciError) as e:
+                # Si el endpoint no existe / no está soportado, no tiene sentido insistir
+                self._macfilter_fail_count = int(getattr(self, "_macfilter_fail_count", 0) or 0) + 1
+                self._macfilter_next_try = now + timedelta(hours=6)
+
+                last_warn = getattr(self, "_macfilter_warned_at", None)
+                if (last_warn is None) or (now - last_warn > timedelta(hours=6)):
+                    _LOGGER.warning(
+                        "[MiWiFi] macfilter_info not available for %s (cooldown 6h): %s",
+                        self.ip,
+                        e,
+                    )
+                    self._macfilter_warned_at = now
+                else:
+                    _LOGGER.debug("[MiWiFi] macfilter_info not available for %s: %s", self.ip, e)
+
+            except Exception as e:
+                # hard fallback: no romper devices por esto
+                self._macfilter_fail_count = int(getattr(self, "_macfilter_fail_count", 0) or 0) + 1
+                self._macfilter_next_try = now + timedelta(minutes=30)
+                last_warn = getattr(self, "_macfilter_warned_at", None)
+                if (last_warn is None) or (now - last_warn > timedelta(hours=1)):
+                    _LOGGER.warning("[MiWiFi] macfilter_info failed for %s (cooldown 30m): %s", self.ip, e)
+                    self._macfilter_warned_at = now
+                else:
+                    _LOGGER.debug("[MiWiFi] macfilter_info failed for %s: %s", self.ip, e)
+
+        # ✅ Cache: si no hubo éxito, usamos el último mapa válido
+        filter_macs: dict[str, int] = getattr(self, "_filter_macs", {}) or {}
+
+        # ✅ Si hemos obtenido datos nuevos, reconstruimos y guardamos
+        if isinstance(macfilter_info, dict):
+            new_filter_macs: dict[str, int] = {}
+
+            for entry in macfilter_info.get("flist", []) or []:
+                if not isinstance(entry, dict):
+                    continue
+                mac = str(entry.get("mac", "")).upper()
+                wan = (entry.get("authority") or {}).get("wan", 1)
+                new_filter_macs[mac] = wan
+
+            for entry in macfilter_info.get("list", []) or []:
+                if not isinstance(entry, dict):
+                    continue
+                mac = str(entry.get("mac", "")).upper()
+                wan = (entry.get("authority") or {}).get("wan", 1)
+                new_filter_macs[mac] = wan
+
+            self._filter_macs = new_filter_macs
+            filter_macs = new_filter_macs
 
         if "list" in response:
             integrations: dict[str, dict] = {}

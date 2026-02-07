@@ -357,6 +357,131 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
+# ────────────────────────────────────────────────────────────────────────────────
+# CB0401V2 (5G CPE) - Model-specific sensors
+# These keys are filled by updater.py when cpe_profile == "CB0401V2"
+# ────────────────────────────────────────────────────────────────────────────────
+
+MIWIFI_CPE_SENSORS: tuple[SensorEntityDescription, ...] = (
+    SensorEntityDescription(
+        key="mobile_linktype",
+        name="Mobile link type",
+        icon="mdi:access-point-network",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="mobile_operator",
+        name="Mobile operator",
+        icon="mdi:sim",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="mobile_ipv4",
+        name="Mobile IPv4",
+        icon="mdi:ip",
+        device_class=SensorDeviceClass.IP_ADDRESS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="mobile_rsrp_5g",
+        name="5G RSRP",
+        icon="mdi:signal-5g",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement="dBm",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="mobile_snr_5g",
+        name="5G SNR",
+        icon="mdi:signal-variant",
+        native_unit_of_measurement="dB",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="mobile_datausage_gb",
+        name="Mobile data usage",
+        icon="mdi:chart-donut",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.GIGABYTES,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="mobile_datalimit_gb",
+        name="Mobile data limit",
+        icon="mdi:database-lock",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        native_unit_of_measurement=UnitOfInformation.GIGABYTES,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="sms_count",
+        name="SMS messages",
+        icon="mdi:message-text",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="sim_status",
+        name="SIM status",
+        icon="mdi:sim-alert",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=True,
+    ),
+    SensorEntityDescription(
+        key="sim_pinretry",
+        name="SIM PIN retries",
+        icon="mdi:counter",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="sim_pukretry",
+        name="SIM PUK retries",
+        icon="mdi:counter",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+)
+
+def _is_cb0401v2(updater: LuciUpdater) -> bool:
+    data = updater.data or {}
+
+    prof = str(data.get("cpe_profile", "")).strip().upper()
+    if prof == "CB0401V2":
+        return True
+
+    # Try common model fields
+    mdl = data.get("device_model") or data.get("model") or data.get("hardware_model")
+    if isinstance(mdl, Enum):
+        try:
+            if str(mdl.name).upper() == "CB0401V2":
+                return True
+        except Exception:
+            pass
+        try:
+            if str(getattr(mdl, "value", "")).upper() == "CB0401V2":
+                return True
+        except Exception:
+            pass
+
+    if isinstance(mdl, str) and mdl.strip().upper() == "CB0401V2":
+        return True
+
+    return False
+
+
 def _device_base_unique_id(mac: str) -> str:
     """Base unique id for a client device, independent of the router/entry."""
     mac_lc = (mac or "").strip().lower()
@@ -410,6 +535,90 @@ class MiWifiSensor(MiWifiEntity, SensorEntity):
                 if self._updater.config_entry
                 else DEFAULT_WAN_SPEED_UNIT
             )
+
+            key = str(self.entity_description.key)
+
+            def _deep_get(obj, *path, default=None):
+                cur = obj
+                for p in path:
+                    if isinstance(cur, dict):
+                        cur = cur.get(p, default)
+                    elif isinstance(cur, list) and isinstance(p, int) and 0 <= p < len(cur):
+                        cur = cur[p]
+                    else:
+                        return default
+                return cur
+
+            # Numeric strings -> float/int
+            if key in ("mobile_rsrp_5g", "mobile_snr_5g"):
+                try:
+                    return round(float(value), 1) if value not in ("", None) else None
+                except (TypeError, ValueError):
+                    return None
+
+            if key in ("mobile_datausage_gb", "mobile_datalimit_gb"):
+                try:
+                    return round(float(value), 3) if value not in ("", None) else None
+                except (TypeError, ValueError):
+                    return None
+
+            # SMS count (fallback from updater.data["sms"])
+            if key == "sms_count":
+                if isinstance(value, (int, float)):
+                    return int(value)
+
+                sms = self._updater.data.get("sms")
+                if isinstance(sms, dict):
+                    for cand in ("count", "total", "msg_count", "sms_count"):
+                        v = sms.get(cand)
+                        if v not in ("", None):
+                            try:
+                                return int(v)
+                            except (TypeError, ValueError):
+                                pass
+                    data = sms.get("data")
+                    if isinstance(data, dict):
+                        v = data.get("count")
+                        if v not in ("", None):
+                            try:
+                                return int(v)
+                            except (TypeError, ValueError):
+                                pass
+                return None
+
+            # SIM status (fallback from updater.data["cpe_detect"])
+            if key in ("sim_status", "sim_pinretry", "sim_pukretry"):
+                det = self._updater.data.get("cpe_detect")
+                sim = _deep_get(det, "sim", default={}) if isinstance(det, dict) else {}
+                if not isinstance(sim, dict):
+                    return None
+
+                mapping = {
+                    "sim_status": "status",
+                    "sim_pinretry": "pinretry",
+                    "sim_pukretry": "pukretry",
+                }
+                v = sim.get(mapping[key])
+                return v
+
+            # Linktype/operator fallback from cpe_detect if not flattened
+            if key in ("mobile_linktype", "mobile_operator") and not value:
+                det = self._updater.data.get("cpe_detect")
+                info = _deep_get(det, "net", "info", default={}) if isinstance(det, dict) else {}
+                if isinstance(info, dict):
+                    if key == "mobile_linktype":
+                        return info.get("linktype")
+                    if key == "mobile_operator":
+                        return info.get("operator")
+
+            # IPv4 fallback from cpe_detect if not flattened
+            if key == "mobile_ipv4" and not value:
+                det = self._updater.data.get("cpe_detect")
+                ip = _deep_get(det, "net", "ipv4info", "ipv4", 0, "ip", default=None) or _deep_get(
+                    det, "ipv4info", "ipv4", 0, "ip", default=None
+                )
+                return ip
+
 
             # Source value is expected to be Bytes/second (B/s)
             if isinstance(value, (int, float)):
@@ -816,21 +1025,28 @@ async def _async_add_all_sensors_later(
             pass
 
         topo = (updater.data or {}).get("topo_graph", {}).get("graph", {})
-        if "is_main" in topo:
+        if "is_main" in topo or _is_cb0401v2(updater):
             break
 
         await asyncio.sleep(2)
 
+    is_cpe = _is_cb0401v2(updater)
+    
     entities: list[SensorEntity] = [
         MiWifiTopologyGraphSensor(updater),
         MiWifiConfigSensor(updater),
     ]
 
     graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
-    if graph.get("is_main", False):
+    if graph.get("is_main", False) and not is_cpe:
         entities.append(MiWifiNATRulesSensor(updater))
 
-    for description in MIWIFI_SENSORS:
+
+    descriptions = list(MIWIFI_SENSORS)
+    if is_cpe:
+        descriptions.extend(MIWIFI_CPE_SENSORS)
+
+    for description in descriptions:
         if description.key == ATTR_SENSOR_DEVICES_5_0_GAME and not updater.supports_game:
             continue
 
@@ -872,3 +1088,4 @@ async def _async_add_all_sensors_later(
             entities.extend(_build_device_sensors(updater, device))
 
     async_add_entities(entities)
+
