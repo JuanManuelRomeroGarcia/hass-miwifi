@@ -612,10 +612,24 @@ class LuciUpdater(DataUpdateCoordinator):
         self.code = codes.CONFLICT
 
     async def _async_prepare_status(self, data: dict) -> None:
-        """Prepare status.
+        """Prepare status (hardened numeric parsing)."""
 
-        :param data: dict
-        """
+        def _to_float(v, default=None):
+            try:
+                if v in ("", None):
+                    return default
+                return float(str(v))
+            except Exception:
+                return default
+
+        def _to_int(v, default=None):
+            try:
+                if v in ("", None):
+                    return default
+                return int(float(str(v)))
+            except Exception:
+                return default
+
         try:
             response: dict = await self.luci.status()
         except LuciError:
@@ -624,39 +638,38 @@ class LuciUpdater(DataUpdateCoordinator):
                 return
             raise
 
-        if "hardware" in response and isinstance(response["hardware"], dict):
-            if "mac" in response["hardware"]:
-                data[ATTR_DEVICE_MAC_ADDRESS] = response["hardware"]["mac"]
-            if "sn" in response["hardware"]:
-                data[ATTR_DEVICE_HW_VERSION] = response["hardware"]["sn"]
-            if "version" in response["hardware"]:
-                data[ATTR_UPDATE_CURRENT_VERSION] = response["hardware"]["version"]
+        if isinstance(response.get("hardware"), dict):
+            hw = response["hardware"]
+            if "mac" in hw:
+                data[ATTR_DEVICE_MAC_ADDRESS] = hw["mac"]
+            if "sn" in hw:
+                data[ATTR_DEVICE_HW_VERSION] = hw["sn"]
+            if "version" in hw:
+                data[ATTR_UPDATE_CURRENT_VERSION] = hw["version"]
 
-        if "upTime" in response:
-            data[ATTR_SENSOR_UPTIME] = str(
-                timedelta(seconds=int(float(response["upTime"])))
-            )
+        up = _to_float(response.get("upTime"))
+        if up is not None:
+            data[ATTR_SENSOR_UPTIME] = str(timedelta(seconds=int(up)))
 
-        if "mem" in response and isinstance(response["mem"], dict):
-            if "usage" in response["mem"]:
-                data[ATTR_SENSOR_MEMORY_USAGE] = int(float(response["mem"]["usage"]) * 100)
+        mem = response.get("mem") if isinstance(response.get("mem"), dict) else {}
+        if isinstance(mem, dict):
+            usage = _to_float(mem.get("usage"))
+            if usage is not None:
+                data[ATTR_SENSOR_MEMORY_USAGE] = int(usage * 100)
 
-            if "total" in response["mem"]:
-                data[ATTR_SENSOR_MEMORY_TOTAL] = parse_memory_to_mb(response["mem"]["total"])
+            if "total" in mem:
+                with contextlib.suppress(Exception):
+                    data[ATTR_SENSOR_MEMORY_TOTAL] = parse_memory_to_mb(mem.get("total"))
 
-        if "temperature" in response:
-            data[ATTR_SENSOR_TEMPERATURE] = float(response["temperature"])
+        temp = _to_float(response.get("temperature"))
+        if temp is not None:
+            data[ATTR_SENSOR_TEMPERATURE] = temp
 
-        if "wan" in response and isinstance(response["wan"], dict):
-            # fmt: off
-            data[ATTR_SENSOR_WAN_DOWNLOAD_SPEED] = float(
-                response["wan"]["downspeed"]
-            ) if "downspeed" in response["wan"] else 0
+        wan = response.get("wan") if isinstance(response.get("wan"), dict) else {}
+        if isinstance(wan, dict):
+            data[ATTR_SENSOR_WAN_DOWNLOAD_SPEED] = _to_float(wan.get("downspeed"), 0.0) or 0.0
+            data[ATTR_SENSOR_WAN_UPLOAD_SPEED] = _to_float(wan.get("upspeed"), 0.0) or 0.0
 
-            data[ATTR_SENSOR_WAN_UPLOAD_SPEED] = float(
-                response["wan"]["upspeed"]
-            ) if "upspeed" in response["wan"] else 0
-            # fmt: on
 
     async def _async_prepare_vpn(self, data: dict) -> None:
         """Prepare vpn.
@@ -683,7 +696,8 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_rom_update(self, data: dict) -> None:
         """Prepare rom update.
 
-        :param data: dict
+        CB0401V2 provider firmwares often restrict or disable ROM update checks.
+        This must not spam errors nor block refresh.
         """
 
         if ATTR_UPDATE_CURRENT_VERSION not in data:
@@ -697,50 +711,81 @@ class LuciUpdater(DataUpdateCoordinator):
             + f" ({data.get(ATTR_DEVICE_NAME, DEFAULT_NAME)})",
         }
 
+        # ✅ CB0401V2: skip ROM update endpoint (often 404/restricted on provider firmware)
+        if self._is_cb0401v2_device(data):
+            data[ATTR_UPDATE_FIRMWARE] = _rom_info
+            return
+
         try:
-            response: dict = await self.luci.rom_update()
-        except LuciError:
+            response: dict = await asyncio.wait_for(self.luci.rom_update(), timeout=6)
+        except (asyncio.TimeoutError, LuciError, LuciConnectionError):
+            response = {}
+        except Exception:
             response = {}
 
         if (
             not isinstance(response, dict)
-            or "needUpdate" not in response
-            or response["needUpdate"] != 1
+            or response.get("needUpdate") != 1
         ):
             data[ATTR_UPDATE_FIRMWARE] = _rom_info
-
             return
 
-        with contextlib.suppress(KeyError):
-            data[ATTR_UPDATE_FIRMWARE] = _rom_info | {
-                ATTR_UPDATE_LATEST_VERSION: response["version"],
-                ATTR_UPDATE_DOWNLOAD_URL: response["downloadUrl"],
-                ATTR_UPDATE_RELEASE_URL: response["changelogUrl"],
-                ATTR_UPDATE_FILE_SIZE: response["fileSize"],
-                ATTR_UPDATE_FILE_HASH: response["fullHash"],
-            }
+        # Only set extended info when keys exist and are valid
+        payload = {}
+        v = response.get("version")
+        if isinstance(v, str) and v.strip():
+            payload[ATTR_UPDATE_LATEST_VERSION] = v
+
+        durl = response.get("downloadUrl")
+        if isinstance(durl, str) and durl.strip():
+            payload[ATTR_UPDATE_DOWNLOAD_URL] = durl
+
+        rurl = response.get("changelogUrl")
+        if isinstance(rurl, str) and rurl.strip():
+            payload[ATTR_UPDATE_RELEASE_URL] = rurl
+
+        fsize = response.get("fileSize")
+        if fsize not in ("", None):
+            payload[ATTR_UPDATE_FILE_SIZE] = fsize
+
+        fhash = response.get("fullHash")
+        if isinstance(fhash, str) and fhash.strip():
+            payload[ATTR_UPDATE_FILE_HASH] = fhash
+
+        data[ATTR_UPDATE_FIRMWARE] = _rom_info | payload
+        
 
     async def _async_prepare_mode(self, data: dict) -> None:
-        """Prepare mode.
+        """Prepare mode (safe for CB0401V2/provider firmwares)."""
 
-        :param data: dict
-        """
-
+        # Keep mesh-shortcut behavior
         if data.get(ATTR_SENSOR_MODE, Mode.DEFAULT) == Mode.MESH:
             return
 
-        response: dict = await self.luci.mode()
+        # ✅ CB0401V2: skip mode endpoint (often dead/404 on provider firmware)
+        if self._is_cb0401v2_device(data):
+            data[ATTR_SENSOR_MODE] = Mode.DEFAULT
+            return
 
-        if "mode" in response:
-            with contextlib.suppress(ValueError):
-                try:
-                    data[ATTR_SENSOR_MODE] = Mode(int(response["mode"]))
-                except:
-                    data[ATTR_SENSOR_MODE] = Mode(0)
+        try:
+            response: dict = await asyncio.wait_for(self.luci.mode(), timeout=6)
+        except (asyncio.TimeoutError, LuciError, LuciConnectionError):
+            data[ATTR_SENSOR_MODE] = Mode.DEFAULT
+            return
+        except Exception:
+            data[ATTR_SENSOR_MODE] = Mode.DEFAULT
+            return
 
+        if isinstance(response, dict) and "mode" in response:
+            try:
+                data[ATTR_SENSOR_MODE] = Mode(int(response["mode"]))
+                return
+            except Exception:
+                data[ATTR_SENSOR_MODE] = Mode.DEFAULT
                 return
 
         data[ATTR_SENSOR_MODE] = Mode.DEFAULT
+
         
     async def _async_prepare_cpe_mobile(self, data: dict) -> None:
         """Prepare CB0401V2 (5G CPE) data: signal/usage/ipv4 + SIM + SMS."""
@@ -1035,17 +1080,54 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_led(self, data: dict) -> None:
         """Prepare led.
 
-        :param data: dict
+        CB0401V2 provider firmwares often return empty/non-JSON payloads for LED endpoints.
+        LED must NEVER break setup or refresh cycles.
         """
 
-        response: dict = await self.luci.led()
-
-        if "status" in response:
-            data[ATTR_LIGHT_LED] = response["status"] == 1
-
+        # ✅ CB0401V2: skip LED endpoint entirely (commonly restricted / non-JSON)
+        if self._is_cb0401v2_device(data):
+            data[ATTR_LIGHT_LED] = False
             return
 
+        try:
+            response: dict = await asyncio.wait_for(self.luci.led(), timeout=6)
+        except asyncio.TimeoutError as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] led() timed out for %s: %s",
+                self.ip,
+                e,
+            )
+            data[ATTR_LIGHT_LED] = False
+            return
+        except LuciError as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] led() failed/unsupported for %s: %s",
+                self.ip,
+                e,
+            )
+            data[ATTR_LIGHT_LED] = False
+            return
+        except Exception as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] led() unexpected error for %s: %s",
+                self.ip,
+                e,
+            )
+            data[ATTR_LIGHT_LED] = False
+            return
+
+        if isinstance(response, dict) and "status" in response:
+            try:
+                data[ATTR_LIGHT_LED] = int(response["status"]) == 1
+                return
+            except Exception:
+                pass
+
         data[ATTR_LIGHT_LED] = False
+
 
     async def _async_prepare_wifi(self, data: dict) -> None:
         """Prepare wifi.
@@ -1566,6 +1648,14 @@ class LuciUpdater(DataUpdateCoordinator):
         self, device: dict, integrations: dict[str, Any] | None = None
     ) -> dict[str, Any]:
 
+        def _to_float(v, default: float = 0.0) -> float:
+            try:
+                if v in ("", None):
+                    return default
+                return float(str(v))
+            except Exception:
+                return default
+
         ip_attr: dict | None = device["ip"][0] if "ip" in device and device["ip"] else None
 
         if self.is_force_load and "wifiIndex" in device:
@@ -1623,6 +1713,8 @@ class LuciUpdater(DataUpdateCoordinator):
             except Exception:
                 online_uptime = ""
 
+        ip_value = ip_attr.get("ip") if isinstance(ip_attr, dict) else None
+
         return {
             ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
             ATTR_TRACKER_UPDATER_ENTRY_ID: device.get(
@@ -1632,10 +1724,11 @@ class LuciUpdater(DataUpdateCoordinator):
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: router_mac,
             ATTR_TRACKER_SIGNAL: self._signals.get(device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
-            ATTR_TRACKER_IP: ip_attr["ip"] if ip_attr is not None else None,
+            ATTR_TRACKER_IP: ip_value,
             ATTR_TRACKER_CONNECTION: connection,
-            ATTR_TRACKER_DOWN_SPEED: float(ip_attr["downspeed"]) if (is_online and ip_attr and "downspeed" in ip_attr) else 0.0,
-            ATTR_TRACKER_UP_SPEED: float(ip_attr["upspeed"]) if (is_online and ip_attr and "upspeed" in ip_attr) else 0.0,
+            # ✅ Safe numeric parsing (handles "" / None)
+            ATTR_TRACKER_DOWN_SPEED: _to_float(ip_attr.get("downspeed")) if (is_online and isinstance(ip_attr, dict)) else 0.0,
+            ATTR_TRACKER_UP_SPEED: _to_float(ip_attr.get("upspeed")) if (is_online and isinstance(ip_attr, dict)) else 0.0,
             ATTR_TRACKER_ONLINE: online_uptime,
             ATTR_TRACKER_LAST_ACTIVITY: last_activity,
             ATTR_TRACKER_FIRST_SEEN: self.devices.get(
@@ -1644,11 +1737,12 @@ class LuciUpdater(DataUpdateCoordinator):
                 ATTR_TRACKER_FIRST_SEEN,
                 datetime.now().replace(microsecond=0).isoformat(),
             ),
-            ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_attr["ip"]][UPDATER]
+            # ✅ Avoid KeyError when ip is missing / not in integrations
+            ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_value][UPDATER]
             .data.get(ATTR_DEVICE_MAC_ADDRESS, None)
             if integrations
-            and ip_attr
-            and ip_attr["ip"] in integrations
+            and isinstance(ip_value, str)
+            and ip_value in integrations
             else None,
             ATTR_TRACKER_INTERNET_BLOCKED: device.get(
                 ATTR_TRACKER_INTERNET_BLOCKED, False
@@ -1830,120 +1924,195 @@ class LuciUpdater(DataUpdateCoordinator):
         await self._store.async_save(self.devices)
 
     async def _async_prepare_topo(self) -> None:
-        """Prepare topology graph information."""
+        """Prepare topology graph information.
+
+        IMPORTANT:
+        - Never store self.data["topo_graph"] as None.
+          Some code paths use `.get("topo_graph", {})` and would break if the value is None.
+        - Always keep a stable dict structure: {"show": 0, "graph": {}, "code": 0}
+        """
+
+        def _empty_topo(reason: str | None = None) -> dict:
+            topo = {"show": 0, "graph": {}, "code": 0}
+            if reason:
+                topo["_reason"] = reason
+
+            mac = self.data.get(ATTR_DEVICE_MAC_ADDRESS)
+            if isinstance(mac, str) and mac.strip():
+                topo["graph"]["mac"] = mac.strip().upper()
+
+            # Keep a predictable shape
+            topo["graph"].setdefault("is_main", False)
+            topo["graph"].setdefault("is_main_auto", False)
+            return topo
+
         try:
-            topo_data = await self.luci.topo_graph()
+            topo_data = await asyncio.wait_for(self.luci.topo_graph(), timeout=6)
+        except (asyncio.TimeoutError, LuciError, LuciConnectionError) as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] topo_graph unavailable for %s: %s",
+                self.ip,
+                e,
+            )
+            topo_data = _empty_topo("fetch_failed")
+        except Exception as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] topo_graph unexpected error for %s: %s",
+                self.ip,
+                e,
+            )
+            topo_data = _empty_topo("unexpected_error")
 
-            if not topo_data or not isinstance(topo_data, dict) or "graph" not in topo_data:
-                await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] No topology graph data available for router at %s", self.ip)
-                self.data["topo_graph"] = None
-                return
+        # Normalize topo_data shape
+        if not isinstance(topo_data, dict):
+            topo_data = _empty_topo("invalid_type")
 
+        graph = topo_data.get("graph")
+        if not isinstance(graph, dict):
+            topo_data = dict(topo_data)
+            topo_data["graph"] = {}
             graph = topo_data["graph"]
 
-            if not isinstance(graph, dict):
-                await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Invalid topology graph format (not dict): %s", graph)
-                self.data["topo_graph"] = None
-                return
+        # Ensure show exists
+        if "show" not in topo_data:
+            topo_data["show"] = 0
 
-            if self.data.get(ATTR_DEVICE_MAC_ADDRESS):
-                graph["mac"] = self.data[ATTR_DEVICE_MAC_ADDRESS]
-                await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] MAC added to topo_graph: %s", graph["mac"])
+        # Ensure MAC is present when we know it
+        if self.data.get(ATTR_DEVICE_MAC_ADDRESS):
+            graph["mac"] = self.data[ATTR_DEVICE_MAC_ADDRESS]
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] MAC added to topo_graph: %s",
+                graph.get("mac"),
+            )
 
-            auto_main = False
-            
-            try:
-                show = int(topo_data.get("show", -1))
-                mode = int(graph.get("mode", -1))
+        auto_main = False
 
-                # Normaliza assoc de forma segura
-                assoc_raw = graph.get("assoc", None)
-                assoc = None
-                if assoc_raw is not None and str(assoc_raw).strip() != "":
-                    try:
-                        assoc = int(str(assoc_raw).strip())
-                    except Exception:
-                        assoc = None
+        # --------------------------
+        # Original auto-main logic (hardened)
+        # --------------------------
+        try:
+            show = int(topo_data.get("show", -1)) if str(topo_data.get("show", "")).strip() != "" else -1
+            mode = int(graph.get("mode", -1)) if str(graph.get("mode", "")).strip() != "" else -1
 
-                # Señal fuerte: el main suele exponer leafs/nodes (root del grafo)
-                leafs = graph.get("leafs")
-                nodes = graph.get("nodes")
-                has_leafs = isinstance(leafs, list) and len(leafs) > 0
-                has_nodes = isinstance(nodes, list) and len(nodes) > 0
+            assoc_raw = graph.get("assoc", None)
+            assoc = None
+            if assoc_raw is not None and str(assoc_raw).strip() != "":
+                try:
+                    assoc = int(str(assoc_raw).strip())
+                except Exception:
+                    assoc = None
 
-                await self.hass.async_add_executor_job(
-                    _LOGGER.debug,
-                    "[MiWiFi] Topo debug – show=%s, mode=%s, assoc=%s, leafs=%s, nodes=%s",
-                    show, mode, assoc if assoc is not None else assoc_raw,
-                    len(leafs) if isinstance(leafs, list) else 0,
-                    len(nodes) if isinstance(nodes, list) else 0,
-                )
+            leafs = graph.get("leafs")
+            nodes = graph.get("nodes")
+            has_leafs = isinstance(leafs, list) and len(leafs) > 0
+            has_nodes = isinstance(nodes, list) and len(nodes) > 0
 
-                # ✅ Regla: si es root del grafo => MAIN
-                if has_leafs or has_nodes:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Topo debug – show=%s, mode=%s, assoc=%s, leafs=%s, nodes=%s",
+                show,
+                mode,
+                assoc if assoc is not None else assoc_raw,
+                len(leafs) if isinstance(leafs, list) else 0,
+                len(nodes) if isinstance(nodes, list) else 0,
+            )
+
+            # ✅ Root graph => MAIN
+            if has_leafs or has_nodes:
+                graph["is_main"] = True
+                auto_main = True
+            elif show == 1:
+                if mode in (0, 4) or (assoc == 1):
                     graph["is_main"] = True
                     auto_main = True
 
-                # ✅ Fallback: show=1 suele indicar el principal
-                elif show == 1:
-                    # tus firmwares han usado mode=4 para principal; mantén 0 por compat
-                    if mode in (0, 4) or (assoc == 1):
-                        graph["is_main"] = True
-                        auto_main = True
+            graph["is_main_auto"] = auto_main
+            graph["auto_reason"] = (
+                f"leafs={len(leafs) if isinstance(leafs, list) else 0}, "
+                f"nodes={len(nodes) if isinstance(nodes, list) else 0}, "
+                f"show={show}, mode={mode}, assoc={assoc}"
+            )
 
-                # ❌ IMPORTANTE: NO marcar MAIN con show=0 aunque assoc=1 (eso es mesh)
-                # (así evitas show=0/mode=3/assoc=1 => main)
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Auto-main => %s (%s)",
+                auto_main,
+                graph.get("auto_reason"),
+            )
 
-                graph["is_main_auto"] = auto_main
-                graph["auto_reason"] = (
-                    f"leafs={len(leafs) if isinstance(leafs, list) else 0}, "
-                    f"nodes={len(nodes) if isinstance(nodes, list) else 0}, "
-                    f"show={show}, mode={mode}, assoc={assoc}"
-                )
-                await self.hass.async_add_executor_job(
-                    _LOGGER.debug, "[MiWiFi] Auto-main => %s (%s)", auto_main, graph["auto_reason"]
-                )
+        except Exception as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Error interpreting topology: %s",
+                e,
+            )
 
-            except Exception as e:
-                await self.hass.async_add_executor_job(
-                    _LOGGER.warning, "[MiWiFi] Error interpreting topology: %s", e
-                )
-
+        # --------------------------
+        # Manual main / single integration fallback (keep behavior)
+        # --------------------------
+        try:
             if not auto_main:
                 from custom_components.miwifi.frontend import async_load_manual_main_mac
+
                 manual_mac = await async_load_manual_main_mac(self.hass)
                 if manual_mac:
                     if (manual_mac or "").lower() == (graph.get("mac") or "").lower():
                         graph["is_main"] = True
-                        await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Main router restored from saved MAC: %s", manual_mac)
+                        await self.hass.async_add_executor_job(
+                            _LOGGER.debug,
+                            "[MiWiFi] Main router restored from saved MAC: %s",
+                            manual_mac,
+                        )
                     else:
                         graph.pop("is_main", None)
                 else:
-                    # Fallback: if only one integration exists, assume it's the main one.
                     from .updater import async_get_integrations
+
                     integrations = async_get_integrations(self.hass)
                     if len(integrations) == 1:
                         graph["is_main"] = True
-                        auto_main = True # Treat as auto for logic purposes
                         graph["is_main_auto"] = True
                         graph["auto_reason"] = "single_integration_fallback"
-                        await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Main router set by single integration fallback")
+                        auto_main = True
+                        await self.hass.async_add_executor_job(
+                            _LOGGER.debug,
+                            "[MiWiFi] Main router set by single integration fallback",
+                        )
                     else:
                         graph.pop("is_main", None)
             else:
                 graph["is_main"] = True
 
-            graph["is_main_auto"] = auto_main
+            graph["is_main_auto"] = bool(graph.get("is_main_auto", auto_main))
 
-            self.data["topo_graph"] = topo_data
-            await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Topology graph data received for router at %s: %s", self.ip, topo_data)
+        except Exception as e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] Topo manual/single fallback error: %s",
+                e,
+            )
 
+        # Store ALWAYS as dict (never None)
+        self.data["topo_graph"] = topo_data
+
+        await self.hass.async_add_executor_job(
+            _LOGGER.debug,
+            "[MiWiFi] Topology graph data received for router at %s: %s",
+            self.ip,
+            topo_data,
+        )
+
+        # Best-effort: sync topology sensor attrs if present (do not ever break)
+        with contextlib.suppress(Exception):
             for entity in self.hass.states.async_all("sensor"):
                 eid = entity.entity_id or ""
                 if eid.startswith("sensor.topologia_miwifi") or eid.startswith("sensor.miwifi_topology"):
                     g = entity.attributes.get("graph", {}) or {}
                     mac_entity = (g.get("mac") or "").lower()
-                    mac_graph  = (graph.get("mac") or "").lower()
+                    mac_graph = (graph.get("mac") or "").lower()
                     if mac_entity and mac_entity == mac_graph:
                         clean_attributes = {
                             "graph": dict(graph),
@@ -1953,28 +2122,25 @@ class LuciUpdater(DataUpdateCoordinator):
                         }
                         self.hass.states.async_set(eid, entity.state, clean_attributes)
 
-            try:
-                self.async_set_updated_data(self.data)
-            except AttributeError:
-                pass
+        with contextlib.suppress(AttributeError):
+            self.async_set_updated_data(self.data)
 
-            nodes = graph.get("nodes")
-            if isinstance(nodes, list):
-                for node in nodes:
-                    if isinstance(node, dict):
-                        node_ip = node.get("ip")
-                        node_mac = node.get("mac")
-                        if node_ip and node_ip != self.ip:
-                            if node_ip not in self.hass.data.get(DOMAIN, {}):
-                                await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] 🆕 Non-integrated Mesh Node: IP=%s, MAC=%s", node_ip, node_mac)
+        # Mesh node detection (safe)
+        nodes = graph.get("nodes")
+        if isinstance(nodes, list):
+            for node in nodes:
+                if isinstance(node, dict):
+                    node_ip = node.get("ip")
+                    node_mac = node.get("mac")
+                    if node_ip and node_ip != self.ip:
+                        if node_ip not in self.hass.data.get(DOMAIN, {}):
+                            await self.hass.async_add_executor_job(
+                                _LOGGER.warning,
+                                "[MiWiFi] 🆕 Non-integrated Mesh Node: IP=%s, MAC=%s",
+                                node_ip,
+                                node_mac,
+                            )
 
-        except LuciError as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] Failed to get topology graph for router at %s: %s", self.ip, e)
-            self.data["topo_graph"] = None
-
-        except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Unexpected error while getting topology graph for router at %s: %s", self.ip, e)
-            self.data["topo_graph"] = None
 
     @property
     def entry_id(self) -> str | None:
