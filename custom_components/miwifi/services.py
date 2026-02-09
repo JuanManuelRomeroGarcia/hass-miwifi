@@ -365,25 +365,29 @@ class MiWifiBlockDeviceServiceCall:
         if not main_updater:
             raise vol.Invalid("Main router not found (is_main).")
 
-        caps = getattr(main_updater, "capabilities", {}) or {}
-        supports = bool(caps.get("mac_filter") or caps.get("mac_filter_info"))
-
-        if not supports:
+        # NOTE:
+        # macfilter_info (read) can timeout on busy firmwares, but set_mac_filter (write)
+        # may still work. Do NOT disable this service based on macfilter_info support/timeout.
+        if not isinstance(getattr(main_updater, "capabilities", None), dict):
             try:
                 await main_updater._async_prepare_compatibility()
             except Exception:
                 pass
-            caps = getattr(main_updater, "capabilities", {}) or {}
-            supports = bool(caps.get("mac_filter") or caps.get("mac_filter_info"))
-
-        if not supports:
-            raise vol.Invalid("This router does not support MAC Filter API.")
 
         allow = service.data["allow"]
 
         try:
             await main_updater.luci.login()
             await main_updater.luci.set_mac_filter(mac_address, allow)
+            
+            # Keep UI consistent even if macfilter_info is in cooldown/timeout:
+            try:
+                fm = getattr(main_updater, "_filter_macs", None)
+                if isinstance(fm, dict):
+                    fm[str(mac_address).upper()] = 1 if allow else 0  # 1=allowed, 0=blocked
+            except Exception:
+                pass
+            
             await main_updater._async_prepare_devices(main_updater.data)
 
             await self.hass.async_add_executor_job(
@@ -403,6 +407,9 @@ class MiWifiBlockDeviceServiceCall:
                 await self.hass.async_add_executor_job(
                     _LOGGER.error, "[MiWiFi] Error applying MAC filter: %s", e
                 )
+                msg = str(e).lower()
+                if any(x in msg for x in ("unknown api", "not found", "no such", "404")):
+                    raise vol.Invalid("This router firmware does not expose MAC Filter control API.") from e
                 raise vol.Invalid(f"Failed to apply mac filter: {e}")
 
         device_registry = dr.async_get(self.hass)
@@ -433,7 +440,6 @@ class MiWifiBlockDeviceServiceCall:
             title=title,
             notification_id=f"miwifi_block_{str(mac_address).replace(':', '_')}",
         )
-
 
 class MiWifiListPortsServiceCall:
     """List NAT port forwarding rules automatically from the main router."""

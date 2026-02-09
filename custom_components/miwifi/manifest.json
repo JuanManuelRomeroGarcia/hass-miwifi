@@ -1,7 +1,7 @@
 {
   "domain": "miwifi",
   "name": "MiWiFi (Xiaohack Edition)",
-  "version": "3.5.7rc2",
+  "version": "3.5.7rc3",
   "documentation": "https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki",
   "issue_tracker": "https://github.com/JuanManuelRomeroGarcia/hass-miwifi/issues",
   "codeowners": [
