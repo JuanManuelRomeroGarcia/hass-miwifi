@@ -1424,6 +1424,22 @@ class LuciUpdater(DataUpdateCoordinator):
 
             # Keep only the active IP entry
             device["ip"] = [active_ip]
+            
+            # ✅ WAN access (devicelist reports authority.wan: 0=blocked, 1=allowed)
+            # Keep tracker attribute consistent across refreshes/screens.
+            try:
+                auth = device.get("authority")
+                if isinstance(auth, dict) and "wan" in auth:
+                    wan = auth.get("wan", 1)
+                    device[ATTR_TRACKER_INTERNET_BLOCKED] = int(wan or 0) == 0
+
+                    # Keep local cache consistent for other paths (macfilter cooldown/timeouts)
+                    fm = getattr(self, "_filter_macs", None)
+                    mac_u = str(device.get(ATTR_TRACKER_MAC, "") or "").strip().upper()
+                    if isinstance(fm, dict) and mac_u:
+                        fm[mac_u] = 0 if device[ATTR_TRACKER_INTERNET_BLOCKED] else 1
+            except Exception:
+                pass
 
             parent_mac = device.get("parent")
             parent_mac = parent_mac.strip().upper() if isinstance(parent_mac, str) else ""
@@ -1714,6 +1730,31 @@ class LuciUpdater(DataUpdateCoordinator):
                 online_uptime = ""
 
         ip_value = ip_attr.get("ip") if isinstance(ip_attr, dict) else None
+        
+        # ✅ WAN access state (keep stable across refreshes):
+        # - Preferred: explicit internet_blocked already computed upstream
+        # - Fallback: devicelist authority.wan (0=blocked, 1=allowed)
+        # - Fallback: cached macfilter map (_filter_macs)
+        internet_blocked = device.get(ATTR_TRACKER_INTERNET_BLOCKED)
+        if internet_blocked is None:
+            try:
+                auth = device.get("authority")
+                if isinstance(auth, dict) and "wan" in auth:
+                    internet_blocked = int(auth.get("wan", 1) or 0) == 0
+            except Exception:
+                internet_blocked = None
+
+        if internet_blocked is None:
+            try:
+                mac_u = str(device.get(ATTR_TRACKER_MAC, "") or "").strip().upper()
+                fm = getattr(self, "_filter_macs", None)
+                if isinstance(fm, dict) and mac_u and mac_u in fm:
+                    internet_blocked = int(fm[mac_u] or 0) == 0
+            except Exception:
+                internet_blocked = None
+
+        if internet_blocked is None:
+            internet_blocked = False
 
         return {
             ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
@@ -1744,9 +1785,7 @@ class LuciUpdater(DataUpdateCoordinator):
             and isinstance(ip_value, str)
             and ip_value in integrations
             else None,
-            ATTR_TRACKER_INTERNET_BLOCKED: device.get(
-                ATTR_TRACKER_INTERNET_BLOCKED, False
-            ),
+            ATTR_TRACKER_INTERNET_BLOCKED: bool(internet_blocked),
             ATTR_TRACKER_TOTAL_USAGE: total_usage,
         }
 
