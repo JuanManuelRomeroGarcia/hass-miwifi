@@ -449,7 +449,11 @@ class LuciClient:
         except:
             _LOGGER.info("Primary endpoint failed load qnetwork/get_netmode")
             try:
-                return await self.netmode()
+                response = await self.netmode()
+                # Convert netmode field to mode field for compatibility
+                if isinstance(response, dict) and "netmode" in response and "mode" not in response:
+                    response["mode"] = response["netmode"]
+                return response
             except Exception as e:
                 _LOGGER.error("Fallback endpoint also failed: %s", e)
                 return {"mode": 0}
