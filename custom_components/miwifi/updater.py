@@ -381,7 +381,7 @@ class LuciUpdater(DataUpdateCoordinator):
         # Panel frontend version check (local + remote)
         try:
             from .frontend import read_local_version, read_remote_version
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
                 local = await read_local_version(self.hass)
                 remote = await read_remote_version(session)
                 self.data["panel_local_version"] = local
