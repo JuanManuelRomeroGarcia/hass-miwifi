@@ -7,8 +7,7 @@ import time
 from functools import cached_property
 from typing import Any, Final
 
-from homeassistant.components.device_tracker import ENTITY_ID_FORMAT
-from homeassistant.components.device_tracker.config_entry import ScannerEntity
+from homeassistant.components.device_tracker import ENTITY_ID_FORMAT, ScannerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
