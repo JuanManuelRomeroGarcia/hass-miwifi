@@ -84,16 +84,25 @@ _MOVES_WITH_NEW_CONFIG_ENTRY_ID: Final = (
     "new_config_entry_id"
     in inspect.signature(dr.DeviceRegistry.async_update_device).parameters
 )
+
+# `via_device` names the parent by identifier, which stopped being unique when a
+# device became the property of one config entry; 2026.9 takes the parent's row
+# id instead and drops the tuple in 2027.8.
+_LINKS_BY_VIA_DEVICE_ID: Final = (
+    "via_device_id"
+    in inspect.signature(dr.DeviceRegistry.async_get_or_create).parameters
+)
 from .updater import LuciUpdater, async_get_updater, async_get_integrations
 
-def _ensure_via_device_exists(
-    hass: HomeAssistant, via_router_mac: Any
-) -> dict:
-    """Ensure the router/node device exists before using via_device.
+def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
+    """Return the node's device row, creating it if we can, else None.
 
-    - Avoids HA 2025.12+ break by never referencing a non-existing via_device.
+    - Avoids HA 2025.12+ break by never referencing a non-existing parent.
     - Creates the router device entry (minimal) if we can map MAC -> config_entry_id.
     - Safely ignores non-dict values inside hass.data[DOMAIN].
+
+    The row itself, rather than its identifier, because that is what a recent
+    core wants: see `_via_device_info`.
     """
 
     def _norm_mac(val: Any) -> str:
@@ -114,13 +123,8 @@ def _ensure_via_device_exists(
     dev_reg = dr.async_get(hass)
 
     # If already exists, ok.
-    existing_rows = device_registry_rows(
-        dev_reg, identifiers={(DOMAIN, via_router_mac_lc)}
-    )
-    if existing_rows:
-        if "via_device_id" in DeviceInfo.__annotations__:
-            return {"via_device_id": existing_rows[0].id}
-        return {"via_device": (DOMAIN, via_router_mac_lc)}
+    if rows := device_registry_rows(dev_reg, identifiers={(DOMAIN, via_router_mac_lc)}):
+        return rows[0]
     # Map router-mac -> config_entry_id using hass.data[DOMAIN][entry_id][UPDATER]
     domain_data = hass.data.get(DOMAIN, {})
     if not isinstance(domain_data, dict):
@@ -160,24 +164,35 @@ def _ensure_via_device_exists(
     if not target_entry_id:
         return {}
 
-    existing = get_device(
-        dev_reg, target_entry_id, identifier=(DOMAIN, via_router_mac_lc)
+    # Create minimal router device so HA can reference the parent safely
+    return dev_reg.async_get_or_create(
+        config_entry_id=target_entry_id,
+        identifiers={(DOMAIN, via_router_mac_lc)},
+        connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)},
+        name=target_name,
+        manufacturer=target_manufacturer,
+        model=target_model,
     )
-    if existing is None:
-        existing = dev_reg.async_get_or_create(
-            config_entry_id=target_entry_id,
-            identifiers={(DOMAIN, via_router_mac_lc)},
-            connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)},
-            name=target_name,
-            manufacturer=target_manufacturer,
-            model=target_model,
-        )
 
-    if "via_device_id" in DeviceInfo.__annotations__:
-        return {"via_device_id": existing.id}
-    return {"via_device": (DOMAIN, via_router_mac_lc)}
+def _via_device_info(node: Any) -> dict:
+    """The DeviceInfo key that hangs a client off the node serving it.
 
+    Which key that is depends on the core: `via_device_id` from 2026.9, the
+    `via_device` identifier tuple before it. Nothing at all when we could not
+    resolve the node - pointing at a device that does not exist is the 2025.12
+    breakage this whole path exists to avoid.
 
+    :param node: the node's device row, or None
+    :return dict: zero or one DeviceInfo key
+    """
+
+    if node is None:
+        return {}
+
+    if _LINKS_BY_VIA_DEVICE_ID:
+        return {"via_device_id": node.id}
+
+    return {"via_device": next(iter(node.identifiers), None)}
 def _move_device_row(
     dev_reg: dr.DeviceRegistry, row: Any, entry_id: str, stale_links: set[str]
 ) -> None:
@@ -749,7 +764,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         via_router_mac_lc = str(
             self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS) or ""
         ).strip().lower()
-        via_device = _ensure_via_device_exists(self.hass, via_router_mac_lc)
+        via_node = _via_device_info(
+            _ensure_via_device_exists(self.hass, via_router_mac_lc)
+        )
 
         _optional_mac = self._device.get(ATTR_TRACKER_OPTIONAL_MAC, None)
         if _optional_mac is not None:
@@ -761,8 +778,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
                 # Identify the device by its own MAC (stable across mesh)
                 identifiers={(DOMAIN, self.mac_address)},
                 name=self._attr_name,
-                **via_device,
                 manufacturer=self.manufacturer,
+                **via_node,
             )
 
         return DeviceInfo(
@@ -771,7 +788,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             name=self._attr_name,
             configuration_url=self.configuration_url,
             manufacturer=self.manufacturer,
-            **via_device,
+            **via_node,
         )
 
     @cached_property
