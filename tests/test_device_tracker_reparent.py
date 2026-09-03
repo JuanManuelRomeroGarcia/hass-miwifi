@@ -25,9 +25,16 @@ the entities belonging to that row's config entry.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import pytest
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from custom_components.miwifi.device_tracker import _reparent_client_device
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from custom_components.miwifi.const import ATTR_TRACKER_UPDATER_ENTRY_ID
+from custom_components.miwifi.device_tracker import (
+    MiWifiDeviceTracker,
+    _reparent_client_device,
+)
 
 MAC: str = "00:00:00:00:00:01"
 OLD: str = "entry_old"
@@ -320,3 +327,53 @@ def test_the_entity_still_moves_first_on_a_recent_core() -> None:
     _, calls, _ = _run([row], _EntityEntry(OLD, device_id=row.id), modern_move=True)
 
     assert calls.index(("entity-move", NEW)) < calls.index(("device-move", NEW))
+
+
+@pytest.mark.asyncio
+async def test_the_cleanup_also_runs_when_the_tracker_is_first_added() -> None:
+    """A restart never reaches the update branch, and that is when rows pile up.
+
+    Adding the entity is what creates the client's device row, under the entry
+    whose platform added it. On a live registry this left the previous node
+    holding an empty row every single restart - three rows for one phone after
+    three restarts - because only roaming was cleaning up.
+    """
+
+    entity = MagicMock()
+    entity.hass.data = {}
+    entity.unique_id = f"miwifi-{MAC}"
+    entity.mac_address = MAC
+    entity._device = {ATTR_TRACKER_UPDATER_ENTRY_ID: NEW}
+    entity._enable_port_probe = False
+
+    with (
+        patch.object(CoordinatorEntity, "async_added_to_hass", AsyncMock()),
+        patch(
+            "custom_components.miwifi.device_tracker._reparent_client_device"
+        ) as reparent,
+    ):
+        await MiWifiDeviceTracker.async_added_to_hass(entity)
+
+    reparent.assert_called_once_with(entity.hass, MAC, NEW)
+
+
+@pytest.mark.asyncio
+async def test_a_tracker_with_no_serving_entry_is_left_alone() -> None:
+    """Without an owner there is no row to keep, and removing any is guesswork."""
+
+    entity = MagicMock()
+    entity.hass.data = {}
+    entity.unique_id = f"miwifi-{MAC}"
+    entity.mac_address = MAC
+    entity._device = {}
+    entity._enable_port_probe = False
+
+    with (
+        patch.object(CoordinatorEntity, "async_added_to_hass", AsyncMock()),
+        patch(
+            "custom_components.miwifi.device_tracker._reparent_client_device"
+        ) as reparent,
+    ):
+        await MiWifiDeviceTracker.async_added_to_hass(entity)
+
+    reparent.assert_not_called()

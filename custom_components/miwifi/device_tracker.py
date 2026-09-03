@@ -623,6 +623,15 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         self.hass.data[DOMAIN].setdefault("device_tracker_entities", {})
         self.hass.data[DOMAIN]["device_tracker_entities"][self.unique_id] = self
 
+        # Adding the entity is what creates this client's device row, under the
+        # entry whose platform added it - so a restart leaves the node that held
+        # the client before with a row and no entity. Roaming reaches the update
+        # branch of `add_device` and is already handled there; a restart never
+        # does, which is why the rows survived one.
+        entry_id = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        if entry_id:
+            _reparent_client_device(self.hass, self.mac_address, entry_id)
+
         if not self._enable_port_probe:
             return
 
