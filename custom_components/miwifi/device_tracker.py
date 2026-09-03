@@ -159,6 +159,71 @@ def _ensure_via_device_exists(
     return {"via_device": (DOMAIN, via_router_mac_lc)}
 
 
+def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> bool:
+    """Hand a client over to the node that is serving it now.
+
+    A client keeps one entity for the whole mesh - identity is the MAC, by
+    design - but the registry still records it against whichever entry created
+    it, and Home Assistant lists a device under *every* config entry linked to
+    it while never unlinking one on its own. A client therefore collected a link
+    per node it had ever been seen on, so no entry's device list answered "the
+    clients on this node": on the mesh this was traced on, one phone sat under
+    two nodes at once, having roamed between them.
+
+    The order below is forced, not stylistic. HA's entity registry removes the
+    entities belonging to a config entry the moment that entry comes off their
+    device (`_handle_device_registry_update`), so the entity has to be pointed
+    at the new node *before* the old one is dropped. Dropping first deletes the
+    tracker, and its entity_id and history with it.
+
+    :param hass: HomeAssistant
+    :param mac_lc: str: client MAC, lower case
+    :param entry_id: str: the entry of the node serving it now
+    :return bool: True when something was actually moved
+    """
+
+    dev_reg = dr.async_get(hass)
+
+    device = dev_reg.async_get_device(identifiers={(DOMAIN, mac_lc)})
+    if device is None:
+        return False
+
+    # Only ever unlink our own entries. The same physical device can legitimately
+    # be held by another integration, and that link is none of our business.
+    ours: set[str] = {
+        entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)
+    }
+    stale: set[str] = (device.config_entries & ours) - {entry_id}
+
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "device_tracker", DOMAIN, f"{DOMAIN}-{mac_lc}"
+    )
+    entity_entry = registry.async_get(entity_id) if entity_id else None
+    entity_moved = entity_entry is not None and entity_entry.config_entry_id != entry_id
+
+    if not stale and not entity_moved:
+        return False
+
+    if entity_moved:
+        registry.async_update_entity(entity_id, config_entry_id=entry_id)
+
+    if entry_id not in device.config_entries:
+        dev_reg.async_update_device(device.id, add_config_entry_id=entry_id)
+
+    for old_entry_id in stale:
+        dev_reg.async_update_device(device.id, remove_config_entry_id=old_entry_id)
+
+    _LOGGER.debug(
+        "[MiWiFi] Client %s now belongs to entry %s; dropped %s stale node link(s)",
+        mac_lc,
+        entry_id,
+        len(stale),
+    )
+
+    return True
+
+
 SOURCE_TYPE_ROUTER = "router"
 
 PARALLEL_UPDATES = 0
@@ -290,6 +355,11 @@ async def async_setup_entry(
         if ent is not None:
             ent._device = dict(new_device)  # noqa: SLF001
             ent.async_write_ha_state()
+
+            # We are the node serving this client: the registry has to say so.
+            # Roaming reaches exactly this branch - the entity already exists,
+            # and until now nothing followed it to its new node.
+            _reparent_client_device(hass, mac_lc, config_entry.entry_id)
             return
 
         # Avoid parallel duplicate creations across mesh nodes
