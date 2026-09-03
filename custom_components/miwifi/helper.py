@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
@@ -254,3 +255,34 @@ async def set_global_auto_purge(
         data["at"] = _normalize_time_str(at)
     await _auto_purge_store(hass).async_save(data)
     return data
+
+
+def device_registry_rows(
+    dev_reg: dr.DeviceRegistry,
+    *,
+    identifiers: set[tuple[str, str]] | None = None,
+    connections: set[tuple[str, str]] | None = None,
+) -> list[dr.DeviceEntry]:
+    """Every device registry row matching the lookup.
+
+    From core 2026.9 a device row belongs to exactly one config entry, so the
+    same identifier or MAC can name one row per entry that ever published it.
+    `async_get_device` returns only one of them - whichever the registry indexed
+    first - and is deprecated for that reason, which makes it useless for a mesh
+    where one client is seen by several nodes. Older cores have no
+    `async_get_devices`; there a single row is the whole truth anyway.
+
+    :param dev_reg: dr.DeviceRegistry
+    :param identifiers: set[tuple[str, str]] | None
+    :param connections: set[tuple[str, str]] | None
+    :return list[dr.DeviceEntry]: the matching rows
+    """
+
+    if (get_devices := getattr(dev_reg, "async_get_devices", None)) is not None:
+        return list(get_devices(identifiers=identifiers, connections=connections))
+
+    device = dev_reg.async_get_device(
+        identifiers=identifiers, connections=connections
+    )
+
+    return [device] if device is not None else []

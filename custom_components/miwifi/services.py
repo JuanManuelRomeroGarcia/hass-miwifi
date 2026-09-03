@@ -13,7 +13,7 @@ from .logger import _LOGGER, async_recreate_log_handlers
 from typing import Final
 from .sensor import MiWifiNATRulesSensor 
 from .notifier import MiWiFiNotifier
-from .helper import parse_last_activity
+from .helper import device_registry_rows, parse_last_activity
 
 
 import homeassistant.components.persistent_notification as pn
@@ -184,10 +184,13 @@ class MiWifiRequestServiceCall(MiWifiServiceCall):
         except LuciError:
             return
 
-        device = get_device(
-            dr.async_get(self.hass), updater._entry_id,
-            connection=(dr.CONNECTION_NETWORK_MAC, str(device_identifier).strip().lower()),
+        rows: list = device_registry_rows(
+            dr.async_get(self.hass),
+            connections={
+                (dr.CONNECTION_NETWORK_MAC, str(device_identifier).strip().lower())
+            },
         )
+        device: dr.DeviceEntry | None = rows[0] if rows else None
         if device is not None:
             self.hass.bus.async_fire(EVENT_LUCI, {
                 CONF_DEVICE_ID: device.id,

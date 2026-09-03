@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 import asyncio
 import time
 from functools import cached_property
@@ -66,6 +68,7 @@ from .registry import get_device
 from .enum import Connection, DeviceClass
 from .helper import (
     detect_manufacturer,
+    device_registry_rows,
     get_config_value,
     map_signal_quality,
     parse_last_activity,
@@ -73,6 +76,14 @@ from .helper import (
 )
 from .logger import _LOGGER
 from .update import MiWiFiNewDeviceNotifier
+
+# From core 2026.9 a device belongs to one config entry and moving it is a single
+# `new_config_entry_id`. The add/remove pair it replaces still works there, but is
+# deprecated and becomes an error in 2027.8 - and older cores have nothing else.
+_MOVES_WITH_NEW_CONFIG_ENTRY_ID: Final = (
+    "new_config_entry_id"
+    in inspect.signature(dr.DeviceRegistry.async_update_device).parameters
+)
 from .updater import LuciUpdater, async_get_updater, async_get_integrations
 
 def _ensure_via_device_exists(
@@ -102,6 +113,14 @@ def _ensure_via_device_exists(
 
     dev_reg = dr.async_get(hass)
 
+    # If already exists, ok.
+    existing_rows = device_registry_rows(
+        dev_reg, identifiers={(DOMAIN, via_router_mac_lc)}
+    )
+    if existing_rows:
+        if "via_device_id" in DeviceInfo.__annotations__:
+            return {"via_device_id": existing_rows[0].id}
+        return {"via_device": (DOMAIN, via_router_mac_lc)}
     # Map router-mac -> config_entry_id using hass.data[DOMAIN][entry_id][UPDATER]
     domain_data = hass.data.get(DOMAIN, {})
     if not isinstance(domain_data, dict):
@@ -159,32 +178,32 @@ def _ensure_via_device_exists(
     return {"via_device": (DOMAIN, via_router_mac_lc)}
 
 
-def _client_device_rows(dev_reg: dr.DeviceRegistry, mac_lc: str) -> list:
-    """Every device registry row carrying this client's identifier.
+def _move_device_row(
+    dev_reg: dr.DeviceRegistry, row: Any, entry_id: str, stale_links: set[str]
+) -> None:
+    """Put a device row under the config entry that serves it now.
 
-    Since core 2026.9 a device row belongs to exactly **one** config entry, so a
-    client seen on two nodes is two rows with the same identifier - not one row
-    with two links, which is what the pre-2026.9 model recorded and what
-    `DeviceEntry.config_entries` still pretends by returning a one-element set.
-    `async_get_device` is deprecated for precisely this reason: with several
-    matches inside one integration it returns whichever the registry indexed
-    first, so a caller that fetches one row cannot see, let alone clean up, the
-    others. Older cores have no `async_get_devices`; there the single lookup is
-    the whole truth anyway.
+    A device belongs to one config entry, so from core 2026.9 this is one call:
+    `new_config_entry_id`. Before that it took an add followed by a remove, and
+    the two together are what that core still recognises as a move rather than a
+    deletion - it is deprecated (an error from 2027.8) but it is all an older
+    core understands.
 
     :param dev_reg: dr.DeviceRegistry
-    :param mac_lc: str: client MAC, lower case
-    :return list: the matching rows, newest core first
+    :param row: the row to move
+    :param entry_id: str: the entry of the node serving the client
+    :param stale_links: set[str]: our own entries still on the row
     """
 
-    identifiers = {(DOMAIN, mac_lc)}
+    if _MOVES_WITH_NEW_CONFIG_ENTRY_ID:
+        dev_reg.async_update_device(row.id, new_config_entry_id=entry_id)
+        return
 
-    if (get_devices := getattr(dev_reg, "async_get_devices", None)) is not None:
-        return list(get_devices(identifiers=identifiers))
+    if entry_id not in row.config_entries:
+        dev_reg.async_update_device(row.id, add_config_entry_id=entry_id)
 
-    device = dev_reg.async_get_device(identifiers=identifiers)
-
-    return [device] if device is not None else []
+    for old_entry_id in stale_links:
+        dev_reg.async_update_device(row.id, remove_config_entry_id=old_entry_id)
 
 
 def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> bool:
@@ -224,7 +243,7 @@ def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> 
 
     dev_reg = dr.async_get(hass)
 
-    rows: list = _client_device_rows(dev_reg, mac_lc)
+    rows: list = device_registry_rows(dev_reg, identifiers={(DOMAIN, mac_lc)})
     if not rows:
         return False
 
@@ -271,11 +290,8 @@ def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> 
     if entity_moved:
         registry.async_update_entity(entity_id, config_entry_id=entry_id)
 
-    if row_moved:
-        dev_reg.async_update_device(keep.id, add_config_entry_id=entry_id)
-
-    for old_entry_id in stale_links:
-        dev_reg.async_update_device(keep.id, remove_config_entry_id=old_entry_id)
+    if row_moved or stale_links:
+        _move_device_row(dev_reg, keep, entry_id, stale_links)
 
     for row in doomed:
         dev_reg.async_remove_device(row.id)
@@ -857,19 +873,18 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         entry_id: str | None = track_device.get(ATTR_TRACKER_ENTRY_ID)
 
         device_registry: dr.DeviceRegistry = dr.async_get(self.hass)
-        # The entity remains owned by its original config entry when roaming.
-        entity_entry = er.async_get(self.hass).async_get(self.entity_id)
-        owner_entry_id = entity_entry.config_entry_id if entity_entry else self._updater._entry_id
-        device = get_device(
-            device_registry, owner_entry_id,
-            connection=(dr.CONNECTION_NETWORK_MAC, self.mac_address),
+        rows: list = device_registry_rows(
+            device_registry,
+            connections={(dr.CONNECTION_NETWORK_MAC, self.mac_address)},
         )
+        device: dr.DeviceEntry | None = rows[0] if rows else None
 
+        # Which node owns this client is decided in one place, and it is
+        # _reparent_client_device. What used to stand here added the tracker's
+        # entry to the device on every cycle, which is how the links piled up in
+        # the first place - and from core 2026.9 an add on its own does nothing
+        # at all except warn.
         if device is not None:
-            if (not hasattr(device_registry, "async_get_device_by_connection")
-                and entry_id and device.config_entries and entry_id not in device.config_entries):
-                device_registry.async_update_device(device.id, add_config_entry_id=entry_id)
-
             if device.configuration_url is None and self.configuration_url is not None:
                 device_registry.async_update_device(device.id, configuration_url=self.configuration_url)
 

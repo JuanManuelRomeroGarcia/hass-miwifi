@@ -61,9 +61,18 @@ class _LegacyDeviceRegistry:
         return next(row for row in self.rows if row.id == device_id)
 
     def async_update_device(
-        self, device_id, *, add_config_entry_id=None, remove_config_entry_id=None, **kw
+        self,
+        device_id,
+        *,
+        add_config_entry_id=None,
+        remove_config_entry_id=None,
+        new_config_entry_id=None,
+        **kw,
     ):
         row = self._row(device_id)
+        if new_config_entry_id is not None:
+            row.config_entries = {new_config_entry_id}
+            self._calls.append(("device-move", new_config_entry_id))
         if add_config_entry_id is not None:
             row.config_entries.add(add_config_entry_id)
             self._calls.append(("device-add", add_config_entry_id))
@@ -111,6 +120,7 @@ def _run(
     entity: _EntityEntry | None,
     owner: str = NEW,
     legacy: bool = False,
+    modern_move: bool = False,
 ):
     """Drive the helper against fake registries; return (moved, calls, registry)."""
 
@@ -138,6 +148,10 @@ def _run(
         patch(
             "custom_components.miwifi.device_tracker.er.async_entries_for_device",
             _entries_for_device,
+        ),
+        patch(
+            "custom_components.miwifi.device_tracker._MOVES_WITH_NEW_CONFIG_ENTRY_ID",
+            modern_move,
         ),
     ):
         moved = _reparent_client_device(hass, MAC, owner)
@@ -281,3 +295,28 @@ def test_an_entity_the_registry_cannot_place_still_picks_a_row() -> None:
     assert moved is True
     assert dev_reg.rows == [on_target]
     assert ("row-remove", other.id) in calls
+
+
+def test_a_recent_core_moves_the_row_with_one_call() -> None:
+    """From 2026.9 the add/remove pair is deprecated: `new_config_entry_id`."""
+
+    row = _Device({OLD}, entities=1)
+
+    moved, calls, _ = _run(
+        [row], _EntityEntry(OLD, device_id=row.id), modern_move=True
+    )
+
+    assert moved is True
+    assert row.config_entries == {NEW}
+    assert ("device-move", NEW) in calls
+    assert not [call for call in calls if call[0] in ("device-add", "device-remove")]
+
+
+def test_the_entity_still_moves_first_on_a_recent_core() -> None:
+    """The rule that forces the order changed shape, not direction."""
+
+    row = _Device({OLD}, entities=1)
+
+    _, calls, _ = _run([row], _EntityEntry(OLD, device_id=row.id), modern_move=True)
+
+    assert calls.index(("entity-move", NEW)) < calls.index(("device-move", NEW))
