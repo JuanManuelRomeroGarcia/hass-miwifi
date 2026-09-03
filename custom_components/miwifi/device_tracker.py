@@ -159,66 +159,132 @@ def _ensure_via_device_exists(
     return {"via_device": (DOMAIN, via_router_mac_lc)}
 
 
+def _client_device_rows(dev_reg: dr.DeviceRegistry, mac_lc: str) -> list:
+    """Every device registry row carrying this client's identifier.
+
+    Since core 2026.9 a device row belongs to exactly **one** config entry, so a
+    client seen on two nodes is two rows with the same identifier - not one row
+    with two links, which is what the pre-2026.9 model recorded and what
+    `DeviceEntry.config_entries` still pretends by returning a one-element set.
+    `async_get_device` is deprecated for precisely this reason: with several
+    matches inside one integration it returns whichever the registry indexed
+    first, so a caller that fetches one row cannot see, let alone clean up, the
+    others. Older cores have no `async_get_devices`; there the single lookup is
+    the whole truth anyway.
+
+    :param dev_reg: dr.DeviceRegistry
+    :param mac_lc: str: client MAC, lower case
+    :return list: the matching rows, newest core first
+    """
+
+    identifiers = {(DOMAIN, mac_lc)}
+
+    if (get_devices := getattr(dev_reg, "async_get_devices", None)) is not None:
+        return list(get_devices(identifiers=identifiers))
+
+    device = dev_reg.async_get_device(identifiers=identifiers)
+
+    return [device] if device is not None else []
+
+
 def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> bool:
     """Hand a client over to the node that is serving it now.
 
     A client keeps one entity for the whole mesh - identity is the MAC, by
-    design - but the registry still records it against whichever entry created
-    it, and Home Assistant lists a device under *every* config entry linked to
-    it while never unlinking one on its own. A client therefore collected a link
-    per node it had ever been seen on, so no entry's device list answered "the
-    clients on this node": on the mesh this was traced on, one phone sat under
-    two nodes at once, having roamed between them.
+    design - but the registry records a device row per config entry that ever
+    published it, and nothing takes those rows away again. A client therefore
+    collected a row per node it had ever been seen on, so no entry's device list
+    answered "the clients on this node": on the mesh this was traced on, one
+    phone sat under two nodes at once, having roamed between them.
 
-    The order below is forced, not stylistic. HA's entity registry removes the
-    entities belonging to a config entry the moment that entry comes off their
-    device (`_handle_device_registry_update`), so the entity has to be pointed
-    at the new node *before* the old one is dropped. Dropping first deletes the
-    tracker, and its entity_id and history with it.
+    So there are two jobs here, and the first one alone is not enough - it is
+    what the first cut of this did, and it left the empty rows exactly where
+    they were:
+
+    1. the row that carries the tracker moves to the serving node;
+    2. the rows left under our *other* entries go, because they are what those
+       nodes' device lists were showing.
+
+    The order inside step 1 is forced, not stylistic. The entity registry
+    deletes an entity when the device row it sits on changes config entry and
+    the entity is still pointing at the old one (`async_device_modified`, core
+    2026.9; `_handle_device_registry_update` before it). The entity therefore
+    has to be pointed at the new node *before* the row is moved. Doing it the
+    other way round deletes the tracker, and its entity_id and history with it.
+
+    Step 2 only ever removes a row with **no** entities on it. Removing a row
+    takes down the entities whose config entry is that row's, so an occupied row
+    is left alone: better a stale listing than a deleted tracker.
 
     :param hass: HomeAssistant
     :param mac_lc: str: client MAC, lower case
     :param entry_id: str: the entry of the node serving it now
-    :return bool: True when something was actually moved
+    :return bool: True when something was actually moved or dropped
     """
 
     dev_reg = dr.async_get(hass)
 
-    device = dev_reg.async_get_device(identifiers={(DOMAIN, mac_lc)})
-    if device is None:
+    rows: list = _client_device_rows(dev_reg, mac_lc)
+    if not rows:
         return False
 
-    # Only ever unlink our own entries. The same physical device can legitimately
-    # be held by another integration, and that link is none of our business.
+    # Only ever touch our own entries. The same physical device can legitimately
+    # be held by another integration, and that row is none of our business.
     ours: set[str] = {
         entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)
     }
-    stale: set[str] = (device.config_entries & ours) - {entry_id}
 
     registry = er.async_get(hass)
     entity_id = registry.async_get_entity_id(
         "device_tracker", DOMAIN, f"{DOMAIN}-{mac_lc}"
     )
     entity_entry = registry.async_get(entity_id) if entity_id else None
-    entity_moved = entity_entry is not None and entity_entry.config_entry_id != entry_id
 
-    if not stale and not entity_moved:
+    # The row holding the tracker is the one to keep: move any other and the
+    # entity stays behind, on a row about to be emptied or dropped.
+    keep = None
+    if entity_entry is not None and entity_entry.device_id:
+        keep = next((row for row in rows if row.id == entity_entry.device_id), None)
+    if keep is None:
+        keep = next((row for row in rows if entry_id in row.config_entries), rows[0])
+
+    entity_moved: bool = (
+        entity_entry is not None and entity_entry.config_entry_id != entry_id
+    )
+    row_moved: bool = entry_id not in keep.config_entries
+    # A core before 2026.9 could put several entries on one row, so the row we
+    # keep may itself still carry an old node - with or without a move.
+    stale_links: set[str] = (keep.config_entries & ours) - {entry_id}
+    doomed: list = [
+        row
+        for row in rows
+        if row.id != keep.id
+        and row.config_entries & ours
+        and not er.async_entries_for_device(
+            registry, row.id, include_disabled_entities=True
+        )
+    ]
+
+    if not entity_moved and not row_moved and not stale_links and not doomed:
         return False
 
     if entity_moved:
         registry.async_update_entity(entity_id, config_entry_id=entry_id)
 
-    if entry_id not in device.config_entries:
-        dev_reg.async_update_device(device.id, add_config_entry_id=entry_id)
+    if row_moved:
+        dev_reg.async_update_device(keep.id, add_config_entry_id=entry_id)
 
-    for old_entry_id in stale:
-        dev_reg.async_update_device(device.id, remove_config_entry_id=old_entry_id)
+    for old_entry_id in stale_links:
+        dev_reg.async_update_device(keep.id, remove_config_entry_id=old_entry_id)
+
+    for row in doomed:
+        dev_reg.async_remove_device(row.id)
 
     _LOGGER.debug(
-        "[MiWiFi] Client %s now belongs to entry %s; dropped %s stale node link(s)",
+        "[MiWiFi] Client %s now belongs to entry %s; dropped %s empty device row(s)",
         mac_lc,
         entry_id,
-        len(stale),
+        len(doomed),
     )
 
     return True

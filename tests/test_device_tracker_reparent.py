@@ -1,16 +1,24 @@
 """A roaming client belongs to the node serving it, and to that node only.
 
 One entity per client MAC across the whole mesh is deliberate. The registry,
-however, still recorded the client against whichever entry created its entity,
-and Home Assistant lists a device under every config entry linked to it while
-never unlinking one by itself. Links therefore accumulated: on the mesh this was
-traced on, a phone that had roamed sat under two nodes at the same time, and no
-entry's device list meant "the clients on this node".
+however, records a **device row per config entry** that ever published the
+client, and nothing takes those rows away again: on the mesh this was traced on,
+a phone that had roamed sat under two nodes at the same time, so no entry's
+device list meant "the clients on this node".
 
-The order of the three registry writes is the load-bearing part. HA removes the
-entities of a config entry as soon as that entry comes off their device, so
-dropping the old node before pointing the entity at the new one deletes the
-tracker outright.
+Two things therefore have to happen, and the first alone is not enough - the
+first cut of this moved one row and left the others exactly where they were,
+which is what a live registry showed afterwards: an empty device sitting under a
+node that serves nothing. The row carrying the tracker moves to the serving
+node, and the rows left behind under our other entries go.
+
+The order inside the move is the load-bearing part. The entity registry deletes
+an entity when its device row changes config entry while the entity still points
+at the old one, so dropping the old node before pointing the entity at the new
+one deletes the tracker outright.
+
+A row that still has entities on it is never removed: removing a row takes down
+the entities belonging to that row's config entry.
 """
 
 # pylint: disable=protected-access
@@ -19,9 +27,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from custom_components.miwifi.const import DOMAIN
 from custom_components.miwifi.device_tracker import _reparent_client_device
 
 MAC: str = "00:00:00:00:00:01"
@@ -31,34 +36,58 @@ FOREIGN: str = "entry_of_another_integration"
 
 
 class _Device:
-    def __init__(self, config_entries: set[str]) -> None:
-        self.id = "device_id"
+    """One device registry row. Since core 2026.9 a row has a single entry."""
+
+    _next: int = 0
+
+    def __init__(self, config_entries: set[str], entities: int = 0) -> None:
+        _Device._next += 1
+        self.id = f"device_{_Device._next}"
         self.config_entries = set(config_entries)
+        self.entities = entities
 
 
-class _DeviceRegistry:
-    def __init__(self, device: _Device | None, calls: list) -> None:
-        self._device = device
+class _LegacyDeviceRegistry:
+    """A core before 2026.9: no async_get_devices, one row holds every entry."""
+
+    def __init__(self, rows: list[_Device], calls: list) -> None:
+        self.rows = rows
         self._calls = calls
 
     def async_get_device(self, identifiers=None, connections=None):
-        return self._device
+        return self.rows[0] if self.rows else None
+
+    def _row(self, device_id: str) -> _Device:
+        return next(row for row in self.rows if row.id == device_id)
 
     def async_update_device(
         self, device_id, *, add_config_entry_id=None, remove_config_entry_id=None, **kw
     ):
+        row = self._row(device_id)
         if add_config_entry_id is not None:
-            self._device.config_entries.add(add_config_entry_id)
+            row.config_entries.add(add_config_entry_id)
             self._calls.append(("device-add", add_config_entry_id))
         if remove_config_entry_id is not None:
-            self._device.config_entries.discard(remove_config_entry_id)
+            row.config_entries.discard(remove_config_entry_id)
             self._calls.append(("device-remove", remove_config_entry_id))
+
+    def async_remove_device(self, device_id) -> None:
+        self.rows = [row for row in self.rows if row.id != device_id]
+        self._calls.append(("row-remove", device_id))
+
+
+class _DeviceRegistry(_LegacyDeviceRegistry):
+    """Core 2026.9 and later: one row per config entry, all of them listed."""
+
+    def async_get_devices(self, *, identifiers=None, connections=None, **kw):
+        return list(self.rows)
 
 
 class _EntityEntry:
-    def __init__(self, config_entry_id: str) -> None:
+    def __init__(self, config_entry_id: str, device_id: str | None = None) -> None:
         self.entity_id = f"device_tracker.miwifi_{MAC.replace(':', '_')}"
         self.config_entry_id = config_entry_id
+        self.device_id = device_id
 
 
 class _EntityRegistry:
@@ -77,8 +106,13 @@ class _EntityRegistry:
         self._calls.append(("entity-move", config_entry_id))
 
 
-def _run(device: _Device | None, entity: _EntityEntry | None, owner: str = NEW):
-    """Drive the helper against fake registries; return (moved, call log)."""
+def _run(
+    rows: list[_Device],
+    entity: _EntityEntry | None,
+    owner: str = NEW,
+    legacy: bool = False,
+):
+    """Drive the helper against fake registries; return (moved, calls, registry)."""
 
     calls: list = []
     hass = MagicMock()
@@ -87,38 +121,49 @@ def _run(device: _Device | None, entity: _EntityEntry | None, owner: str = NEW):
         MagicMock(entry_id=NEW),
     ]
 
+    dev_reg = (_LegacyDeviceRegistry if legacy else _DeviceRegistry)(rows, calls)
+
+    def _entries_for_device(registry, device_id, include_disabled_entities=False):
+        return [object()] * dev_reg._row(device_id).entities
+
     with (
         patch(
             "custom_components.miwifi.device_tracker.dr.async_get",
-            return_value=_DeviceRegistry(device, calls),
+            return_value=dev_reg,
         ),
         patch(
             "custom_components.miwifi.device_tracker.er.async_get",
             return_value=_EntityRegistry(entity, calls),
         ),
+        patch(
+            "custom_components.miwifi.device_tracker.er.async_entries_for_device",
+            _entries_for_device,
+        ),
     ):
         moved = _reparent_client_device(hass, MAC, owner)
 
-    return moved, calls
+    return moved, calls, dev_reg
 
 
 def test_a_roamed_client_ends_up_on_one_node_only() -> None:
     """The observed defect: the same MAC listed under two nodes at once."""
 
-    device = _Device({OLD})
-    entity = _EntityEntry(OLD)
+    row = _Device({OLD}, entities=1)
+    entity = _EntityEntry(OLD, device_id=row.id)
 
-    moved, _ = _run(device, entity)
+    moved, _, _ = _run([row], entity)
 
     assert moved is True
-    assert device.config_entries == {NEW}
+    assert row.config_entries == {NEW}
     assert entity.config_entry_id == NEW
 
 
 def test_the_entity_moves_before_the_old_node_is_dropped() -> None:
     """Reversed, HA deletes the tracker along with its history."""
 
-    _, calls = _run(_Device({OLD}), _EntityEntry(OLD))
+    row = _Device({OLD}, entities=1)
+
+    _, calls, _ = _run([row], _EntityEntry(OLD, device_id=row.id))
 
     assert calls.index(("entity-move", NEW)) < calls.index(("device-remove", OLD))
     assert calls.index(("device-add", NEW)) < calls.index(("device-remove", OLD))
@@ -127,39 +172,112 @@ def test_the_entity_moves_before_the_old_node_is_dropped() -> None:
 def test_a_client_that_has_not_moved_is_left_alone() -> None:
     """The steady state is every cycle of every client: it must not write."""
 
-    moved, calls = _run(_Device({NEW}), _EntityEntry(NEW))
+    row = _Device({NEW}, entities=1)
+
+    moved, calls, _ = _run([row], _EntityEntry(NEW, device_id=row.id))
 
     assert moved is False
     assert calls == []
 
 
-def test_links_belonging_to_other_integrations_are_not_touched() -> None:
+def test_the_row_another_node_left_behind_is_removed() -> None:
+    """The regression a live registry showed: an empty device under a node.
+
+    Moving one row cleans nothing when the duplicate is a second row, which is
+    how core 2026.9 records "this client was also seen over there".
+    """
+
+    kept = _Device({NEW}, entities=1)
+    leftover = _Device({OLD}, entities=0)
+
+    moved, calls, dev_reg = _run([kept, leftover], _EntityEntry(NEW, device_id=kept.id))
+
+    assert moved is True
+    assert dev_reg.rows == [kept]
+    assert ("row-remove", leftover.id) in calls
+
+
+def test_the_row_carrying_the_tracker_is_the_one_that_moves() -> None:
+    """Move any other and the entity is left behind on a row about to go."""
+
+    carries = _Device({OLD}, entities=1)
+    empty = _Device({NEW}, entities=0)
+
+    moved, calls, dev_reg = _run(
+        [empty, carries], _EntityEntry(OLD, device_id=carries.id)
+    )
+
+    assert moved is True
+    assert carries.config_entries == {NEW}
+    assert dev_reg.rows == [carries]
+    assert ("row-remove", empty.id) in calls
+
+
+def test_an_occupied_row_is_never_removed() -> None:
+    """Removing a row takes its entities with it. A stale listing is cheaper."""
+
+    kept = _Device({NEW}, entities=1)
+    occupied = _Device({OLD}, entities=2)
+
+    moved, calls, dev_reg = _run([kept, occupied], _EntityEntry(NEW, device_id=kept.id))
+
+    assert moved is False
+    assert occupied in dev_reg.rows
+    assert calls == []
+
+
+def test_rows_belonging_to_other_integrations_are_not_touched() -> None:
     """The same hardware may legitimately be held by somebody else."""
 
-    device = _Device({OLD, FOREIGN})
+    kept = _Device({NEW}, entities=1)
+    foreign = _Device({FOREIGN}, entities=0)
 
-    moved, _ = _run(device, _EntityEntry(OLD))
+    moved, calls, dev_reg = _run([kept, foreign], _EntityEntry(NEW, device_id=kept.id))
+
+    assert moved is False
+    assert foreign in dev_reg.rows
+    assert calls == []
+
+
+def test_a_second_link_on_one_row_is_still_dropped() -> None:
+    """Cores before 2026.9 put several entries on a single row."""
+
+    row = _Device({OLD, NEW, FOREIGN}, entities=1)
+
+    moved, _, _ = _run([row], _EntityEntry(NEW, device_id=row.id))
 
     assert moved is True
-    assert device.config_entries == {NEW, FOREIGN}
+    assert row.config_entries == {NEW, FOREIGN}
 
 
-def test_stale_links_are_cleaned_even_when_the_entity_is_already_right() -> None:
-    """Upgrading finds the accumulation already there, entity on the right node."""
+def test_an_older_core_without_async_get_devices_still_works() -> None:
+    """There the single lookup is the whole truth, so it is enough."""
 
-    device = _Device({OLD, NEW})
+    row = _Device({OLD}, entities=1)
 
-    moved, calls = _run(device, _EntityEntry(NEW))
+    moved, _, _ = _run([row], _EntityEntry(OLD, device_id=row.id), legacy=True)
 
     assert moved is True
-    assert device.config_entries == {NEW}
-    assert ("entity-move", NEW) not in calls
+    assert row.config_entries == {NEW}
 
 
 def test_a_client_with_no_device_yet_is_not_an_error() -> None:
     """First sighting: the device is created by the platform, not here."""
 
-    moved, calls = _run(None, None)
+    moved, calls, _ = _run([], None)
 
     assert moved is False
     assert calls == []
+
+
+def test_an_entity_the_registry_cannot_place_still_picks_a_row() -> None:
+    """A tracker with no device_id must not send us to an arbitrary row."""
+
+    on_target = _Device({NEW}, entities=0)
+    other = _Device({OLD}, entities=0)
+
+    moved, calls, dev_reg = _run([other, on_target], _EntityEntry(NEW, device_id=None))
+
+    assert moved is True
+    assert dev_reg.rows == [on_target]
+    assert ("row-remove", other.id) in calls
