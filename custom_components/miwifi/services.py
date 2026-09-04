@@ -58,6 +58,42 @@ from .unsupported import (
     parse_model,
 )
 
+def _has_domain_identifier(identifiers) -> bool:
+    """Check for a MiWiFi identifier without assuming a fixed tuple arity."""
+
+    return any(t and t[0] == DOMAIN for t in identifiers)
+
+
+def _all_device_entries(dev_reg) -> list:
+    """List every device row without using the registry as a mapping.
+
+    From 2026.9 `DeviceRegistry.devices` is a view, not a dict: iterating it
+    yields `DeviceEntry` objects, while `.values()`, `.get()` and subscription
+    are deprecated and are removed in 2027.9. Older cores hand back a UserDict,
+    where iterating yields device **ids** instead.
+
+    Iterate once and normalise what comes out, so the same call works on both
+    without asking the core its version - the id branch keeps the fallback
+    honest if some future container iterates keys again.
+    """
+
+    entries: list = []
+    for item in list(dev_reg.devices):
+        if isinstance(item, str):
+            item = dev_reg.async_get(item)
+        if item is not None:
+            entries.append(item)
+    return entries
+
+
+def _domain_identifier_values(identifiers):
+    """Yield the id part of every MiWiFi identifier, skipping malformed ones."""
+
+    for t in identifiers:
+        if t and t[0] == DOMAIN and len(t) >= 2:
+            yield t[1]
+
+
 class _I18nMixin:
     async def _t(self, key: str, default: str = "", **fmt) -> str:
     
@@ -1585,12 +1621,8 @@ class MiWifiPurgeInactiveDevicesServiceCall:
  
         orphan_targets: list[tuple[str, str | None, float | None]] = []
         if include_orphans:
-            # New HA registries iterate entries; older versions iterate IDs.
-            for item in list(dev_reg.devices):
-                device = dev_reg.async_get(item) if isinstance(item, str) else item
-                if device is None:
-                    continue
-                if not any(identifier and identifier[0] == DOMAIN for identifier in device.identifiers):
+            for device in _all_device_entries(dev_reg):
+                if not _has_domain_identifier(device.identifiers):
                     continue
 
                 ents = er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True)
