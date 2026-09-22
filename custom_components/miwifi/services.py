@@ -47,6 +47,7 @@ from .const import (
     SIGNAL_PURGE_DEVICE,
     DOMAIN
 )
+from .registry import get_device
 from .exceptions import LuciError
 from .updater import LuciUpdater, async_get_updater, async_update_panel_entity, async_get_integrations
 from .frontend import async_save_manual_main_mac, async_clear_manual_main_mac
@@ -183,7 +184,10 @@ class MiWifiRequestServiceCall(MiWifiServiceCall):
         except LuciError:
             return
 
-        device: dr.DeviceEntry | None = dr.async_get(self.hass).async_get_device(set(), {(dr.CONNECTION_NETWORK_MAC, device_identifier)})
+        device = get_device(
+            dr.async_get(self.hass), updater._entry_id,
+            connection=(dr.CONNECTION_NETWORK_MAC, str(device_identifier).strip().lower()),
+        )
         if device is not None:
             self.hass.bus.async_fire(EVENT_LUCI, {
                 CONF_DEVICE_ID: device.id,
@@ -1578,8 +1582,12 @@ class MiWifiPurgeInactiveDevicesServiceCall:
  
         orphan_targets: list[tuple[str, str | None, float | None]] = []
         if include_orphans:
-            for device in list(dev_reg.devices.values()):
-                if not any(dom == DOMAIN for (dom, _id) in device.identifiers):
+            # New HA registries iterate entries; older versions iterate IDs.
+            for item in list(dev_reg.devices):
+                device = dev_reg.async_get(item) if isinstance(item, str) else item
+                if device is None:
+                    continue
+                if not any(identifier and identifier[0] == DOMAIN for identifier in device.identifiers):
                     continue
 
                 ents = er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True)
@@ -1588,10 +1596,14 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                     continue
 
                 mac: str | None = None
-                for dom, ident in device.identifiers:
-                    if dom == DOMAIN and isinstance(ident, str) and ":" in ident:
-                        mac = self._mac_from_unique_id(ident)
-                        break
+                for identifier in device.identifiers:
+                    if len(identifier) < 2 or identifier[0] != DOMAIN:
+                        continue
+                    ident = identifier[1]
+                    if isinstance(ident, str) and ":" in ident:
+                        mac = self._norm_mac(ident) or self._mac_from_unique_id(ident)
+                        if mac:
+                            break
 
                 is_rand = self._is_randomized_mac(mac) if mac else False
                 if only_rand and not (is_rand or (mac is None and include_orphans_wo_age)):
@@ -1640,7 +1652,7 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                 if not dev:
                     continue
    
-                if not any(dom == DOMAIN for (dom, _id) in dev.identifiers):
+                if not any(identifier and identifier[0] == DOMAIN for identifier in dev.identifiers):
                     continue
 
                 if len(dev.config_entries) > 1:

@@ -1,0 +1,74 @@
+{
+  "panel_update": {
+    "title": "Painel MiWiFi",
+    "update_title": "Painel MiWiFi Atualizado",
+    "update_message": "✅ O Painel MiWiFi foi atualizado para a versão <b>{version}</b>.<br>Por favor, <b>atualize o navegador (Ctrl+F5)</b> para ver as mudanças.",
+    "release_notes": "Este painel faz parte da integração personalizada MiWiFi. Ele mostra a topologia da rede, controle de dispositivos e estatísticas do roteador. A atualização inclui melhorias na interface, desempenho e correções de erros."
+  },
+  "connection_type": {
+    "lan": "Cabo (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Rede de Convidados",
+    "wifi_5_0_game": "Wi-Fi 5G (Jogo)",
+    "unknown": "Desconhecido"
+  },
+  "notifications": {
+    "new_device_title": "Novo dispositivo detectado no MiWiFi",
+    "new_device_message": "📶 Novo dispositivo conectado: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Conexão: `{conn}`",
+    "unsupported_router_title": "Roteador não suportado",
+    "unsupported_router_message": "⚠️ O roteador em {ip} não é compatível com a integração MiWiFi.",
+    "device_blocked_message": "O dispositivo {name} foi {status} automaticamente.",
+    "status_blocked": "BLOQUEADO",
+    "status_unblocked": "DESBLOQUEADO",
+    "download_ready": "📦 Logs prontos: <a href='{url}' target='_blank'>Clique para baixar</a>",
+    "calc_passwd_message": "🔐 Sua senha: <b>{passwd}</b>",
+    "self_check_title": "Falha de compatibilidade do roteador",
+    "self_check_message": "🔍 Métodos incompatíveis foram detectados no roteador ({model}).",
+    "suggest_unsupported_title": "Modelo não suportado detectado",
+    "suggest_unsupported_message": "🚫 Este roteador falhou em alguns testes de compatibilidade.",
+    "add_unsupported": "➕ {model} adicionado à função {feature} em unsupported_user.py",
+    "already_in_unsupported": "⚠️ {model} já está presente na função {feature}.",
+    "dump_ready": "📄 Dump gerado: <a href='{url}' target='_blank'>Baixar</a>",
+    "dump_error": "❌ Erro ao gerar o dump",
+    "title": "MiWiFi",
+    "status_on": "LIGADO",
+    "status_off": "DESLIGADO",
+    "guest_status_message": "Wi-Fi de Convidados: {state}\nSSID: {ssid}\nCriptografia: {encryption}\nInterface: {ifname}\nOrigem: {source}",
+    "guest_updated": "Wi-Fi de Convidados: {state}<br>SSID: {ssid}<br>Criptografia: {encryption}",
+    "wifis_updated": "Wi-Fi atualizado: {bands}",
+    "purge_dry_run": "Pré-visualização da limpeza: {entities} entidades e {devices} dispositivos seriam removidos (> {days} dias; only_randomized={only_randomized}).",
+    "purge_done": "Limpeza concluída: {entities} entidades e {devices} dispositivos removidos (> {days} dias; only_randomized={only_randomized})."
+  },
+  "service_fields": {
+    "common": {
+      "device_id": "Roteador MiWiFi para aplicar a ação",
+      "verbose": "Mostrar lista (pré-visualização)",
+      "dry_run": "Simular (não excluir)"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Ocultar senhas no resultado (recomendado)"
+    },
+    "set_guest_wifi": {
+      "enable": "Ativar ou desativar a rede de convidados",
+      "ssid": "Nome da rede (SSID)",
+      "password": "Senha (8–63 caracteres se psk2)",
+      "encryption": "Criptografia (psk2 recomendado; none = aberta)",
+      "hidden": "Ocultar SSID (0 = visível, 1 = oculto)"
+    },
+    "set_wifis": {
+      "wifi2g": "Objeto com campos para alterar (ex.: {ssid, password, encryption, hidden})",
+      "wifi5g": "Objeto com campos para alterar (ex.: {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objeto com campos para alterar (ex.: {ssid, password, encryption, hidden})"
+    }
+  },
+  "errors": {
+    "password_length_simple": "A senha deve ter entre 8 e 63 caracteres.",
+    "password_length_role": "[{role}] A senha deve ter entre 8 e 63 caracteres.",
+    "no_blocks": "Nenhum bloco Wi-Fi fornecido (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Erro ao aplicar mudanças em {role}.",
+    "router_error": "O roteador retornou um erro.",
+    "password_length_error": "A senha deve ter entre 8 e 63 caracteres.",
+    "purge_invalid_days": "Os dias devem ser ≥ 1."
+  }
+}

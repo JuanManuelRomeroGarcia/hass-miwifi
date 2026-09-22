@@ -1,0 +1,74 @@
+{
+  "panel_update": {
+    "title": "Panneau MiWiFi",
+    "update_title": "Panneau MiWiFi mis à jour",
+    "update_message": "✅ Le panneau MiWiFi a été mis à jour vers la version <b>{version}</b>.<br>Veuillez <b>actualiser votre navigateur (Ctrl+F5)</b> pour voir les changements.",
+    "release_notes": "Ce panneau fait partie de l’intégration personnalisée MiWiFi. Il offre une vue de la topologie réseau, le contrôle des appareils et des statistiques du routeur. Cette mise à jour inclut des améliorations d’interface, de performances et des corrections."
+  },
+  "connection_type": {
+    "lan": "Câblé (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Réseau invité",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
+    "unknown": "Inconnu"
+  },
+  "notifications": {
+    "new_device_title": "Nouvel appareil détecté sur MiWiFi",
+    "new_device_message": "📶 Nouvel appareil connecté : **{name}**\n💻 MAC : `{mac}`\n🌐 IP : `{ip}`\n📡 Connexion : `{conn}`",
+    "unsupported_router_title": "Routeur non pris en charge",
+    "unsupported_router_message": "⚠️ Le routeur à {ip} n’est pas pris en charge par l’intégration MiWiFi.",
+    "device_blocked_message": "L’appareil {name} a été {status} automatiquement.",
+    "status_blocked": "BLOQUÉ",
+    "status_unblocked": "DÉBLOQUÉ",
+    "download_ready": "📦 Vos journaux sont prêts : <a href='{url}' target='_blank'>Cliquez pour télécharger</a>",
+    "calc_passwd_message": "🔐 Votre mot de passe est : <b>{passwd}</b>",
+    "self_check_title": "Compatibilité du routeur échouée",
+    "self_check_message": "🔍 Des méthodes incompatibles ont été détectées sur le routeur ({model}).",
+    "suggest_unsupported_title": "Modèle non pris en charge détecté",
+    "suggest_unsupported_message": "🚫 Ce routeur a échoué à certains tests de compatibilité.",
+    "add_unsupported": "➕ {model} ajouté à la fonctionnalité {feature} dans unsupported_user.py",
+    "already_in_unsupported": "⚠️ {model} est déjà présent dans la fonctionnalité {feature}.",
+    "dump_ready": "📄 Dump généré : <a href='{url}' target='_blank'>Télécharger</a>",
+    "dump_error": "❌ Erreur lors de la génération du dump",
+    "title": "MiWiFi",
+    "status_on": "ON",
+    "status_off": "OFF",
+    "guest_status_message": "Wi-Fi invité : {state}\nSSID : {ssid}\nChiffrement : {encryption}\nInterface : {ifname}\nSource : {source}",
+    "guest_updated": "Wi-Fi invité : {state}<br>SSID : {ssid}<br>Chiffrement : {encryption}",
+    "wifis_updated": "Wi-Fi mis à jour : {bands}",
+    "purge_dry_run": "Aperçu de purge : {entities} entités et {devices} appareils seraient supprimés (> {days} jours ; only_randomized={only_randomized}).",
+    "purge_done": "Purge terminée : {entities} entités et {devices} appareils supprimés (> {days} jours ; only_randomized={only_randomized})."
+  },
+  "service_fields": {
+    "common": {
+      "device_id": "Routeur MiWiFi auquel appliquer l’action",
+      "verbose": "Afficher la liste (aperçu)",
+      "dry_run": "Simuler (ne pas supprimer)"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Masquer les mots de passe dans le résultat (recommandé)"
+    },
+    "set_guest_wifi": {
+      "enable": "Activer ou désactiver le réseau invité",
+      "ssid": "Nom du réseau (SSID)",
+      "password": "Mot de passe (8–63 caractères si psk2)",
+      "encryption": "Chiffrement (psk2 recommandé ; none = ouvert)",
+      "hidden": "Masquer le SSID (0 = visible, 1 = masqué)"
+    },
+    "set_wifis": {
+      "wifi2g": "Objet avec les champs à modifier (ex. {ssid, password, encryption, hidden})",
+      "wifi5g": "Objet avec les champs à modifier (ex. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objet avec les champs à modifier (ex. {ssid, password, encryption, hidden})"
+    }
+  },
+  "errors": {
+    "password_length_simple": "Le mot de passe doit contenir 8 à 63 caractères.",
+    "password_length_role": "[{role}] Le mot de passe doit contenir 8 à 63 caractères.",
+    "no_blocks": "Aucun bloc Wi-Fi fourni (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Erreur lors de l’application des changements sur {role}.",
+    "router_error": "Le routeur a renvoyé une erreur.",
+    "password_length_error": "Le mot de passe doit contenir 8 à 63 caractères.",
+    "purge_invalid_days": "Les jours doivent être ≥ 1."
+  }
+}

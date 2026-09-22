@@ -1,7 +1,7 @@
 # MiWiFi for Home Assistant
-[![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
-[![CodeQL](https://img.shields.io/badge/CODEQL-Passing-30C854.svg?style=for-the-badge)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions?query=CodeQL)
-[![Telegram](https://img.shields.io/badge/Telegram-channel-34ABDF.svg?style=for-the-badge)](https://t.me/hass_mamontov_tech)
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![Validation](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions/workflows/validate.yml/badge.svg)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions/workflows/validate.yml)
+[![Telegram](https://img.shields.io/badge/Telegram-channel-34ABDF.svg?style=for-the-badge)](https://t.me/XiaohackRouters)
 
 The component allows you to monitor devices and manage routers based on [MiWiFi](http://miwifi.com/) from [Home Assistant](https://www.home-assistant.io/).
 
@@ -155,3 +155,31 @@ Basado en el trabajo original de [@dmamontov](https://github.com/dmamontov/hass-
 ---
 
 ¿Tienes dudas o sugerencias? Únete al canal de [Telegram de Xiaohack](https://t.me/XiaohackRouters).
+
+
+## Bundled frontend (HACS)
+
+The panel ships in `custom_components/miwifi/www` and is served at
+`/miwifi_static/` using Home Assistant's asynchronous static-path API.
+Install this repository as an **Integration** in HACS; no separate dashboard
+resource or `panel_custom` YAML entry is needed. Enable the panel through the
+existing MiWiFi settings. It remains restricted to administrators.
+
+Frontend source: `Miwifi-panel-frontend` commit `d5f7943` (version `2026.05`).
+JavaScript, translations, icons, router images and Lit are included locally.
+The panel no longer loads runtime resources from external CDNs. Third-party
+licenses are included in `www/vendor/LICENSES.txt`. The bundled panel version
+now follows the integration version. Rebuild Lit with `tools/frontend/build.cjs`
+after installing the exact dependencies from its lockfile.
+
+Update the integration through HACS and restart Home Assistant to update the
+panel. The existing panel update entity only reports the bundled version and
+does not install independent updates. Files previously downloaded to
+`/config/www/miwifi` and the old stored panel version are left untouched and
+are no longer used. Reload the browser after upgrading.
+
+Before publishing, test a fresh HACS installation, an upgrade with old panel
+files present, concurrent setup of multiple routers, integration reloads,
+panel enable/disable, translations, and removal of the final router.
+Check browser requests for missing resources and confirm there are no backend
+downloads or periodic checks against the separate frontend repository.

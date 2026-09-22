@@ -9,8 +9,8 @@ assignees: JuanManuelRomeroGarcia
 
 <!---
 Before creating a Bug report, do the following:
-1. Check if your router is supported: https://github.com/JuanManuelRomeroGarcia/hass-miwifi#summary
-2. Get the diagnostic data and attach it to the issue: https://github.com/JuanManuelRomeroGarcia/hass-miwifi#diagnostics
+1. Check if your router is supported: https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Supported-routers
+2. Get the diagnostic data and attach it to the issue: https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Diagnostics
 -->
 
 **Describe the bug**

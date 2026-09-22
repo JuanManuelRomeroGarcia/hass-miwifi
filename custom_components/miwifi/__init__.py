@@ -17,6 +17,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, ServiceCall
 from homeassistant.exceptions import PlatformNotReady
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
     CONF_ACTIVITY_DAYS,
@@ -57,8 +58,10 @@ from .frontend import (
     async_register_panel,
     async_remove_miwifi_panel,
     read_local_version,
-    async_start_panel_monitor
 )
+
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -120,7 +123,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             local_version = await read_local_version(hass)
             await async_register_panel(hass, local_version)
 
-            await async_start_panel_monitor(hass)
 
         else:
             await async_remove_miwifi_panel(hass)
@@ -197,7 +199,6 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
             local_version = await read_local_version(hass)
             await async_register_panel(hass, local_version)
 
-            await async_start_panel_monitor(hass)
 
         else:
             await async_remove_miwifi_panel(hass)
@@ -224,6 +225,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         others = [e for e in hass.config_entries.async_entries(DOMAIN) if e.entry_id in hass.data.get(DOMAIN, {})]
         if others:
             schedule_auto_purge(hass, others[0], kickoff=False)
+        else:
+            await async_remove_miwifi_panel(hass)
     return is_unload
 
 

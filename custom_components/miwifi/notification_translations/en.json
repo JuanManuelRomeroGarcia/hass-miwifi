@@ -1,0 +1,74 @@
+{
+  "panel_update": {
+    "title": "MiWiFi Panel",
+    "update_title": "MiWiFi Panel Updated",
+    "update_message": "✅ MiWiFi Panel has been updated to version <b>{version}</b>.<br>Please <b>refresh your browser (Ctrl+F5)</b> to see the changes.",
+    "release_notes": "This panel is part of the custom MiWiFi integration. It offers a visual overview of your network topology, device control, and router stats. The update includes UI improvements, performance enhancements, and fixes."
+  },
+  "connection_type": {
+    "lan": "Wired (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Guest Network",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
+    "unknown": "Unknown"
+  },
+  "notifications": {
+    "new_device_title": "New Device Detected on MiWiFi",
+    "new_device_message": "📶 New device connected: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Connection: `{conn}`",
+    "unsupported_router_title": "Unsupported Router",
+    "unsupported_router_message": "⚠️ Router at {ip} is not supported by the MiWiFi integration.",
+    "device_blocked_message": "Device {name} has been automatically {status}.",
+    "status_blocked": "BLOCKED",
+    "status_unblocked": "UNBLOCKED",
+    "download_ready": "📦 Your logs are ready: <a href='{url}' target='_blank'>Click to download</a>",
+    "calc_passwd_message": "🔐 Your password is: <b>{passwd}</b>",
+    "self_check_title": "Router Compatibility Failed",
+    "self_check_message": "🔍 Incompatible methods detected on the router ({model}).",
+    "suggest_unsupported_title": "Unsupported Model Detected",
+    "suggest_unsupported_message": "🚫 This router failed some compatibility tests.",
+    "add_unsupported": "➕ Added {model} to feature {feature} in unsupported_user.py",
+    "already_in_unsupported": "⚠️ {model} is already present in feature {feature}.",
+    "dump_ready": "📄 Dump generated: <a href='{url}' target='_blank'>Download</a>",
+    "dump_error": "❌ Error generating the dump",
+    "title": "MiWiFi",
+    "status_on": "ON",
+    "status_off": "OFF",
+    "guest_status_message": "Guest Wi-Fi: {state}\nSSID: {ssid}\nEncryption: {encryption}\nInterface: {ifname}\nSource: {source}",
+    "guest_updated": "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}",
+    "wifis_updated": "Wi-Fi updated: {bands}",
+    "purge_dry_run": "Purge preview: {entities} entities and {devices} devices would be removed (> {days} days; only_randomized={only_randomized}).",
+    "purge_done": "Purge completed: {entities} entities and {devices} devices removed (> {days} days; only_randomized={only_randomized})."
+  },
+  "service_fields": {
+    "common": {
+      "device_id": "MiWiFi router to apply the action to",
+      "verbose": "Show list (preview)",
+      "dry_run": "Simulate (do not delete)"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Hide passwords in the result (recommended)"
+    },
+    "set_guest_wifi": {
+      "enable": "Turn the guest network ON or OFF",
+      "ssid": "Network name (SSID)",
+      "password": "Password (8–63 chars if psk2)",
+      "encryption": "Encryption (psk2 recommended; none = open)",
+      "hidden": "Hide SSID (0 = visible, 1 = hidden)"
+    },
+    "set_wifis": {
+      "wifi2g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
+      "wifi5g": "Object with fields to change (e.g., {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Object with fields to change (e.g., {ssid, password, encryption, hidden})"
+    }
+  },
+  "errors": {
+    "password_length_simple": "Password must be 8–63 characters.",
+    "password_length_role": "[{role}] Password must be 8–63 characters.",
+    "no_blocks": "No Wi-Fi block provided (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Error applying changes to {role}.",
+    "router_error": "Router returned an error.",
+    "password_length_error": "Password must be 8–63 characters.",
+    "purge_invalid_days": "Days must be ≥ 1."
+  }
+}

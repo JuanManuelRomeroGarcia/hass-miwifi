@@ -69,59 +69,39 @@
       "version": "版本"
     }
   },
-  "panel_update": {
-    "title": "MiWiFi 面板",
-    "update_title": "MiWiFi 面板已更新",
-    "update_message": "✅ MiWiFi 面板已更新至 <b>{version}</b>。<br>请<b>刷新浏览器 (Ctrl+F5)</b> 查看更改。",
-    "release_notes": "此面板是 MiWiFi 自定义集成的一部分。它提供网络拓扑的可视化、设备控制和路由器统计。更新包含界面改进、性能优化和错误修复。"
-  },
-  "connection_type": {
-    "lan": "有线 (LAN)",
-    "wifi_2_4": "Wi-Fi 2.4G",
-    "wifi_5_0": "Wi-Fi 5G",
-    "guest": "访客网络",
-    "wifi_5_0_game": "Wi-Fi 5G (游戏)",
-    "unknown": "未知"
-  },
-  "notifications": {
-    "new_device_title": "MiWiFi 检测到新设备",
-    "new_device_message": "📶 新设备已连接: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 连接: `{conn}`",
-    "unsupported_router_title": "不支持的路由器",
-    "unsupported_router_message": "⚠️ 位于 {ip} 的路由器不受 MiWiFi 集成支持。",
-    "device_blocked_message": "设备 {name} 已自动 {status}。",
-    "status_blocked": "已阻止",
-    "status_unblocked": "已解除阻止",
-    "download_ready": "📦 日志已准备好: <a href='{url}' target='_blank'>点击下载</a>",
-    "calc_passwd_message": "🔐 您的密码: <b>{passwd}</b>",
-    "self_check_title": "路由器兼容性检查失败",
-    "self_check_message": "🔍 路由器 ({model}) 上检测到不兼容的方法。",
-    "suggest_unsupported_title": "检测到不受支持的型号",
-    "suggest_unsupported_message": "🚫 此路由器未通过某些兼容性测试。",
-    "add_unsupported": "➕ {model} 已添加到 unsupported_user.py 中的 {feature}",
-    "already_in_unsupported": "⚠️ {model} 已存在于 {feature} 功能中。",
-    "dump_ready": "📄 Dump 已生成: <a href='{url}' target='_blank'>下载</a>",
-    "dump_error": "❌ 生成 Dump 时出错",
-    "title": "MiWiFi",
-    "status_on": "开启",
-    "status_off": "关闭",
-    "guest_status_message": "访客 Wi-Fi: {state}\nSSID: {ssid}\n加密: {encryption}\n接口: {ifname}\n来源: {source}",
-    "guest_updated": "访客 Wi-Fi: {state}<br>SSID: {ssid}<br>加密: {encryption}",
-    "wifis_updated": "Wi-Fi 已更新: {bands}",
-    "purge_dry_run": "清理预览: 将删除 {entities} 个实体和 {devices} 个设备 (> {days} 天; only_randomized={only_randomized})。",
-    "purge_done": "清理完成: 已删除 {entities} 个实体和 {devices} 个设备 (> {days} 天; only_randomized={only_randomized})。"
-  },
   "services": {
     "dump_router_data": {
       "name": "生成路由器 Dump",
       "description": "生成包含主路由器信息的 JSON 文件。",
       "fields": {
-        "system": { "name": "包含系统数据", "description": "包括一般系统信息。" },
-        "network": { "name": "包含网络数据", "description": "包括 WAN、Wi-Fi 和拓扑详细信息。" },
-        "devices": { "name": "包含已连接设备", "description": "包括已连接设备及其信息。" },
-        "nat_rules": { "name": "包含 NAT 规则", "description": "包括端口转发规则。" },
-        "qos": { "name": "包含 QoS 配置", "description": "包括 QoS 配置详情。" },
-        "wifi_config": { "name": "包含 Wi-Fi 配置", "description": "包括 Wi-Fi 网络设置（可能包含敏感数据）。" },
-        "hide_sensitive": { "name": "隐藏敏感数据", "description": "隐藏密码和 MAC 地址。" }
+        "system": {
+          "name": "包含系统数据",
+          "description": "包括一般系统信息。"
+        },
+        "network": {
+          "name": "包含网络数据",
+          "description": "包括 WAN、Wi-Fi 和拓扑详细信息。"
+        },
+        "devices": {
+          "name": "包含已连接设备",
+          "description": "包括已连接设备及其信息。"
+        },
+        "nat_rules": {
+          "name": "包含 NAT 规则",
+          "description": "包括端口转发规则。"
+        },
+        "qos": {
+          "name": "包含 QoS 配置",
+          "description": "包括 QoS 配置详情。"
+        },
+        "wifi_config": {
+          "name": "包含 Wi-Fi 配置",
+          "description": "包括 Wi-Fi 网络设置（可能包含敏感数据）。"
+        },
+        "hide_sensitive": {
+          "name": "隐藏敏感数据",
+          "description": "隐藏密码和 MAC 地址。"
+        }
       }
     },
     "purge_inactive_devices": {
@@ -154,40 +134,17 @@
         }
       }
     },
-    "get_wifis": { "name": "获取 Wi-Fi 配置 (面板)" },
-    "set_guest_wifi": { "name": "配置访客 Wi-Fi" },
-    "test_guest_wifi": { "name": "测试访客 Wi-Fi" },
-    "set_wifis": { "name": "配置 Wi-Fi (2.4G/5G/游戏)" }
-  },
-  "service_fields": {
-    "common": {
-      "device_id": "要应用操作的 MiWiFi 路由器",
-      "verbose": "显示列表（预览）",
-      "dry_run": "模拟（不删除）"
-    },
     "get_wifis": {
-      "hide_sensitive": "在结果中隐藏密码（推荐）"
+      "name": "获取 Wi-Fi 配置 (面板)"
     },
     "set_guest_wifi": {
-      "enable": "开启或关闭访客网络",
-      "ssid": "网络名称 (SSID)",
-      "password": "密码 (8–63 字符, 如果 psk2)",
-      "encryption": "加密 (推荐 psk2; none = 开放)",
-      "hidden": "隐藏 SSID (0 = 可见, 1 = 隐藏)"
+      "name": "配置访客 Wi-Fi"
+    },
+    "test_guest_wifi": {
+      "name": "测试访客 Wi-Fi"
     },
     "set_wifis": {
-      "wifi2g": "要更改字段的对象 (例如 {ssid, password, encryption, hidden})",
-      "wifi5g": "要更改字段的对象 (例如 {ssid, password, encryption, hidden})",
-      "wifi5g_game": "要更改字段的对象 (例如 {ssid, password, encryption, hidden})"
+      "name": "配置 Wi-Fi (2.4G/5G/游戏)"
     }
-  },
-  "errors": {
-    "password_length_simple": "密码必须为 8–63 个字符。",
-    "password_length_role": "[{role}] 密码必须为 8–63 个字符。",
-    "no_blocks": "未提供任何 Wi-Fi 模块 (wifi2g / wifi5g / wifi5g_game)。",
-    "apply_role_error": "应用 {role} 更改时出错。",
-    "router_error": "路由器返回错误。",
-    "password_length_error": "密码必须为 8–63 个字符。",
-    "purge_invalid_days": "天数必须 ≥ 1。"
   }
 }

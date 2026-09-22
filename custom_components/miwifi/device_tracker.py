@@ -8,7 +8,10 @@ from functools import cached_property
 from typing import Any, Final
 
 from homeassistant.components.device_tracker import ENTITY_ID_FORMAT
-from homeassistant.components.device_tracker.config_entry import ScannerEntity
+try:
+    from homeassistant.components.device_tracker import ScannerEntity
+except ImportError:  # Home Assistant before the public re-export (2026.6).
+    from homeassistant.components.device_tracker.config_entry import ScannerEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -59,6 +62,7 @@ from .const import (
     ATTR_DEVICE_MODEL,
 )
 
+from .registry import get_device
 from .enum import Connection, DeviceClass
 from .helper import (
     detect_manufacturer,
@@ -73,7 +77,7 @@ from .updater import LuciUpdater, async_get_updater, async_get_integrations
 
 def _ensure_via_device_exists(
     hass: HomeAssistant, via_router_mac: Any
-) -> tuple[str, str] | None:
+) -> dict:
     """Ensure the router/node device exists before using via_device.
 
     - Avoids HA 2025.12+ break by never referencing a non-existing via_device.
@@ -94,19 +98,14 @@ def _ensure_via_device_exists(
 
     via_router_mac_lc = _norm_mac(via_router_mac)
     if not via_router_mac_lc or via_router_mac_lc in ("none", "null"):
-        return None
+        return {}
 
     dev_reg = dr.async_get(hass)
-
-    # If already exists, ok.
-    existing = dev_reg.async_get_device(identifiers={(DOMAIN, via_router_mac_lc)})
-    if existing:
-        return (DOMAIN, via_router_mac_lc)
 
     # Map router-mac -> config_entry_id using hass.data[DOMAIN][entry_id][UPDATER]
     domain_data = hass.data.get(DOMAIN, {})
     if not isinstance(domain_data, dict):
-        return None
+        return {}
 
     target_entry_id: str | None = None
     target_name: str | None = None
@@ -140,19 +139,24 @@ def _ensure_via_device_exists(
 
     # If we cannot map it to a known router updater, do NOT set via_device.
     if not target_entry_id:
-        return None
+        return {}
 
-    # Create minimal router device so HA can reference via_device safely
-    dev_reg.async_get_or_create(
-        config_entry_id=target_entry_id,
-        identifiers={(DOMAIN, via_router_mac_lc)},
-        connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)},
-        name=target_name,
-        manufacturer=target_manufacturer,
-        model=target_model,
+    existing = get_device(
+        dev_reg, target_entry_id, identifier=(DOMAIN, via_router_mac_lc)
     )
+    if existing is None:
+        existing = dev_reg.async_get_or_create(
+            config_entry_id=target_entry_id,
+            identifiers={(DOMAIN, via_router_mac_lc)},
+            connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)},
+            name=target_name,
+            manufacturer=target_manufacturer,
+            model=target_model,
+        )
 
-    return (DOMAIN, via_router_mac_lc)
+    if "via_device_id" in DeviceInfo.__annotations__:
+        return {"via_device_id": existing.id}
+    return {"via_device": (DOMAIN, via_router_mac_lc)}
 
 
 SOURCE_TYPE_ROUTER = "router"
@@ -605,7 +609,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
                 # Identify the device by its own MAC (stable across mesh)
                 identifiers={(DOMAIN, self.mac_address)},
                 name=self._attr_name,
-                via_device=via_device,
+                **via_device,
                 manufacturer=self.manufacturer,
             )
 
@@ -615,7 +619,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             name=self._attr_name,
             configuration_url=self.configuration_url,
             manufacturer=self.manufacturer,
-            via_device=via_device,
+            **via_device,
         )
 
     @cached_property
@@ -717,12 +721,17 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         entry_id: str | None = track_device.get(ATTR_TRACKER_ENTRY_ID)
 
         device_registry: dr.DeviceRegistry = dr.async_get(self.hass)
-        device: dr.DeviceEntry | None = device_registry.async_get_device(
-            set(), {(dr.CONNECTION_NETWORK_MAC, self.mac_address)}
+        # The entity remains owned by its original config entry when roaming.
+        entity_entry = er.async_get(self.hass).async_get(self.entity_id)
+        owner_entry_id = entity_entry.config_entry_id if entity_entry else self._updater._entry_id
+        device = get_device(
+            device_registry, owner_entry_id,
+            connection=(dr.CONNECTION_NETWORK_MAC, self.mac_address),
         )
 
         if device is not None:
-            if len(device.config_entries) > 0 and entry_id not in device.config_entries:
+            if (not hasattr(device_registry, "async_get_device_by_connection")
+                and entry_id and device.config_entries and entry_id not in device.config_entries):
                 device_registry.async_update_device(device.id, add_config_entry_id=entry_id)
 
             if device.configuration_url is None and self.configuration_url is not None:

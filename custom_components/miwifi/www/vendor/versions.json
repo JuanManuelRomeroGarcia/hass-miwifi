@@ -1,0 +1,6 @@
+{
+  "@lit/reactive-element": "1.6.3",
+  "lit-html": "2.7.5",
+  "lit-element": "3.3.3",
+  "lit": "2.7.5"
+}

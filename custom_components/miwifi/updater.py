@@ -154,6 +154,13 @@ REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_UP_SPEED,
     ATTR_TRACKER_ONLINE,
     ATTR_TRACKER_OPTIONAL_MAC,
+    ATTR_TRACKER_CONNECTION,
+    ATTR_TRACKER_ROUTER_MAC_ADDRESS,
+    ATTR_TRACKER_SIGNAL,
+    ATTR_TRACKER_LAST_ACTIVITY,
+    ATTR_TRACKER_INTERNET_BLOCKED,
+    ATTR_TRACKER_FIRST_SEEN,
+    ATTR_TRACKER_TOTAL_USAGE,
 )
 
 # pylint: disable=too-many-branches,too-many-lines,too-many-arguments
@@ -385,16 +392,11 @@ class LuciUpdater(DataUpdateCoordinator):
         if isinstance(getattr(self, "capabilities", None), dict) and self.capabilities.get("portforward", False):
             await self._async_prepare_nat_rules()
         
-        # Panel frontend version check (local + remote)
-        try:
-            from .frontend import read_local_version, read_remote_version
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
-                local = await read_local_version(self.hass)
-                remote = await read_remote_version(session)
-                self.data["panel_local_version"] = local
-                self.data["panel_remote_version"] = remote
-        except Exception as e:
-            await self.hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] The frontend panel version could not be updated: %s", e)
+        # Frontend updates are delivered with the integration through HACS.
+        from .frontend import read_local_version
+        panel_version = await read_local_version(self.hass)
+        self.data["panel_local_version"] = panel_version
+        self.data["panel_remote_version"] = panel_version
 
         if self._is_only_login:
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
@@ -1336,7 +1338,10 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_devices(self, data: dict) -> None:
         """Prepare devices."""
 
-        self.reset_counter()
+        # En nodos mesh force_load, el conteo agregado lo gobierna el router principal
+        # vía device_list + parent. No resetees aquí o dejarás el leaf a 0 entre pushes.
+        if not (self.is_repeater and self.is_force_load):
+            self.reset_counter()
 
         response: dict = await self.luci.wifi_connect_devices()
 
@@ -1524,8 +1529,15 @@ class LuciUpdater(DataUpdateCoordinator):
             parent_mac = device.get("parent")
             parent_mac = parent_mac.strip().upper() if isinstance(parent_mac, str) else ""
 
-            # If parent is a known leaf router MAC, this device belongs to that leaf updater
             if parent_mac and parent_mac in mac_to_ip:
+                # ✅ If this client now belongs to a leaf node, remove any stale
+                # local copy from the current updater immediately.
+                mac_u = str(device.get(ATTR_TRACKER_MAC, "") or "").strip().upper()
+                if mac_u and mac_u in self.devices:
+                    del self.devices[mac_u]
+                    with contextlib.suppress(ValueError):
+                        self._moved_devices.remove(mac_u)
+
                 target_ip = mac_to_ip[parent_mac]
                 add_to.setdefault(target_ip, []).append(device)
                 continue
@@ -1688,17 +1700,43 @@ class LuciUpdater(DataUpdateCoordinator):
             and self.is_force_load
             and device[ATTR_TRACKER_MAC] in self.devices
         ):
-            self.devices[device[ATTR_TRACKER_MAC]] |= {
-                key: value
-                for key, value in _device.items()
-                if (
-                    (not is_from_parent and key not in REPEATER_SKIP_ATTRS)
-                    or (is_from_parent and key in REPEATER_SKIP_ATTRS)
-                )
-                and value is not None
-            }
+            if is_from_parent:
+                # El principal es la fuente autoritativa para clientes del leaf
+                self.devices[device[ATTR_TRACKER_MAC]] |= {
+                    key: value for key, value in _device.items() if value is not None
+                }
+            else:
+                self.devices[device[ATTR_TRACKER_MAC]] |= {
+                    key: value
+                    for key, value in _device.items()
+                    if key not in REPEATER_SKIP_ATTRS and value is not None
+                }
         else:
             self.devices[device[ATTR_TRACKER_MAC]] = _device
+            
+        # ✅ Keep a mesh-wide latest snapshot so stable device_tracker entities
+        # can follow the client even when it moves between main router and leaf nodes.
+        try:
+            self.hass.data.setdefault(DOMAIN, {})
+            self.hass.data[DOMAIN].setdefault("devices_cache", {})
+
+            mac_u = str(device[ATTR_TRACKER_MAC]).strip().upper()
+            latest = dict(self.devices[mac_u])
+
+            # Global cache used by device_tracker fallback logic
+            self.hass.data[DOMAIN]["devices_cache"][mac_u] = latest
+
+            # If a live device_tracker entity for this MAC already exists, update it now
+            ent_map = self.hass.data[DOMAIN].get("device_tracker_entities", {})
+            uid = f"{DOMAIN}-{mac_u.lower()}"
+            ent = ent_map.get(uid)
+
+            if ent is not None:
+                ent._device = latest
+                ent.async_write_ha_state()
+
+        except Exception:
+            pass
 
         if not is_from_parent and action == DeviceAction.MOVE:
             self._moved_devices.append(device[ATTR_TRACKER_MAC])

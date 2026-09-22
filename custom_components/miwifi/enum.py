@@ -315,4 +315,6 @@ class Model(str, Enum):
     
     # RP Series
     
+    RP01 = "rp01"  # Read APIs reported working in issues #316 and #317.
+    RP03 = "rp03"  # Read APIs reported working in issue #315.
     RP04 = "rp04"  # Xiaomi BE10000 Pro ​             | 2025.09.01

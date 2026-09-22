@@ -1,0 +1,7 @@
+{
+	"dependencies": {
+		"lit": "2.7.5",
+		"lit-html": "2.7.5",
+		"esbuild": "0.28.2"
+	}
+}
