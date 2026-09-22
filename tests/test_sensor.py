@@ -73,12 +73,8 @@ async def test_init(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         await async_mock_luci_client(mock_luci_client)
 
         setup_data: list = await async_setup(hass)
@@ -170,12 +166,8 @@ async def test_init_with_game(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         await async_mock_luci_client(mock_luci_client)
 
         mock_luci_client.return_value.wifi_detail_all = AsyncMock(
@@ -271,12 +263,8 @@ async def test_init_without_zero(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         await async_mock_luci_client(mock_luci_client)
 
         mock_luci_client.return_value.status = AsyncMock(
@@ -375,12 +363,8 @@ async def test_init_without_wan(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         await async_mock_luci_client(mock_luci_client)
 
         mock_luci_client.return_value.wan_info = AsyncMock(
@@ -472,13 +456,9 @@ async def test_update_uptime(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -572,13 +552,9 @@ async def test_update_vpn_uptime(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -672,13 +648,9 @@ async def test_update_memory_usage(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -772,13 +744,9 @@ async def test_update_memory_total(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -872,13 +840,9 @@ async def test_update_temperature(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -972,13 +936,9 @@ async def test_update_mode(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1052,13 +1012,9 @@ async def test_update_ap_signal(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("new_status_data.json"))
@@ -1136,13 +1092,9 @@ async def test_update_download_speed(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1216,13 +1168,9 @@ async def test_update_upload_speed(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1296,13 +1244,9 @@ async def test_update_devices(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1384,13 +1328,9 @@ async def test_update_devices_lan(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1494,13 +1434,9 @@ async def test_update_devices_2_4(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1604,13 +1540,9 @@ async def test_update_devices_5_0(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1714,13 +1646,9 @@ async def test_update_devices_guest(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1824,13 +1752,9 @@ async def test_update_devices_5_0_game(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         mock_luci_client.return_value.wifi_detail_all = AsyncMock(
             return_value=json.loads(load_fixture("wifi_detail_all_with_game_data.json"))

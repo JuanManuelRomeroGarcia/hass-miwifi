@@ -5,19 +5,19 @@
     "details": {
       "wanType": "static",
       "ifname": "eth4",
-      "ipaddr": "192.168.15.2",
-      "gateway": "192.168.15.1",
+      "ipaddr": "192.0.2.2",
+      "gateway": "192.0.2.1",
       "netmask": "255.255.255.0",
       "dns": [
-        "192.168.15.1",
-        "8.8.8.8"
+        "192.0.2.1",
+        "192.0.2.8"
       ]
     },
     "gateWay": "**REDACTED**",
-    "dnsAddrs1": "8.8.8.8",
+    "dnsAddrs1": "192.0.2.8",
     "status": 1,
     "uptime": 29144,
-    "dnsAddrs": "192.168.15.1",
+    "dnsAddrs": "192.0.2.1",
     "ipv6_info": {
       "wanType": "off"
     },

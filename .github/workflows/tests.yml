@@ -1,0 +1,77 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    name: hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: home-assistant/actions/hassfest@master
+
+  pytest:
+    name: ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Same Home Assistant the integration is deployed on.
+          - label: "HA 2026.8.3"
+            phacc: "0.13.357"
+            experimental: false
+          # Early warning for the next release; failures here do not block.
+          - label: "HA 2026.9 beta"
+            phacc: "0.13.361"
+            experimental: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          # pytest-homeassistant-custom-component requires >=3.14
+          python-version: "3.14"
+          cache: pip
+          # The repo has no requirements.txt or pyproject.toml, which is all the
+          # pip cache looks for by default.
+          cache-dependency-path: requirements_test.txt
+
+      - name: Install test requirements
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_test.txt
+          pip install "pytest-homeassistant-custom-component==${{ matrix.phacc }}"
+          # Turns test failures into GitHub annotations, which are readable
+          # without a token - unlike the job logs.
+          pip install pytest-github-actions-annotate-failures
+          python -c "import homeassistant; from importlib.metadata import version; print('homeassistant', version('homeassistant'))"
+
+      - name: Compile
+        run: python -m compileall -q custom_components/miwifi
+
+      - name: Pytest
+        # Explicit "shell: bash" is what turns on pipefail; the default
+        # "bash -e" would take tee's exit code and report a red run as green.
+        shell: bash
+        run: |
+          pytest -q --continue-on-collection-errors             --cov=custom_components/miwifi --cov-report=term-missing 2>&1 | tee pytest.log
+
+      - name: Surface the summary as annotations
+        if: failure()
+        shell: bash
+        run: |
+          {
+            grep -E '^(FAILED|ERROR) ' pytest.log | head -20
+            grep -E '^E   [A-Za-z_.]*(Error|Exception)' pytest.log | sort -u | head -10
+            tail -3 pytest.log
+          } | while IFS= read -r line; do
+            echo "::error::${line}"
+          done
