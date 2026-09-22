@@ -135,16 +135,20 @@
       }
     },
     "get_wifis": {
-      "name": "Get Wi-Fi configuration (panel)"
+      "name": "Get Wi-Fi configuration (panel)",
+      "description": "Returns the current Wi-Fi configuration for the selected router or the main router."
     },
     "set_guest_wifi": {
-      "name": "Configure Guest Wi-Fi"
+      "name": "Configure Guest Wi-Fi",
+      "description": "Enables or disables guest Wi-Fi and optionally changes its network settings."
     },
     "test_guest_wifi": {
-      "name": "Test Guest Wi-Fi"
+      "name": "Test Guest Wi-Fi",
+      "description": "Reads the guest Wi-Fi status from the selected router or the main router."
     },
     "set_wifis": {
-      "name": "Configure Wi-Fi (2.4G/5G/Game)"
+      "name": "Configure Wi-Fi (2.4G/5G/Game)",
+      "description": "Changes the settings of one or more Wi-Fi bands on the selected router or the main router."
     }
   }
 }
