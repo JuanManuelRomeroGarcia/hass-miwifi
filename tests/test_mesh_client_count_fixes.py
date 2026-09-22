@@ -36,3 +36,8 @@ def test_find_leaf_walks_nested_topology() -> None:
         "ip": "192.0.2.3",
         "onlines": 4,
     }
+
+
+def test_find_leaf_ignores_invalid_leaf_lists() -> None:
+    assert _find_leaf({"leafs": None}, "192.0.2.3") is None
+    assert _find_leaf({"leafs": 1}, "192.0.2.3") is None
