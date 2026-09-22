@@ -1567,6 +1567,21 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                 ts = _last_ts_from_updaters(mac)
 
             if ts is None:
+                # Neither the state nor any updater can date this client. That is
+                # not the same as "old": a restart leaves every tracker the
+                # integration did not recreate in exactly this condition, with no
+                # last-activity attribute and no entry in `devices`, and on a mesh
+                # where one node does not enumerate its own clients that includes
+                # devices connected right now.
+                #
+                # The state still knows when it last moved, and that is a floor on
+                # the client's age: an entity that changed an hour ago cannot
+                # belong to something unseen for days. Use it to rule the row out,
+                # never to rule it in - `last_changed` is reset by a restart, so a
+                # recent value proves nothing except that we must not delete.
+                if st is not None and st.last_changed is not None:
+                    if st.last_changed.timestamp() > cutoff:
+                        continue
                 if not include_orphans_wo_age:
                     continue
                 days_ago: float | None = None
