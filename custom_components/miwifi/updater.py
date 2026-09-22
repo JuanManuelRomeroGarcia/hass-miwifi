@@ -150,7 +150,7 @@ NEW_STATUS_MAP: Final = {
 def _find_leaf(graph: dict, ip: str) -> dict | None:
     """Find a node entry in a topology graph, including nested leaves."""
 
-    for leaf in graph.get("leafs", []):
+    for leaf in (graph.get("leafs") if isinstance(graph.get("leafs"), list) else []):
         if not isinstance(leaf, dict):
             continue
         if leaf.get("ip") == ip:
