@@ -46,6 +46,15 @@ class Mode(IntEnum):
     MESH = 9, "mesh"
 
 
+#: Roles held by a node that sits inside someone else's network rather than in
+#: front of it: no WAN, no MAC filter, no gateway mode to report. REPEATER is
+#: deliberately not one of them - it has an upstream link of its own and
+#: _async_prepare_ap still asks it for a signal.
+MESH_ROLE_MODES: frozenset[Mode] = frozenset(
+    {Mode.ACCESS_POINT, Mode.MESH_NODE, Mode.MESH_LEAF, Mode.MESH}
+)
+
+
 class Connection(IntEnum):
     """Connection enum"""
 
