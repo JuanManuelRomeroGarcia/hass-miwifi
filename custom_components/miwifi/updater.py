@@ -147,6 +147,55 @@ NEW_STATUS_MAP: Final = {
     "iot": ATTR_SENSOR_DEVICES_IOT,
 }
 
+def _find_leaf(graph: dict, ip: str) -> dict | None:
+    """Find a node entry in a topology graph, including nested leaves."""
+
+    for leaf in (graph.get("leafs") if isinstance(graph.get("leafs"), list) else []):
+        if not isinstance(leaf, dict):
+            continue
+        if leaf.get("ip") == ip:
+            return leaf
+        found = _find_leaf(leaf, ip)
+        if found is not None:
+            return found
+    return None
+
+
+def _ap_macs_by_ip(response: dict) -> dict[str, str]:
+    """Map mesh access-point addresses to the MAC used by client parents."""
+
+    macs: dict[str, str] = {}
+    for device in response.get("list", []):
+        if not isinstance(device, dict):
+            continue
+        try:
+            if int(device.get("isap") or 0) <= 0:
+                continue
+        except (TypeError, ValueError):
+            continue
+
+        mac = str(device.get("mac") or "").strip().upper()
+        if not mac or not isinstance(device.get("ip"), list):
+            continue
+
+        fallback: str | None = None
+        for address in device["ip"]:
+            if not isinstance(address, dict):
+                continue
+            value = str(address.get("ip") or "").strip()
+            if not value:
+                continue
+            fallback = fallback or value
+            try:
+                if int(address.get("active") or 0) == 1:
+                    fallback = value
+                    break
+            except (TypeError, ValueError):
+                continue
+        if fallback:
+            macs[fallback] = mac
+    return macs
+
 REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_NAME,
     ATTR_TRACKER_IP,
@@ -241,6 +290,8 @@ class LuciUpdater(DataUpdateCoordinator):
         self._macfilter_warned_at = None
         self._macfilter_fail_count = 0
         self._filter_macs: dict[str, int] = {}
+        self._counters_reset_this_cycle = False
+        self._parent_push_pending = False
         
         # --- CB0401V2 / 5G CPE throttling ---
         self._is_cb0401v2: bool = False
@@ -305,6 +356,7 @@ class LuciUpdater(DataUpdateCoordinator):
         """
 
         self.code = codes.OK
+        self._counters_reset_this_cycle = False
 
         _is_before_reauthorization: bool = self._is_reauthorization
         _err: LuciError | None = None
@@ -386,6 +438,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 await self._async_prepare_new_status(self.data)
             
         await self._async_prepare_topo()
+        await self._async_apply_leaf_client_count()
 
         await self._async_prepare_compatibility()
         
@@ -1471,7 +1524,8 @@ class LuciUpdater(DataUpdateCoordinator):
 
         integrations = async_get_integrations(self.hass)
 
-        # Map router MAC -> integration IP (routers / leaf nodes)
+        # Register both the entry MAC and the backhaul MAC used in `parent`.
+        ap_macs = _ap_macs_by_ip(response)
         mac_to_ip: dict[str, str] = {}
         for ip, integration in integrations.items():
             updater = integration.get(UPDATER)
@@ -1479,6 +1533,8 @@ class LuciUpdater(DataUpdateCoordinator):
                 mac = (updater.data or {}).get(ATTR_DEVICE_MAC_ADDRESS)
                 if isinstance(mac, str) and mac:
                     mac_to_ip[mac.strip().upper()] = ip
+                if (backhaul := ap_macs.get(ip)) and backhaul not in mac_to_ip:
+                    mac_to_ip[backhaul] = ip
 
         # Collect devices that should be pushed to a leaf updater (key = integration IP)
         add_to: dict[str, list[dict]] = {}
@@ -1572,6 +1628,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 continue
 
             # ✅ Reset counters ONCE per parent refresh before recounting
+            updater._parent_push_pending = True
             updater.reset_counter(is_force=True)
 
             leaf_entry_id = getattr(updater, "_entry_id", None) or self._entry_id
@@ -1771,6 +1828,10 @@ class LuciUpdater(DataUpdateCoordinator):
         if self.is_repeater and self.is_force_load:
             if not (is_from_parent and self._has_dedicated_iot_wifi()):
                 return
+
+        if not is_from_parent and self._parent_push_pending:
+            self._parent_push_pending = False
+            self.reset_counter(is_force=True)
 
         if "new_status" not in self.data:
             self.data.setdefault(ATTR_SENSOR_DEVICES, 0)
@@ -2059,6 +2120,7 @@ class LuciUpdater(DataUpdateCoordinator):
         if self.is_repeater and not self.is_force_load and not is_force:
             return
 
+        self._counters_reset_this_cycle = True
         for attr in [
             ATTR_SENSOR_DEVICES,
             ATTR_SENSOR_DEVICES_LAN,
@@ -2072,6 +2134,49 @@ class LuciUpdater(DataUpdateCoordinator):
                 del self.data[attr]
             elif not is_remove:
                 self.data[attr] = 0
+
+    def _leaf_entry_from_other_nodes(self) -> dict | None:
+        """Return this node's entry from another configured node's graph."""
+
+        for ip, integration in async_get_integrations(self.hass).items():
+            if ip == self.ip:
+                continue
+            updater = integration.get(UPDATER)
+            if not isinstance(updater, LuciUpdater):
+                continue
+            graph = ((updater.data or {}).get("topo_graph") or {}).get("graph")
+            if isinstance(graph, dict):
+                leaf = _find_leaf(graph, self.ip)
+                if leaf is not None:
+                    return leaf
+        return None
+
+    async def _async_apply_leaf_client_count(self) -> None:
+        """Use the main node's topology count when this leaf has no census."""
+
+        if not self.is_repeater:
+            return
+        handed_by_parent = self._parent_push_pending
+        self._parent_push_pending = False
+        if self._counters_reset_this_cycle and not handed_by_parent:
+            return
+
+        leaf = self._leaf_entry_from_other_nodes()
+        if not isinstance(leaf, dict):
+            return
+        try:
+            count = int(leaf["onlines"])
+        except (KeyError, TypeError, ValueError):
+            return
+        if count < 0:
+            return
+        current = self.data.get(ATTR_SENSOR_DEVICES)
+        if handed_by_parent:
+            if not isinstance(current, int) or count <= current:
+                return
+        elif current == count:
+            return
+        self.data[ATTR_SENSOR_DEVICES] = count
 
     async def _async_load_devices(self) -> dict | None:
         """Async load devices from Store"""
