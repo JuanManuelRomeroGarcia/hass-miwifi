@@ -1,0 +1,74 @@
+{
+  "panel_update": {
+    "title": "MiWiFi Panel",
+    "update_title": "MiWiFi Panel aktualisiert",
+    "update_message": "✅ Das MiWiFi Panel wurde auf Version <b>{version}</b> aktualisiert.<br>Bitte <b>aktualisieren Sie Ihren Browser (Ctrl+F5)</b>, um die Änderungen zu sehen.",
+    "release_notes": "Dieses Panel ist Teil der benutzerdefinierten MiWiFi-Integration. Es bietet eine visuelle Netzwerktopologie, Gerätesteuerung und Router-Statistiken. Das Update enthält Verbesserungen an der Oberfläche, Leistung und Fehlerbehebungen."
+  },
+  "connection_type": {
+    "lan": "Kabel (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Gastnetzwerk",
+    "wifi_5_0_game": "Wi-Fi 5G (Gaming)",
+    "unknown": "Unbekannt"
+  },
+  "notifications": {
+    "new_device_title": "Neues Gerät im MiWiFi erkannt",
+    "new_device_message": "📶 Neues Gerät verbunden: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Verbindung: `{conn}`",
+    "unsupported_router_title": "Nicht unterstützter Router",
+    "unsupported_router_message": "⚠️ Der Router unter {ip} wird von der MiWiFi-Integration nicht unterstützt.",
+    "device_blocked_message": "Gerät {name} wurde automatisch {status}.",
+    "status_blocked": "BLOCKIERT",
+    "status_unblocked": "ENTBLOCKT",
+    "download_ready": "📦 Logs sind bereit: <a href='{url}' target='_blank'>Herunterladen</a>",
+    "calc_passwd_message": "🔐 Ihr Passwort lautet: <b>{passwd}</b>",
+    "self_check_title": "Router-Kompatibilität fehlgeschlagen",
+    "self_check_message": "🔍 Auf dem Router ({model}) wurden inkompatible Methoden erkannt.",
+    "suggest_unsupported_title": "Nicht unterstütztes Modell erkannt",
+    "suggest_unsupported_message": "🚫 Dieser Router hat einige Kompatibilitätstests nicht bestanden.",
+    "add_unsupported": "➕ {model} wurde zur Funktion {feature} in unsupported_user.py hinzugefügt",
+    "already_in_unsupported": "⚠️ {model} ist bereits in der Funktion {feature} vorhanden.",
+    "dump_ready": "📄 Dump erstellt: <a href='{url}' target='_blank'>Herunterladen</a>",
+    "dump_error": "❌ Fehler beim Erstellen des Dumps",
+    "title": "MiWiFi",
+    "status_on": "AN",
+    "status_off": "AUS",
+    "guest_status_message": "Gast-Wi-Fi: {state}\nSSID: {ssid}\nVerschlüsselung: {encryption}\nSchnittstelle: {ifname}\nQuelle: {source}",
+    "guest_updated": "Gast-Wi-Fi: {state}<br>SSID: {ssid}<br>Verschlüsselung: {encryption}",
+    "wifis_updated": "Wi-Fi aktualisiert: {bands}",
+    "purge_dry_run": "Bereinigungsvorschau: {entities} Entitäten und {devices} Geräte würden entfernt (> {days} Tage; only_randomized={only_randomized}).",
+    "purge_done": "Bereinigung abgeschlossen: {entities} Entitäten und {devices} Geräte entfernt (> {days} Tage; only_randomized={only_randomized})."
+  },
+  "service_fields": {
+    "common": {
+      "device_id": "MiWiFi-Router, auf den die Aktion angewendet wird",
+      "verbose": "Liste anzeigen (Vorschau)",
+      "dry_run": "Simulation (nicht löschen)"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Passwörter im Ergebnis ausblenden (empfohlen)"
+    },
+    "set_guest_wifi": {
+      "enable": "Gastnetzwerk ein-/ausschalten",
+      "ssid": "Netzwerkname (SSID)",
+      "password": "Passwort (8–63 Zeichen für psk2)",
+      "encryption": "Verschlüsselung (psk2 empfohlen; none = offen)",
+      "hidden": "SSID ausblenden (0 = sichtbar, 1 = verborgen)"
+    },
+    "set_wifis": {
+      "wifi2g": "Objekt mit zu ändernden Feldern (z.B. {ssid, password, encryption, hidden})",
+      "wifi5g": "Objekt mit zu ändernden Feldern (z.B. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Objekt mit zu ändernden Feldern (z.B. {ssid, password, encryption, hidden})"
+    }
+  },
+  "errors": {
+    "password_length_simple": "Passwort muss 8–63 Zeichen lang sein.",
+    "password_length_role": "[{role}] Passwort muss 8–63 Zeichen lang sein.",
+    "no_blocks": "Kein Wi-Fi-Block angegeben (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "Fehler beim Anwenden der Änderungen an {role}.",
+    "router_error": "Der Router hat einen Fehler zurückgegeben.",
+    "password_length_error": "Passwort muss 8–63 Zeichen lang sein.",
+    "purge_invalid_days": "Die Tage müssen ≥ 1 sein."
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "panel_update": {
+    "title": "MiWiFi Paneli",
+    "update_title": "MiWiFi Paneli Güncellendi",
+    "update_message": "✅ MiWiFi Paneli <b>{version}</b> sürümüne güncellendi.<br>Değişiklikleri görmek için lütfen <b>tarayıcınızı yenileyin (Ctrl+F5)</b>.",
+    "release_notes": "Bu panel özel MiWiFi entegrasyonunun bir parçasıdır. Ağ topolojisini görsel olarak gösterir, cihaz kontrolü ve yönlendirici istatistikleri sağlar. Güncelleme arayüz iyileştirmeleri, performans geliştirmeleri ve hata düzeltmeleri içerir."
+  },
+  "connection_type": {
+    "lan": "Kablolu (LAN)",
+    "wifi_2_4": "Wi-Fi 2.4G",
+    "wifi_5_0": "Wi-Fi 5G",
+    "guest": "Misafir Ağı",
+    "wifi_5_0_game": "Wi-Fi 5G (Oyun)",
+    "unknown": "Bilinmiyor"
+  },
+  "notifications": {
+    "new_device_title": "MiWiFi’de Yeni Cihaz Algılandı",
+    "new_device_message": "📶 Yeni cihaz bağlandı: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Bağlantı: `{conn}`",
+    "unsupported_router_title": "Desteklenmeyen Yönlendirici",
+    "unsupported_router_message": "⚠️ {ip} adresindeki yönlendirici MiWiFi entegrasyonu tarafından desteklenmiyor.",
+    "device_blocked_message": "Cihaz {name} otomatik olarak {status}.",
+    "status_blocked": "ENGELLENDİ",
+    "status_unblocked": "ENGEL KALDIRILDI",
+    "download_ready": "📦 Günlükler hazır: <a href='{url}' target='_blank'>İndir</a>",
+    "calc_passwd_message": "🔐 Parolanız: <b>{passwd}</b>",
+    "self_check_title": "Yönlendirici Uyumluluk Başarısız",
+    "self_check_message": "🔍 Yönlendiricide ({model}) uyumsuz yöntemler tespit edildi.",
+    "suggest_unsupported_title": "Desteklenmeyen Model Algılandı",
+    "suggest_unsupported_message": "🚫 Bu yönlendirici bazı uyumluluk testlerinden geçemedi.",
+    "add_unsupported": "➕ {model}, unsupported_user.py içindeki {feature} özelliğine eklendi",
+    "already_in_unsupported": "⚠️ {model} zaten {feature} özelliğinde mevcut.",
+    "dump_ready": "📄 Dump oluşturuldu: <a href='{url}' target='_blank'>İndir</a>",
+    "dump_error": "❌ Dump oluşturulurken hata",
+    "title": "MiWiFi",
+    "status_on": "AÇIK",
+    "status_off": "KAPALI",
+    "guest_status_message": "Misafir Wi-Fi: {state}\nSSID: {ssid}\nŞifreleme: {encryption}\nArayüz: {ifname}\nKaynak: {source}",
+    "guest_updated": "Misafir Wi-Fi: {state}<br>SSID: {ssid}<br>Şifreleme: {encryption}",
+    "wifis_updated": "Wi-Fi güncellendi: {bands}",
+    "purge_dry_run": "Temizleme önizlemesi: {entities} varlık ve {devices} cihaz (> {days} gün; only_randomized={only_randomized}) silinecek.",
+    "purge_done": "Temizleme tamamlandı: {entities} varlık ve {devices} cihaz silindi (> {days} gün; only_randomized={only_randomized})."
+  },
+  "service_fields": {
+    "common": {
+      "device_id": "Eylemin uygulanacağı MiWiFi yönlendiricisi",
+      "verbose": "Listeyi göster (önizleme)",
+      "dry_run": "Simülasyon (silme yok)"
+    },
+    "get_wifis": {
+      "hide_sensitive": "Sonuçta parolaları gizle (önerilir)"
+    },
+    "set_guest_wifi": {
+      "enable": "Misafir ağı aç/kapat",
+      "ssid": "Ağ adı (SSID)",
+      "password": "Parola (8–63 karakter, psk2 için)",
+      "encryption": "Şifreleme (psk2 önerilir; none = açık)",
+      "hidden": "SSID gizle (0 = görünür, 1 = gizli)"
+    },
+    "set_wifis": {
+      "wifi2g": "Değiştirilecek alanlarla nesne (örn. {ssid, password, encryption, hidden})",
+      "wifi5g": "Değiştirilecek alanlarla nesne (örn. {ssid, password, encryption, hidden})",
+      "wifi5g_game": "Değiştirilecek alanlarla nesne (örn. {ssid, password, encryption, hidden})"
+    }
+  },
+  "errors": {
+    "password_length_simple": "Parola 8–63 karakter olmalıdır.",
+    "password_length_role": "[{role}] Parola 8–63 karakter olmalıdır.",
+    "no_blocks": "Wi-Fi bloğu belirtilmedi (wifi2g / wifi5g / wifi5g_game).",
+    "apply_role_error": "{role} için değişiklikler uygulanırken hata oluştu.",
+    "router_error": "Yönlendirici hata döndürdü.",
+    "password_length_error": "Parola 8–63 karakter olmalıdır.",
+    "purge_invalid_days": "Gün sayısı ≥ 1 olmalıdır."
+  }
+}

@@ -69,59 +69,39 @@
       "version": "Версия"
     }
   },
-  "panel_update": {
-    "title": "Панель MiWiFi",
-    "update_title": "Панель MiWiFi обновлена",
-    "update_message": "✅ Панель MiWiFi обновлена до версии <b>{version}</b>.<br>Пожалуйста, <b>обновите браузер (Ctrl+F5)</b>, чтобы увидеть изменения.",
-    "release_notes": "Эта панель является частью пользовательской интеграции MiWiFi. Она отображает топологию сети, управление устройствами и статистику роутера. Обновление включает улучшения интерфейса, производительности и исправления ошибок."
-  },
-  "connection_type": {
-    "lan": "Кабель (LAN)",
-    "wifi_2_4": "Wi-Fi 2.4G",
-    "wifi_5_0": "Wi-Fi 5G",
-    "guest": "Гостевая сеть",
-    "wifi_5_0_game": "Wi-Fi 5G (Игровой)",
-    "unknown": "Неизвестно"
-  },
-  "notifications": {
-    "new_device_title": "Новое устройство обнаружено в MiWiFi",
-    "new_device_message": "📶 Новое устройство подключено: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Соединение: `{conn}`",
-    "unsupported_router_title": "Неподдерживаемый роутер",
-    "unsupported_router_message": "⚠️ Роутер по адресу {ip} не поддерживается интеграцией MiWiFi.",
-    "device_blocked_message": "Устройство {name} было автоматически {status}.",
-    "status_blocked": "ЗАБЛОКИРОВАНО",
-    "status_unblocked": "РАЗБЛОКИРОВАНО",
-    "download_ready": "📦 Логи готовы: <a href='{url}' target='_blank'>Скачать</a>",
-    "calc_passwd_message": "🔐 Ваш пароль: <b>{passwd}</b>",
-    "self_check_title": "Проверка совместимости роутера не пройдена",
-    "self_check_message": "🔍 Обнаружены несовместимые методы на роутере ({model}).",
-    "suggest_unsupported_title": "Обнаружена неподдерживаемая модель",
-    "suggest_unsupported_message": "🚫 Этот роутер не прошёл некоторые тесты совместимости.",
-    "add_unsupported": "➕ {model} добавлен в функцию {feature} в unsupported_user.py",
-    "already_in_unsupported": "⚠️ {model} уже присутствует в функции {feature}.",
-    "dump_ready": "📄 Дамп создан: <a href='{url}' target='_blank'>Скачать</a>",
-    "dump_error": "❌ Ошибка при создании дампа",
-    "title": "MiWiFi",
-    "status_on": "ВКЛ",
-    "status_off": "ВЫКЛ",
-    "guest_status_message": "Гостевой Wi-Fi: {state}\nSSID: {ssid}\nШифрование: {encryption}\nИнтерфейс: {ifname}\nИсточник: {source}",
-    "guest_updated": "Гостевой Wi-Fi: {state}<br>SSID: {ssid}<br>Шифрование: {encryption}",
-    "wifis_updated": "Wi-Fi обновлён: {bands}",
-    "purge_dry_run": "Предпросмотр очистки: будут удалены {entities} сущностей и {devices} устройств (> {days} дней; only_randomized={only_randomized}).",
-    "purge_done": "Очистка завершена: удалено {entities} сущностей и {devices} устройств (> {days} дней; only_randomized={only_randomized})."
-  },
   "services": {
     "dump_router_data": {
       "name": "Создать дамп роутера",
       "description": "Создаёт JSON-файл с информацией от основного роутера.",
       "fields": {
-        "system": { "name": "Включить данные системы", "description": "Включает общую системную информацию." },
-        "network": { "name": "Включить сетевые данные", "description": "Включает сведения о WAN, Wi-Fi и топологии." },
-        "devices": { "name": "Включить подключённые устройства", "description": "Включает список подключённых устройств и их данные." },
-        "nat_rules": { "name": "Включить правила NAT", "description": "Включает правила переадресации портов." },
-        "qos": { "name": "Включить конфигурацию QoS", "description": "Включает параметры QoS." },
-        "wifi_config": { "name": "Включить конфигурацию Wi-Fi", "description": "Включает параметры Wi-Fi сетей (может содержать конфиденциальные данные)." },
-        "hide_sensitive": { "name": "Скрыть конфиденциальные данные", "description": "Скрывает пароли и MAC-адреса." }
+        "system": {
+          "name": "Включить данные системы",
+          "description": "Включает общую системную информацию."
+        },
+        "network": {
+          "name": "Включить сетевые данные",
+          "description": "Включает сведения о WAN, Wi-Fi и топологии."
+        },
+        "devices": {
+          "name": "Включить подключённые устройства",
+          "description": "Включает список подключённых устройств и их данные."
+        },
+        "nat_rules": {
+          "name": "Включить правила NAT",
+          "description": "Включает правила переадресации портов."
+        },
+        "qos": {
+          "name": "Включить конфигурацию QoS",
+          "description": "Включает параметры QoS."
+        },
+        "wifi_config": {
+          "name": "Включить конфигурацию Wi-Fi",
+          "description": "Включает параметры Wi-Fi сетей (может содержать конфиденциальные данные)."
+        },
+        "hide_sensitive": {
+          "name": "Скрыть конфиденциальные данные",
+          "description": "Скрывает пароли и MAC-адреса."
+        }
       }
     },
     "purge_inactive_devices": {
@@ -154,40 +134,17 @@
         }
       }
     },
-    "get_wifis": { "name": "Получить конфигурацию Wi-Fi (панель)" },
-    "set_guest_wifi": { "name": "Настроить гостевой Wi-Fi" },
-    "test_guest_wifi": { "name": "Тестировать гостевой Wi-Fi" },
-    "set_wifis": { "name": "Настроить Wi-Fi (2.4G/5G/Game)" }
-  },
-  "service_fields": {
-    "common": {
-      "device_id": "Роутер MiWiFi, к которому применить действие",
-      "verbose": "Показать список (предпросмотр)",
-      "dry_run": "Симуляция (не удалять)"
-    },
     "get_wifis": {
-      "hide_sensitive": "Скрыть пароли в результате (рекомендуется)"
+      "name": "Получить конфигурацию Wi-Fi (панель)"
     },
     "set_guest_wifi": {
-      "enable": "Включить или выключить гостевую сеть",
-      "ssid": "Имя сети (SSID)",
-      "password": "Пароль (8–63 символов для psk2)",
-      "encryption": "Шифрование (psk2 рекомендуется; none = открытая)",
-      "hidden": "Скрыть SSID (0 = видимый, 1 = скрытый)"
+      "name": "Настроить гостевой Wi-Fi"
+    },
+    "test_guest_wifi": {
+      "name": "Тестировать гостевой Wi-Fi"
     },
     "set_wifis": {
-      "wifi2g": "Объект с полями для изменения (например, {ssid, password, encryption, hidden})",
-      "wifi5g": "Объект с полями для изменения (например, {ssid, password, encryption, hidden})",
-      "wifi5g_game": "Объект с полями для изменения (например, {ssid, password, encryption, hidden})"
+      "name": "Настроить Wi-Fi (2.4G/5G/Game)"
     }
-  },
-  "errors": {
-    "password_length_simple": "Пароль должен содержать от 8 до 63 символов.",
-    "password_length_role": "[{role}] Пароль должен содержать от 8 до 63 символов.",
-    "no_blocks": "Не указан ни один блок Wi-Fi (wifi2g / wifi5g / wifi5g_game).",
-    "apply_role_error": "Ошибка применения изменений к {role}.",
-    "router_error": "Роутер вернул ошибку.",
-    "password_length_error": "Пароль должен содержать от 8 до 63 символов.",
-    "purge_invalid_days": "Количество дней должно быть \u2265 1."
   }
 }
