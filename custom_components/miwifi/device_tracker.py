@@ -64,7 +64,6 @@ from .const import (
     ATTR_DEVICE_MODEL,
 )
 
-from .registry import get_device
 from .enum import Connection, DeviceClass
 from .helper import (
     detect_manufacturer,
