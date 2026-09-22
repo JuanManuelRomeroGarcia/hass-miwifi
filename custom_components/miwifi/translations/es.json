@@ -56,7 +56,7 @@
           "timeout": "Tiempo de espera de solicitudes en segundos [PRO]",
           "log_level": "Nivel de log (global)",
           "enable_panel": "Habilitar panel de control",
-          "auto_purge_every_days": "Frecuencia de autopurga (cada N días)",
+          "auto_purge_every_days": "Autopurga cada X días (0 = desactivada) [PRO]",
           "auto_purge_at": "Hora diaria de la autopurga (HH:MM)",
           "enable_device_sensors": "Crear sensores de dispositivos (clientes)",
           "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo"

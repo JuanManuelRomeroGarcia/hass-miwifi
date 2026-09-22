@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta, time as dtime
 from typing import Any, Dict
 
@@ -12,6 +13,8 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from . import const as C
+
+_LOGGER = logging.getLogger(__name__)
 
 DOMAIN = C.DOMAIN
 STORAGE_VERSION = C.STORAGE_VERSION
@@ -98,10 +101,25 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
     data[AUTO_PURGE_OWNER] = entry.entry_id
 
     async def _current_cfg() -> tuple[dtime, int, str]:
-        """Lee hora/frecuencia del store global (con defaults)."""
+        """Lee hora/frecuencia del store global (con defaults).
+
+        `every_days == 0` means the scheduled purge is off, so the value has to
+        survive the read. `or DEFAULT` treated it as missing and handed back the
+        default instead, which turned "never" into "every day" - the opposite of
+        what the user asked for, on a job that deletes registry rows unattended.
+        """
+
         s = await _load(hass)
         at_str = str(s.get("at") or DEFAULT_AUTO_PURGE_AT)
-        every_days = int(s.get("every_days") or DEFAULT_AUTO_PURGE_EVERY_DAYS)
+
+        raw = s.get("every_days")
+        try:
+            every_days = DEFAULT_AUTO_PURGE_EVERY_DAYS if raw is None else int(raw)
+        except (TypeError, ValueError):
+            every_days = DEFAULT_AUTO_PURGE_EVERY_DAYS
+        if every_days < 0:
+            every_days = DEFAULT_AUTO_PURGE_EVERY_DAYS
+
         return _parse_hhmm(at_str), every_days, at_str
 
     def _parse_iso(dt_str: str | None):
@@ -116,15 +134,40 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         # 1) Reprogramar siguiente ejecución
         now = dt_util.now()
         at_time, every_days, at_str = await _current_cfg()
+
+        # Turned off while a run was already pending: do not purge, and do not
+        # queue another one.
+        if every_days == 0:
+            _LOGGER.debug(
+                "[MiWiFi] Scheduled purge is disabled (every_days=0); nothing scheduled"
+            )
+            return
+
         next_dt = _next_run(now, at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, next_dt)
 
         # 2) Llamar al servicio de purga (ejecución normal programada)
+        #
+        # This runs unattended with apply=True and nobody reads a preview first,
+        # so it takes the conservative end of every option the manual call
+        # leaves open:
+        #
+        # - only_randomized: a stable MAC belongs to a device that can come back,
+        #   and its tracker carries history worth keeping. A randomised MAC that
+        #   goes away never returns under the same address, which is what makes
+        #   it safe to collect automatically.
+        # - include_orphans_without_age: an unknown age is a question, not an
+        #   answer. A restart leaves every tracker the integration did not
+        #   recreate undatable - including clients that are connected - so
+        #   deleting on "don't know" deletes live devices once a week.
+        #
+        # A user who wants the wider sweep still has the manual service, where a
+        # dry run is one click away.
         params = {
             "days": int(every_days),
-            "only_randomized": False,
+            "only_randomized": True,
             "include_orphans": True,
-            "include_orphans_without_age": True,
+            "include_orphans_without_age": False,
             "verbose": False,
             "apply": True,
         }
@@ -159,6 +202,15 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         # Programa la próxima ejecución según configuración
         at_time, every_days, at_str = await _current_cfg()
         now = dt_util.now()
+
+        if every_days == 0:
+            s0 = await _load(hass)
+            s0.update({"next_due": None, "every_days": 0, "at": at_str, "owner": entry.entry_id})
+            await _save(hass, s0)
+            _LOGGER.debug(
+                "[MiWiFi] Scheduled purge is disabled (every_days=0); no run scheduled"
+            )
+            return
 
         first = _next_run(now, at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, first)

@@ -311,7 +311,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ACTIVITY_DAYS, default=get_config_value(self._config_entry, CONF_ACTIVITY_DAYS, DEFAULT_ACTIVITY_DAYS)): cv.positive_int,
                 vol.Optional(CONF_TIMEOUT, default=get_config_value(self._config_entry, CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(vol.Coerce(int), vol.Range(min=10)),
                 vol.Optional(CONF_WAN_SPEED_UNIT, default=get_config_value(self._config_entry, CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)): vol.In(WAN_SPEED_UNIT_OPTIONS),
-                vol.Optional(CONF_AUTO_PURGE_EVERY_DAYS, default=ap_every): vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
+                # 0 disables the scheduled purge. It deletes registry rows
+                # unattended, so it has to be possible to turn it off.
+                vol.Optional(CONF_AUTO_PURGE_EVERY_DAYS, default=ap_every): vol.All(vol.Coerce(int), vol.Range(min=0, max=3650)),
                 vol.Optional(CONF_AUTO_PURGE_AT, default=ap_at): str,
                 vol.Optional(CONF_ENABLE_DEVICE_SENSORS,default=get_config_value(self._config_entry,CONF_ENABLE_DEVICE_SENSORS,DEFAULT_ENABLE_DEVICE_SENSORS,),): cv.boolean,
                 vol.Optional(CONF_ENABLE_PORT_PROBE, default=get_config_value(self._config_entry, CONF_ENABLE_PORT_PROBE, DEFAULT_ENABLE_PORT_PROBE)): cv.boolean,
