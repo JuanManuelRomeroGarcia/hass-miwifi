@@ -54,7 +54,7 @@
           "wan_speed_unit": "WAN speed unit",
           "log_level": "Log level (global)",
           "enable_panel": "Enable control panel",
-          "auto_purge_every_days": "Auto-purge frequency (every N days)",
+          "auto_purge_every_days": "Auto-purge every X days (0 = disabled) [PRO]",
           "auto_purge_at": "Daily auto-purge time (HH:MM)",
           "enable_device_sensors": "Create device sensors (clients)",
           "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
