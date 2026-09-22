@@ -11,6 +11,7 @@ from homeassistant.components.switch import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -201,18 +202,36 @@ class MiWifiSwitch(MiWifiEntity, SwitchEntity):
 
         try:
             await self._updater.luci.set_wifi(new_data)
-            self._wifi_data = new_data
         except LuciError as _e:
-            await self.hass.async_add_executor_job(_LOGGER.debug,"WiFi update error: %r", _e)
+            # Swallowing this left the switch showing the state the router had
+            # just refused. Same defect, same fix, as select.py.
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug, "WiFi update error: %r", _e
+            )
+
+            raise HomeAssistantError(
+                f"{self._updater.ip} refused the change to"
+                f" {self.entity_description.key}: {_e}"
+            ) from _e
+
+        self._wifi_data = new_data
 
     async def _async_update_guest_wifi(self, data: dict) -> None:
         new_data: dict = self._wifi_data | data
 
         try:
             await self._updater.luci.set_guest_wifi(new_data)
-            self._wifi_data = new_data
         except LuciError as _e:
-            await self.hass.async_add_executor_job(_LOGGER.debug, "WiFi update error: %r", _e)
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug, "WiFi update error: %r", _e
+            )
+
+            raise HomeAssistantError(
+                f"{self._updater.ip} refused the change to"
+                f" {self.entity_description.key}: {_e}"
+            ) from _e
+
+        self._wifi_data = new_data
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._async_call(f"_{self.entity_description.key}_{STATE_ON}", STATE_ON, **kwargs)
