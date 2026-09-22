@@ -75,20 +75,13 @@ PROTOCOL_OPTIONS: Final = [PROTOCOL_AUTO, PROTOCOL_HTTP, PROTOCOL_HTTPS]
 
 """Panel const"""
 CONF_ENABLE_PANEL = "enable_panel"
-DEFAULT_PANEL_VERSION = "2026.01" # Minimum version required v 2026.01
 DEFAULT_ENABLE_PANEL = True
 GLOBAL_PANEL_STORE = "miwifi/miwifi_global_panel_state"
-PANEL_REPO_BASE_URL = "https://raw.githubusercontent.com/JuanManuelRomeroGarcia/miwifi-panel-frontend/main/"
-PANEL_REPO_FILES_URL = PANEL_REPO_BASE_URL + "files.json"
-PANEL_REPO_VERSION_URL = PANEL_REPO_BASE_URL + "version.json"
-PANEL_LOCAL_PATH = "www/miwifi"
-PANEL_STORAGE_FILE = ".storage/miwifi/miwifi_panel_version.json"
 PANEL_STATE_FILE = ".storage/miwifi/miwifi_panel_state.json"  
 
 MAIN_ROUTER_STORE_FILE = ".storage/miwifi/miwifi_main_router.json"
 MAIN_ROUTER_STORE_VERSION = 1
 
-PANEL_MONITOR_INTERVAL: Final = timedelta(seconds=30)
 
 
 """Default settings"""

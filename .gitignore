@@ -141,3 +141,5 @@ push_miwifi.sh
 /config/custom_components/miwifi/Logs/
 *.log
 /config/custom_components/miwifi/__pycache__/
+pyvenv.cfg
+node_modules/

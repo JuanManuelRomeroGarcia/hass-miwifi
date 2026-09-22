@@ -919,9 +919,34 @@ async def async_setup_entry(
     )
 
     # Defer initial entity creation to avoid blocking startup.
-    hass.async_create_task(
+    # Keep only ONE in-flight setup task per config entry to avoid duplicates on reload.
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    sensor_setup_tasks = domain_data.setdefault("sensor_setup_tasks", {})
+
+    prev_task = sensor_setup_tasks.get(config_entry.entry_id)
+    if prev_task and not prev_task.done():
+        prev_task.cancel()
+
+    setup_task = hass.async_create_task(
         _async_add_all_sensors_later(hass, config_entry, async_add_entities)
     )
+    sensor_setup_tasks[config_entry.entry_id] = setup_task
+
+    def _cleanup_setup_task() -> None:
+        current = sensor_setup_tasks.get(config_entry.entry_id)
+        if current is setup_task:
+            sensor_setup_tasks.pop(config_entry.entry_id, None)
+
+        if not setup_task.done():
+            setup_task.cancel()
+
+    def _done_callback(_future) -> None:
+        current = sensor_setup_tasks.get(config_entry.entry_id)
+        if current is setup_task:
+            sensor_setup_tasks.pop(config_entry.entry_id, None)
+
+    setup_task.add_done_callback(_done_callback)
+    config_entry.async_on_unload(_cleanup_setup_task)
 
 class MiWifiNATRulesSensor(CoordinatorEntity, SensorEntity):
     """Sensor to represent the NAT rules of the main router."""
@@ -1027,7 +1052,10 @@ async def _async_add_all_sensors_later(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Add all sensors after a short delay to avoid blocking startup."""
-    await asyncio.sleep(0)
+    try:
+        await asyncio.sleep(0)
+    except asyncio.CancelledError:
+        return
 
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
 
@@ -1035,6 +1063,8 @@ async def _async_add_all_sensors_later(
     for _ in range(6):
         try:
             await updater.async_request_refresh()
+        except asyncio.CancelledError:
+            return
         except Exception:
             pass
 
@@ -1042,7 +1072,10 @@ async def _async_add_all_sensors_later(
         if "is_main" in topo or _is_cb0401v2(updater):
             break
 
-        await asyncio.sleep(2)
+        try:
+            await asyncio.sleep(2)
+        except asyncio.CancelledError:
+            return
 
     is_cpe = _is_cb0401v2(updater)
     
@@ -1101,5 +1134,30 @@ async def _async_add_all_sensors_later(
                 continue
             entities.extend(_build_device_sensors(updater, device))
 
-    async_add_entities(entities)
+    # Defensive de-duplication:
+    # - avoid duplicates inside the same setup task
+    # - DO NOT skip by hass.states/restored state, or mesh router sensors may never instantiate
+    unique_entities: list[SensorEntity] = []
+    seen_uids: set[str] = set()
+    seen_entity_ids: set[str] = set()
+
+    for ent in entities:
+        uid = getattr(ent, "unique_id", None) or getattr(ent, "_attr_unique_id", None)
+        eid = getattr(ent, "entity_id", None)
+
+        if uid and uid in seen_uids:
+            continue
+
+        if eid and eid in seen_entity_ids:
+            continue
+
+        if uid:
+            seen_uids.add(uid)
+        if eid:
+            seen_entity_ids.add(eid)
+
+        unique_entities.append(ent)
+
+    if unique_entities:
+        async_add_entities(unique_entities)
 

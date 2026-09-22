@@ -131,6 +131,8 @@ class LuciClient:
 
         self.diagnostics: dict[str, Any] = {}
         self._api_paths = API_PATHS.copy()
+        self._mode_retry_at = 0.0
+        self._mode_fallback_logged = False
         
     async def _request_with_retry(self, method: str, url: str, **kwargs) -> Response:
         """Execute GET/POST on self._client.
@@ -440,24 +442,38 @@ class LuciClient:
     # ------------------------------------------------------------
 
     async def mode(self) -> dict:
-        """xqnetwork/mode method.
-
-        :return dict: dict with api data.
-        """
-        try:
-            return await self.get(self._api_paths["mode"])
-        except:
-            _LOGGER.info("Primary endpoint failed load qnetwork/get_netmode")
+        """Use a working fallback, periodically retrying the primary endpoint."""
+        now = time.monotonic()
+        tried_primary = now >= self._mode_retry_at
+        if tried_primary:
             try:
-                response = await self.netmode()
-                # Convert netmode field to mode field for compatibility
-                if isinstance(response, dict) and "netmode" in response and "mode" not in response:
-                    response["mode"] = response["netmode"]
+                response = await self.get(self._api_paths["mode"])
+                self._mode_retry_at = 0.0
                 return response
-            except Exception as e:
-                _LOGGER.error("Fallback endpoint also failed: %s", e)
-                return {"mode": 0}
-    
+            except (LuciError, Exception) as err:
+                # LuciError currently inherits BaseException; cancellation must
+                # still propagate during shutdown and integration reloads.
+                log = _LOGGER.debug if self._mode_fallback_logged else _LOGGER.info
+                log(
+                    "[%s] Endpoint %s failed; trying %s: %s",
+                    self.ip, self._api_paths["mode"], self._api_paths["netmode"], err,
+                )
+                self._mode_fallback_logged = True
+
+        try:
+            response = await self.netmode()
+            if isinstance(response, dict) and "netmode" in response and "mode" not in response:
+                response = {**response, "mode": response["netmode"]}
+            if tried_primary:
+                # Do not permanently classify transient/authentication failures
+                # as unsupported. Re-probe after five minutes or on reload.
+                self._mode_retry_at = now + 300
+            return response
+        except (LuciError, Exception) as err:
+            self._mode_retry_at = 0.0
+            _LOGGER.error("[%s] Fallback endpoint %s also failed: %s", self.ip, self._api_paths["netmode"], err)
+            return {"mode": 0}
+
     async def netmode(self) -> dict:
         """Compatibilidad con self_check: alias de xqnetwork/mode.
 
