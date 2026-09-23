@@ -37,11 +37,17 @@ def _pick_updater(hass: HomeAssistant):
     return updaters[0]
 
 
-@websocket_api.websocket_command({"type": "miwifi/get_download_url"})
+@websocket_api.websocket_command({"type": "miwifi/get_download_url", "kind": str})
 @websocket_api.require_admin
 async def handle_get_download_url(hass: HomeAssistant, connection, msg) -> None:
-    """Devuelve la última URL disponible para descargar logs/dump."""
-    url = hass.data.get(DOMAIN, {}).get("last_log_zip_url")
+    """Return a private export path to an authenticated administrator."""
+    kind = msg["kind"]
+    if kind not in ("logs", "dump"):
+        connection.send_error(msg["id"], "invalid_kind", "Unknown export kind.")
+        return
+
+    key = "last_log_zip_url" if kind == "logs" else "last_dump_zip_url"
+    url = hass.data.get(DOMAIN, {}).get(key)
     if url:
         connection.send_result(msg["id"], {"url": url})
     else:

@@ -18,6 +18,7 @@ from homeassistant.const import (
 from homeassistant.core import CALLBACK_TYPE, Event, HomeAssistant, ServiceCall
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 
 from .const import (
     CONF_ACTIVITY_DAYS,
@@ -100,11 +101,14 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         ])
 
     if not hass.services.has_service(DOMAIN, "apply_config"):
-        hass.services.async_register(DOMAIN, "apply_config", handle_apply_config)
+        async_register_admin_service(hass, DOMAIN, "apply_config", handle_apply_config)
         
     # 📡 Websocket command for downloading logs
     websocket_api.async_register_command(hass, ws_api.handle_get_download_url)
     websocket_api.async_register_command(hass, ws_api.websocket_get_wifis)
+
+    # Remove exports left by older releases even if a router entry cannot load.
+    await async_register_http_views(hass)
 
     return True
 
@@ -178,13 +182,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     for service_name, service in SERVICES:
         if not hass.services.has_service(DOMAIN, service_name):
-            hass.services.async_register(
-                DOMAIN, service_name, service(hass).async_call_service, service.schema
+            async_register_admin_service(
+                hass, DOMAIN, service_name, service(hass).async_call_service, service.schema
             )
     # Program auto-purge
     schedule_auto_purge(hass, entry, kickoff=True)
-
-    await async_register_http_views(hass)
 
     return True
 

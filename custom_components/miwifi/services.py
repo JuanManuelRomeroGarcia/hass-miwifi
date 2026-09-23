@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import zipfile
 from .logger import _LOGGER, async_recreate_log_handlers
 from typing import Final
@@ -737,25 +738,25 @@ class MiWifiDownloadLogsService:
 
     async def async_call_service(self, service: ServiceCall) -> None:
         log_dir = os.path.join(self.hass.config.config_dir, "miwifi", "logs")
-        www_export_dir = os.path.join(self.hass.config.config_dir, "www", "miwifi", "exports")
+        export_dir = self.hass.config.path(DOMAIN, "exports")
 
-        await self.hass.async_add_executor_job(partial(os.makedirs, www_export_dir, exist_ok=True))
+        await self.hass.async_add_executor_job(partial(os.makedirs, export_dir, exist_ok=True))
 
         max_zip_files = 1
 
         def _list_existing_logs():
             return sorted(
-                (f for f in os.listdir(www_export_dir) if f.startswith("logs_") and f.endswith(".zip")),
-                key=lambda x: os.path.getmtime(os.path.join(www_export_dir, x)),
+                (f for f in os.listdir(export_dir) if f.startswith("logs_") and f.endswith(".zip")),
+                key=lambda x: os.path.getmtime(os.path.join(export_dir, x)),
                 reverse=True
             )
         existing_zips = await self.hass.async_add_executor_job(_list_existing_logs)
 
 
         def _remove_old():
-            for old_zip in existing_zips[max_zip_files:]:
+            for old_zip in existing_zips[max_zip_files - 1:]:
                 try:
-                    os.remove(os.path.join(www_export_dir, old_zip))
+                    os.remove(os.path.join(export_dir, old_zip))
                     _LOGGER.debug("Removed old log archive: %s", old_zip)
                 except Exception as e:
                     _LOGGER.warning("Failed to remove old log archive %s: %s", old_zip, e)
@@ -763,8 +764,8 @@ class MiWifiDownloadLogsService:
         await self.hass.async_add_executor_job(_remove_old)
 
         now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        filename = f"logs_{now}.zip"
-        zip_path = os.path.join(www_export_dir, filename)
+        filename = f"logs_{now}_{secrets.token_hex(8)}.zip"
+        zip_path = os.path.join(export_dir, filename)
 
         def _zip_logs():
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -775,8 +776,8 @@ class MiWifiDownloadLogsService:
 
         await self.hass.async_add_executor_job(_zip_logs)
 
-        url = f"/local/miwifi/exports/{filename}"
-        await self.hass.async_add_executor_job(_LOGGER.info, "📦 MiWiFi logs zipped and available at: %s", url)
+        url = f"/api/{DOMAIN}/exports/{filename}"
+        await self.hass.async_add_executor_job(_LOGGER.info, "📦 MiWiFi logs archived privately: %s", filename)
 
         self.hass.data.setdefault(DOMAIN, {})
         self.hass.data[DOMAIN]["last_log_zip_url"] = url
@@ -784,11 +785,7 @@ class MiWifiDownloadLogsService:
         notifier = MiWiFiNotifier(self.hass)
         translations = await notifier.get_translations()
         title = translations.get("title", "MiWiFi")
-        message_template = translations.get("notifications", {}).get(
-            "download_ready",
-            "📦 Logs listos: <a href='{url}' target='_blank'>Descargar</a>"
-        )
-        message = message_template.replace("{url}", url)
+        message = "📦 Logs ready. Open the MiWiFi panel as an administrator to download them."
         await notifier.notify(message, title=title, notification_id="miwifi_download_logs")
         
 class MiWifiAddUnsupportedService:
@@ -951,7 +948,7 @@ class MiWifiDumpRouterDataService:
             dump_data["status"] = "partial" if errors else "ok"
             dump_data["errors"] = errors
 
-            export_dir = os.path.join(self.hass.config.path(), "www", "miwifi", "exports")
+            export_dir = self.hass.config.path(DOMAIN, "exports")
             await self.hass.async_add_executor_job(partial(os.makedirs, export_dir, exist_ok=True))
 
             def _clean_old_dumps():
@@ -961,7 +958,7 @@ class MiWifiDumpRouterDataService:
                     reverse=True
                 )
                 max_files = 1
-                for old in dumps[max_files:]:
+                for old in dumps[max_files - 1:]:
                     try:
                         os.remove(os.path.join(export_dir, old))
                         json_name = old.replace(".zip", ".json")
@@ -974,26 +971,24 @@ class MiWifiDumpRouterDataService:
             await self.hass.async_add_executor_job(_clean_old_dumps)
 
             timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-            json_filename = f"dump_{timestamp}.json"
-            zip_filename = f"dump_{timestamp}.zip"
-            json_path = os.path.join(export_dir, json_filename)
+            token = secrets.token_hex(8)
+            json_filename = f"dump_{timestamp}_{token}.json"
+            zip_filename = f"dump_{timestamp}_{token}.zip"
             zip_path = os.path.join(export_dir, zip_filename)
 
             def _write_and_zip():
-                with open(json_path, "w", encoding="utf-8") as f:
-                    json.dump(dump_data, f, indent=4, ensure_ascii=False, sort_keys=False)
                 with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-                    zipf.write(json_path, arcname=json_filename)
+                    zipf.writestr(
+                        json_filename,
+                        json.dumps(dump_data, indent=4, ensure_ascii=False),
+                    )
             await self.hass.async_add_executor_job(_write_and_zip)
 
-            url = f"/local/miwifi/exports/{zip_filename}"
-            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Dump created in: %s", zip_path)
+            url = f"/api/{DOMAIN}/exports/{zip_filename}"
+            self.hass.data.setdefault(DOMAIN, {})["last_dump_zip_url"] = url
+            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] Dump archived privately: %s", zip_filename)
 
-            message_template = translations.get("notifications", {}).get(
-                "dump_ready",
-                "📄 Dump generated: <a href='{url}' target='_blank'>Download</a>"
-            )
-            message = message_template.replace("{url}", url)
+            message = "📄 Router data ready. Open the MiWiFi panel as an administrator to download it."
             await notifier.notify(message, title=title, notification_id="miwifi_dump_router_data")
 
         except Exception as e:

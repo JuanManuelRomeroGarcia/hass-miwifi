@@ -1,6 +1,6 @@
-import { html } from "../vendor/lit.js?v=3.8.0";
-import "../components/miwifi-device-cards.js?v=3.8.0";
-import { logToBackend } from "./utils.js?v=3.8.0";
+import { html } from "../vendor/lit.js?v=3.8.1";
+import "../components/miwifi-device-cards.js?v=3.8.1";
+import { logToBackend } from "./utils.js?v=3.8.1";
 
 
 export function renderDevicesCards(hass) {
