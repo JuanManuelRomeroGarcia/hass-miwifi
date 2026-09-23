@@ -117,7 +117,7 @@ def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
 
     via_router_mac_lc = _norm_mac(via_router_mac)
     if not via_router_mac_lc or via_router_mac_lc in ("none", "null"):
-        return {}
+        return None
 
     dev_reg = dr.async_get(hass)
 
@@ -127,7 +127,7 @@ def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
     # Map router-mac -> config_entry_id using hass.data[DOMAIN][entry_id][UPDATER]
     domain_data = hass.data.get(DOMAIN, {})
     if not isinstance(domain_data, dict):
-        return {}
+        return None
 
     target_entry_id: str | None = None
     target_name: str | None = None
@@ -161,7 +161,7 @@ def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
 
     # If we cannot map it to a known router updater, do NOT set via_device.
     if not target_entry_id:
-        return {}
+        return None
 
     # Create minimal router device so HA can reference the parent safely
     return dev_reg.async_get_or_create(
@@ -292,7 +292,8 @@ def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> 
         row
         for row in rows
         if row.id != keep.id
-        and row.config_entries & ours
+        and row.config_entries
+        and row.config_entries <= ours
         and not er.async_entries_for_device(
             registry, row.id, include_disabled_entities=True
         )

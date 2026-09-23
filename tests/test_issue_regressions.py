@@ -33,6 +33,14 @@ def load_class(filename, name, namespace, methods=None, drop_schema=False):
     return namespace[name]
 
 
+def load_function(filename, name, namespace):
+    tree = ast.parse((COMPONENT/filename).read_text(encoding='utf-8'))
+    node = next(item for item in tree.body if isinstance(item, ast.FunctionDef) and item.name == name)
+    module = ast.Module(body=[ast.ImportFrom(module='__future__', names=[ast.alias(name='annotations')], level=0), node], type_ignores=[])
+    exec(compile(ast.fix_missing_locations(module), filename, 'exec'), namespace)
+    return namespace[name]
+
+
 class LuciError(BaseException):
     pass
 
@@ -113,6 +121,8 @@ class PurgeTests(unittest.IsolatedAsyncioTestCase):
         ent_reg = SimpleNamespace(entities={}, async_get=Mock(), async_remove=Mock())
         notifier = SimpleNamespace(get_translations=AsyncMock(return_value={}), notify=AsyncMock())
         env = {'time': time, 're': re, 'DOMAIN': 'miwifi', 'UPDATER': 'updater', 'ATTR_TRACKER_ENTRY_ID': 'entry_id', 'ATTR_TRACKER_LAST_ACTIVITY': 'last_activity', 'ATTR_TRACKER_MAC': 'mac', 'SIGNAL_PURGE_DEVICE': 'purge', 'async_get_integrations': lambda hass: {}, 'MiWiFiNotifier': lambda hass: notifier, 'async_dispatcher_send': Mock(), 'parse_last_activity': lambda value: int(value), 'dr': SimpleNamespace(async_get=lambda hass: dev_reg), 'er': SimpleNamespace(async_get=lambda hass: ent_reg, async_entries_for_device=lambda registry, device_id, **kwargs: (entities or {}).get(device_id, []))}
+        load_function('services.py', '_all_device_entries', env)
+        load_function('services.py', '_has_domain_identifier', env)
         cls = load_class('services.py', 'MiWifiPurgeInactiveDevicesServiceCall', env, drop_schema=True)
         return cls(SimpleNamespace(states=SimpleNamespace(get=lambda entity: None))), dev_reg, notifier
 
@@ -150,6 +160,63 @@ class PurgeTests(unittest.IsolatedAsyncioTestCase):
         await service.async_call_service(SimpleNamespace(data={'apply': True, 'include_orphans_without_age': False, 'verbose': False}))
         registry.async_remove_device.assert_not_called()
         self.assertIn('0 devices', notifier.notify.call_args.args[0])
+
+
+class RegistryOwnershipTests(unittest.TestCase):
+    def test_unresolved_node_has_no_parent_link(self):
+        env = {'DOMAIN': 'miwifi', '_LINKS_BY_VIA_DEVICE_ID': True}
+        ensure = load_function('device_tracker.py', '_ensure_via_device_exists', env)
+        via_info = load_function('device_tracker.py', '_via_device_info', env)
+
+        self.assertIsNone(ensure(None, ''))
+        self.assertEqual(via_info(ensure(None, '')), {})
+
+    def test_empty_row_shared_with_another_integration_is_preserved(self):
+        kept = SimpleNamespace(id='kept', config_entries={'new'})
+        shared = SimpleNamespace(id='shared', config_entries={'old', 'foreign'})
+        dev_reg = SimpleNamespace(async_remove_device=Mock())
+        entity = SimpleNamespace(device_id='kept', config_entry_id='new')
+        registry = SimpleNamespace(async_get_entity_id=Mock(return_value='device_tracker.client'), async_get=Mock(return_value=entity))
+        hass = SimpleNamespace(config_entries=SimpleNamespace(async_entries=lambda domain: [SimpleNamespace(entry_id='old'), SimpleNamespace(entry_id='new')]))
+        env = {
+            'DOMAIN': 'miwifi',
+            'dr': SimpleNamespace(async_get=lambda hass: dev_reg),
+            'er': SimpleNamespace(async_get=lambda hass: registry, async_entries_for_device=lambda *args, **kwargs: []),
+            'device_registry_rows': lambda *args, **kwargs: [kept, shared],
+        }
+        reparent = load_function('device_tracker.py', '_reparent_client_device', env)
+
+        self.assertFalse(reparent(hass, '02:00:00:00:00:01', 'new'))
+        dev_reg.async_remove_device.assert_not_called()
+
+
+class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_response_event_uses_the_requesting_node(self):
+        foreign = SimpleNamespace(id='foreign-row', config_entry_id='other')
+        node = SimpleNamespace(id='node-row', config_entry_id='node')
+        updater = SimpleNamespace(
+            _entry_id='node',
+            data={'mac': '00:11:22:33:44:55'},
+            ip='10.10.10.1',
+            luci=SimpleNamespace(get=AsyncMock(return_value={'ok': 1})),
+        )
+        hass = SimpleNamespace(bus=SimpleNamespace(async_fire=Mock()))
+        base = type('MiWifiServiceCall', (), {'__init__': lambda self, hass: setattr(self, 'hass', hass), 'get_updater': lambda self, service: updater})
+        env = {
+            'MiWifiServiceCall': base,
+            'LuciError': Exception,
+            'device_registry_rows': lambda *args, **kwargs: [foreign, node],
+            'dr': SimpleNamespace(async_get=lambda hass: object(), CONNECTION_NETWORK_MAC='mac'),
+            'ATTR_DEVICE_MAC_ADDRESS': 'mac',
+            'CONF_URI': 'uri', 'CONF_BODY': 'body', 'CONF_DEVICE_ID': 'device_id',
+            'CONF_TYPE': 'type', 'CONF_REQUEST': 'request', 'CONF_RESPONSE': 'response',
+            'EVENT_LUCI': 'miwifi_luci', 'EVENT_TYPE_RESPONSE': 'response',
+        }
+        cls = load_class('services.py', 'MiWifiRequestServiceCall', env, drop_schema=True)
+
+        await cls(hass).async_call_service(SimpleNamespace(data={'uri': 'status'}))
+
+        self.assertEqual(hass.bus.async_fire.call_args.args[1]['device_id'], 'node-row')
 
 
 class CompatibilityTests(unittest.TestCase):

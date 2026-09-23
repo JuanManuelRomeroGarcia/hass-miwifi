@@ -260,6 +260,21 @@ def test_rows_belonging_to_other_integrations_are_not_touched() -> None:
     assert calls == []
 
 
+def test_an_empty_shared_row_is_not_deleted() -> None:
+    """An older core can put MiWiFi and another integration on one row."""
+
+    kept = _Device({NEW}, entities=1)
+    shared = _Device({OLD, FOREIGN}, entities=0)
+
+    moved, calls, dev_reg = _run(
+        [kept, shared], _EntityEntry(NEW, device_id=kept.id), legacy=True
+    )
+
+    assert moved is False
+    assert shared in dev_reg.rows
+    assert ("row-remove", shared.id) not in calls
+
+
 def test_a_second_link_on_one_row_is_still_dropped() -> None:
     """Cores before 2026.9 put several entries on a single row."""
 

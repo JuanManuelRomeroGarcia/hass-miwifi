@@ -47,7 +47,6 @@ from .const import (
     SIGNAL_PURGE_DEVICE,
     DOMAIN
 )
-from .registry import get_device
 from .exceptions import LuciError
 from .updater import LuciUpdater, async_get_updater, async_update_panel_entity, async_get_integrations
 from .frontend import async_save_manual_main_mac, async_clear_manual_main_mac
@@ -226,7 +225,18 @@ class MiWifiRequestServiceCall(MiWifiServiceCall):
                 (dr.CONNECTION_NETWORK_MAC, str(device_identifier).strip().lower())
             },
         )
-        device: dr.DeviceEntry | None = rows[0] if rows else None
+        device: dr.DeviceEntry | None = next(
+            (
+                row
+                for row in rows
+                if getattr(row, "config_entry_id", None) == updater._entry_id
+                or (
+                    not hasattr(row, "config_entry_id")
+                    and updater._entry_id in row.config_entries
+                )
+            ),
+            None,
+        )
         if device is not None:
             self.hass.bus.async_fire(EVENT_LUCI, {
                 CONF_DEVICE_ID: device.id,
