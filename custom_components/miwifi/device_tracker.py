@@ -220,7 +220,9 @@ def _move_device_row(
         dev_reg.async_update_device(row.id, remove_config_entry_id=old_entry_id)
 
 
-def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> bool:
+def _reparent_client_device(
+    hass: HomeAssistant, mac_lc: str, entry_id: str, via_router_mac: str | None = None
+) -> bool:
     """Hand a client over to the node that is serving it now.
 
     A client keeps one entity for the whole mesh - identity is the MAC, by
@@ -230,28 +232,25 @@ def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> 
     answered "the clients on this node": on the mesh this was traced on, one
     phone sat under two nodes at once, having roamed between them.
 
-    So there are two jobs here, and the first one alone is not enough - it is
-    what the first cut of this did, and it left the empty rows exactly where
-    they were:
+    The registry must keep the tracker and its sensors together when a client
+    changes nodes:
 
-    1. the row that carries the tracker moves to the serving node;
-    2. the rows left under our *other* entries go, because they are what those
-       nodes' device lists were showing.
+    1. move every MiWiFi entity to the row carrying the tracker and the new entry;
+    2. remove rows left empty under our other entries;
+    3. move the kept row to the serving entry and update its parent link.
 
-    The order inside step 1 is forced, not stylistic. The entity registry
-    deletes an entity when the device row it sits on changes config entry and
-    the entity is still pointing at the old one (`async_device_modified`, core
-    2026.9; `_handle_device_registry_update` before it). The entity therefore
-    has to be pointed at the new node *before* the row is moved. Doing it the
-    other way round deletes the tracker, and its entity_id and history with it.
+    The entity registry deletes an entity when its device row changes config
+    entry while that entity still points at the old one (`async_device_modified`,
+    core 2026.9). Update all our entities before moving the row, preserving
+    their entity IDs and history.
 
-    Step 2 only ever removes a row with **no** entities on it. Removing a row
-    takes down the entities whose config entry is that row's, so an occupied row
-    is left alone: better a stale listing than a deleted tracker.
+    A row is removed only after it is empty. Rows carrying entities owned by
+    another integration are left alone.
 
     :param hass: HomeAssistant
     :param mac_lc: str: client MAC, lower case
     :param entry_id: str: the entry of the node serving it now
+    :param via_router_mac: str | None: MAC of the node serving the client
     :return bool: True when something was actually moved or dropped
     """
 
@@ -281,41 +280,79 @@ def _reparent_client_device(hass: HomeAssistant, mac_lc: str, entry_id: str) -> 
     if keep is None:
         keep = next((row for row in rows if entry_id in row.config_entries), rows[0])
 
-    entity_moved: bool = (
-        entity_entry is not None and entity_entry.config_entry_id != entry_id
+    # Entity.device_info is only applied when an entity is added. Roaming also
+    # needs to update the existing device row's "Connected via" link.
+    via_node = _ensure_via_device_exists(hass, via_router_mac)
+    via_id = via_node.id if via_node is not None else None
+    via_changed = (
+        via_id is not None
+        and via_id != keep.id
+        and getattr(keep, "via_device_id", None) != via_id
     )
+
     row_moved: bool = entry_id not in keep.config_entries
     # A core before 2026.9 could put several entries on one row, so the row we
     # keep may itself still carry an old node - with or without a move.
     stale_links: set[str] = (keep.config_entries & ours) - {entry_id}
-    doomed: list = [
+    # Sensors and the tracker share the client's identity. Since 2026.9 Core
+    # may split that identity into one row per entry. Move every MiWiFi entity
+    # onto the row we keep *before* changing its owner: otherwise Core deletes
+    # sensors still tied to the old entry when the device row changes owner.
+    to_relink = [
+        entity
+        for row in rows
+        for entity in er.async_entries_for_device(
+            registry, row.id, include_disabled_entities=True
+        )
+        if entity.platform == DOMAIN
+        and entity.config_entry_id in ours
+        and (entity.config_entry_id != entry_id or entity.device_id != keep.id)
+    ]
+    prunable_rows = [
         row
         for row in rows
         if row.id != keep.id
         and row.config_entries
         and row.config_entries <= ours
-        and not er.async_entries_for_device(
-            registry, row.id, include_disabled_entities=True
+        and all(
+            entity.platform == DOMAIN and entity.config_entry_id in ours
+            for entity in er.async_entries_for_device(
+                registry, row.id, include_disabled_entities=True
+            )
         )
     ]
 
-    if not entity_moved and not row_moved and not stale_links and not doomed:
+    if not (
+        to_relink or row_moved or stale_links or prunable_rows or via_changed
+    ):
         return False
 
-    if entity_moved:
-        registry.async_update_entity(entity_id, config_entry_id=entry_id)
+    for entity in to_relink:
+        registry.async_update_entity(
+            entity.entity_id, config_entry_id=entry_id, device_id=keep.id
+        )
+
+    # Remove now-empty rows before moving keep to the target entry, since an
+    # existing target row with the same MAC would otherwise collide with it.
+    dropped = 0
+    for row in prunable_rows:
+        if not er.async_entries_for_device(
+            registry, row.id, include_disabled_entities=True
+        ):
+            dev_reg.async_remove_device(row.id)
+            dropped += 1
 
     if row_moved or stale_links:
         _move_device_row(dev_reg, keep, entry_id, stale_links)
 
-    for row in doomed:
-        dev_reg.async_remove_device(row.id)
+    if via_changed:
+        dev_reg.async_update_device(keep.id, via_device_id=via_id)
 
     _LOGGER.debug(
         "[MiWiFi] Client %s now belongs to entry %s; dropped %s empty device row(s)",
         mac_lc,
         entry_id,
-        len(doomed),
+        dropped,
     )
 
     return True
@@ -450,13 +487,7 @@ async def async_setup_entry(
         # If live instance exists, update it and exit
         ent = ent_map.get(unique_id)
         if ent is not None:
-            ent._device = dict(new_device)  # noqa: SLF001
-            ent.async_write_ha_state()
-
-            # We are the node serving this client: the registry has to say so.
-            # Roaming reaches exactly this branch - the entity already exists,
-            # and until now nothing followed it to its new node.
-            _reparent_client_device(hass, mac_lc, config_entry.entry_id)
+            ent.update_from_router(new_device)
             return
 
         # Avoid parallel duplicate creations across mesh nodes
@@ -630,7 +661,12 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         # does, which is why the rows survived one.
         entry_id = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
         if entry_id:
-            _reparent_client_device(self.hass, self.mac_address, entry_id)
+            _reparent_client_device(
+                self.hass,
+                self.mac_address,
+                entry_id,
+                self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
+            )
 
         if not self._enable_port_probe:
             return
@@ -639,6 +675,20 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             DEFAULT_CALL_DELAY,
             lambda: self.hass.async_create_task(self.check_ports()),
         )
+
+    @callback
+    def update_from_router(self, device: dict) -> None:
+        """Refresh a live client and its registry ownership after a mesh update."""
+        self._device = dict(device)
+        entry_id = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        if entry_id:
+            _reparent_client_device(
+                self.hass,
+                self.mac_address,
+                entry_id,
+                self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
+            )
+        self.async_write_ha_state()
 
     async def async_will_remove_from_hass(self) -> None:
         """Cleanup when entity is removed."""

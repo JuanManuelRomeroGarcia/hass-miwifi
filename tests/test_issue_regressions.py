@@ -183,11 +183,93 @@ class RegistryOwnershipTests(unittest.TestCase):
             'dr': SimpleNamespace(async_get=lambda hass: dev_reg),
             'er': SimpleNamespace(async_get=lambda hass: registry, async_entries_for_device=lambda *args, **kwargs: []),
             'device_registry_rows': lambda *args, **kwargs: [kept, shared],
+            '_ensure_via_device_exists': lambda *args: None,
         }
         reparent = load_function('device_tracker.py', '_reparent_client_device', env)
 
         self.assertFalse(reparent(hass, '02:00:00:00:00:01', 'new'))
         dev_reg.async_remove_device.assert_not_called()
+
+    def test_roaming_keeps_tracker_and_all_sensors_on_one_device(self):
+        mac = '02:00:00:00:00:01'
+        old = SimpleNamespace(id='old-client', config_entries={'mesh'}, via_device_id='mesh-router')
+        target = SimpleNamespace(id='target-client', config_entries={'main'}, via_device_id=None)
+        parent = SimpleNamespace(id='main-router')
+        rows = [old, target]
+        tracker = SimpleNamespace(entity_id='device_tracker.client', platform='miwifi', config_entry_id='mesh', device_id=old.id)
+        sensors = [
+            SimpleNamespace(entity_id=f'sensor.client_{i}', platform='miwifi', config_entry_id='main', device_id=target.id)
+            for i in range(12)
+        ]
+        entities = [tracker, *sensors]
+        calls = []
+
+        def update_entity(entity_id, **changes):
+            entity = next(item for item in entities if item.entity_id == entity_id)
+            for key, value in changes.items():
+                setattr(entity, key, value)
+            calls.append(('entity', entity_id))
+
+        def update_device(device_id, **changes):
+            row = next(item for item in rows if item.id == device_id)
+            if 'new_config_entry_id' in changes:
+                row.config_entries = {changes['new_config_entry_id']}
+            if 'via_device_id' in changes:
+                row.via_device_id = changes['via_device_id']
+            calls.append(('device', device_id))
+
+        dev_reg = SimpleNamespace(
+            async_update_device=update_device,
+            async_remove_device=lambda device_id: (rows.remove(next(row for row in rows if row.id == device_id)), calls.append(('remove', device_id))),
+        )
+        registry = SimpleNamespace(
+            async_get_entity_id=lambda *args: tracker.entity_id,
+            async_get=lambda entity_id: tracker,
+            async_update_entity=update_entity,
+        )
+        env = {
+            'DOMAIN': 'miwifi',
+            'dr': SimpleNamespace(async_get=lambda hass: dev_reg),
+            'er': SimpleNamespace(
+                async_get=lambda hass: registry,
+                async_entries_for_device=lambda reg, device_id, **kw: [
+                    entity for entity in entities if entity.device_id == device_id
+                ],
+            ),
+            'device_registry_rows': lambda *args, **kwargs: list(rows),
+            '_ensure_via_device_exists': lambda *args: parent,
+            '_MOVES_WITH_NEW_CONFIG_ENTRY_ID': True,
+            '_LOGGER': Mock(),
+        }
+        load_function('device_tracker.py', '_move_device_row', env)
+        reparent = load_function('device_tracker.py', '_reparent_client_device', env)
+        hass = SimpleNamespace(config_entries=SimpleNamespace(async_entries=lambda domain: [SimpleNamespace(entry_id='mesh'), SimpleNamespace(entry_id='main')]))
+
+        self.assertTrue(reparent(hass, mac, 'main', '02:00:00:00:00:02'))
+        self.assertEqual(rows, [old])
+        self.assertEqual(old.config_entries, {'main'})
+        self.assertEqual(old.via_device_id, parent.id)
+        self.assertTrue(all(entity.device_id == old.id and entity.config_entry_id == 'main' for entity in entities))
+        self.assertEqual(len(entities), 13)
+        self.assertLess(calls.index(('entity', tracker.entity_id)), calls.index(('device', old.id)))
+
+
+class MeshSensorTests(unittest.TestCase):
+    def test_main_router_setting_enables_sensors_for_leaf_clients(self):
+        main = SimpleNamespace(options={'enable_device_sensors': True}, data={})
+        leaf = SimpleNamespace(options={'enable_device_sensors': False}, data={})
+        hass = SimpleNamespace(config_entries=SimpleNamespace(async_entries=lambda domain: [main, leaf]))
+        env = {
+            'DOMAIN': 'miwifi',
+            'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
+            'DEFAULT_ENABLE_DEVICE_SENSORS': False,
+            'get_config_value': lambda entry, key, default: entry.options.get(key, entry.data.get(key, default)),
+        }
+        enabled = load_function('sensor.py', '_device_sensors_enabled', env)
+
+        self.assertTrue(enabled(hass))
+        main.options['enable_device_sensors'] = False
+        self.assertFalse(enabled(hass))
 
 
 class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):

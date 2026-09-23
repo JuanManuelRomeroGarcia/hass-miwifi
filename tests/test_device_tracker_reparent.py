@@ -30,7 +30,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from custom_components.miwifi.const import ATTR_TRACKER_UPDATER_ENTRY_ID
+from custom_components.miwifi.const import (
+    ATTR_TRACKER_ROUTER_MAC_ADDRESS,
+    ATTR_TRACKER_UPDATER_ENTRY_ID,
+)
 from custom_components.miwifi.device_tracker import (
     MiWifiDeviceTracker,
     _reparent_client_device,
@@ -52,6 +55,7 @@ class _Device:
         self.id = f"device_{_Device._next}"
         self.config_entries = set(config_entries)
         self.entities = entities
+        self.via_device_id = None
 
 
 class _LegacyDeviceRegistry:
@@ -86,6 +90,9 @@ class _LegacyDeviceRegistry:
         if remove_config_entry_id is not None:
             row.config_entries.discard(remove_config_entry_id)
             self._calls.append(("device-remove", remove_config_entry_id))
+        if "via_device_id" in kw:
+            row.via_device_id = kw["via_device_id"]
+            self._calls.append(("via-device", row.via_device_id))
 
     def async_remove_device(self, device_id) -> None:
         self.rows = [row for row in self.rows if row.id != device_id]
@@ -104,6 +111,7 @@ class _EntityEntry:
         self.entity_id = f"device_tracker.miwifi_{MAC.replace(':', '_')}"
         self.config_entry_id = config_entry_id
         self.device_id = device_id
+        self.platform = "miwifi"
 
 
 class _EntityRegistry:
@@ -117,8 +125,9 @@ class _EntityRegistry:
     def async_get(self, entity_id):
         return self._entry
 
-    def async_update_entity(self, entity_id, *, config_entry_id=None, **kw):
+    def async_update_entity(self, entity_id, *, config_entry_id=None, device_id=None, **kw):
         self._entry.config_entry_id = config_entry_id
+        self._entry.device_id = device_id
         self._calls.append(("entity-move", config_entry_id))
 
 
@@ -128,6 +137,8 @@ def _run(
     owner: str = NEW,
     legacy: bool = False,
     modern_move: bool = False,
+    via_router_mac: str | None = None,
+    via_node=None,
 ):
     """Drive the helper against fake registries; return (moved, calls, registry)."""
 
@@ -140,8 +151,18 @@ def _run(
 
     dev_reg = (_LegacyDeviceRegistry if legacy else _DeviceRegistry)(rows, calls)
 
+    registered = []
+    if entity is not None and entity.device_id:
+        registered.append(entity)
+    for row in rows:
+        extra = row.entities - sum(e.device_id == row.id for e in registered)
+        registered.extend(
+            MagicMock(platform="foreign", config_entry_id=FOREIGN, device_id=row.id)
+            for _ in range(max(0, extra))
+        )
+
     def _entries_for_device(registry, device_id, include_disabled_entities=False):
-        return [object()] * dev_reg._row(device_id).entities
+        return [e for e in registered if e.device_id == device_id]
 
     with (
         patch(
@@ -160,8 +181,12 @@ def _run(
             "custom_components.miwifi.device_tracker._MOVES_WITH_NEW_CONFIG_ENTRY_ID",
             modern_move,
         ),
+        patch(
+            "custom_components.miwifi.device_tracker._ensure_via_device_exists",
+            return_value=via_node,
+        ),
     ):
-        moved = _reparent_client_device(hass, MAC, owner)
+        moved = _reparent_client_device(hass, MAC, owner, via_router_mac)
 
     return moved, calls, dev_reg
 
@@ -344,6 +369,57 @@ def test_the_entity_still_moves_first_on_a_recent_core() -> None:
     assert calls.index(("entity-move", NEW)) < calls.index(("device-move", NEW))
 
 
+def test_roaming_updates_both_owner_and_connected_via() -> None:
+    """The panel may know the new node while HA still shows the old one."""
+
+    row = _Device({OLD}, entities=1)
+    row.via_device_id = "mesh_router"
+    parent = MagicMock(id="main_router")
+
+    moved, calls, _ = _run(
+        [row],
+        _EntityEntry(OLD, device_id=row.id),
+        modern_move=True,
+        via_router_mac="02:00:00:00:00:02",
+        via_node=parent,
+    )
+
+    assert moved is True
+    assert row.config_entries == {NEW}
+    assert row.via_device_id == parent.id
+    assert calls.index(("entity-move", NEW)) < calls.index(("device-move", NEW))
+    assert calls.index(("device-move", NEW)) < calls.index(("via-device", parent.id))
+
+
+def test_connected_via_changes_without_moving_owner() -> None:
+    """A node link can change even if both nodes share one config entry."""
+
+    row = _Device({NEW}, entities=1)
+    row.via_device_id = "mesh_router"
+    parent = MagicMock(id="main_router")
+
+    moved, calls, _ = _run(
+        [row], _EntityEntry(NEW, device_id=row.id), via_node=parent
+    )
+
+    assert moved is True
+    assert row.via_device_id == parent.id
+    assert calls == [("via-device", parent.id)]
+
+
+def test_unresolved_node_keeps_existing_connected_via() -> None:
+    """Unknown router data must not erase a known parent link."""
+
+    row = _Device({NEW}, entities=1)
+    row.via_device_id = "mesh_router"
+
+    moved, calls, _ = _run([row], _EntityEntry(NEW, device_id=row.id))
+
+    assert moved is False
+    assert row.via_device_id == "mesh_router"
+    assert calls == []
+
+
 @pytest.mark.asyncio
 async def test_the_cleanup_also_runs_when_the_tracker_is_first_added() -> None:
     """A restart never reaches the update branch, and that is when rows pile up.
@@ -369,7 +445,27 @@ async def test_the_cleanup_also_runs_when_the_tracker_is_first_added() -> None:
     ):
         await MiWifiDeviceTracker.async_added_to_hass(entity)
 
-    reparent.assert_called_once_with(entity.hass, MAC, NEW)
+    reparent.assert_called_once_with(entity.hass, MAC, NEW, None)
+
+
+def test_live_tracker_refreshes_its_registry_link() -> None:
+    """The normal updater path must apply the client's new node to HA."""
+
+    entity = MagicMock()
+    entity.mac_address = MAC
+    device = {
+        ATTR_TRACKER_UPDATER_ENTRY_ID: NEW,
+        ATTR_TRACKER_ROUTER_MAC_ADDRESS: "02:00:00:00:00:02",
+    }
+
+    with patch("custom_components.miwifi.device_tracker._reparent_client_device") as reparent:
+        MiWifiDeviceTracker.update_from_router(entity, device)
+
+    assert entity._device == device
+    reparent.assert_called_once_with(
+        entity.hass, MAC, NEW, "02:00:00:00:00:02"
+    )
+    entity.async_write_ha_state.assert_called_once_with()
 
 
 @pytest.mark.asyncio

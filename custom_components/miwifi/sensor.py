@@ -100,7 +100,7 @@ from .const import (
 )
 from .entity import MiWifiEntity
 from .enum import Connection, DeviceClass
-from .helper import detect_manufacturer, map_signal_quality
+from .helper import detect_manufacturer, get_config_value, map_signal_quality
 from .logger import _LOGGER
 from .updater import LuciUpdater, async_get_updater
 
@@ -833,6 +833,17 @@ def _build_device_sensors(
     ]
 
 
+def _device_sensors_enabled(hass: HomeAssistant) -> bool:
+    """Use one mesh-wide setting so leaf clients keep their sensors."""
+    return any(
+        bool(
+            get_config_value(
+                entry, CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS
+            )
+        )
+        for entry in hass.config_entries.async_entries(DOMAIN)
+    )
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -843,13 +854,6 @@ async def async_setup_entry(
 
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
 
-    def _device_sensors_enabled() -> bool:
-        # OPTIONS override DATA. If not present in options (common on first install),
-        # fallback to config_entry.data.
-        if CONF_ENABLE_DEVICE_SENSORS in (config_entry.options or {}):
-            return bool(config_entry.options.get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS))
-        return bool((config_entry.data or {}).get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS))
-
     def _is_main_router() -> bool:
         return bool(
             (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False)
@@ -859,7 +863,7 @@ async def async_setup_entry(
     # - Remove legacy per-device sensor unique_ids tied to entry_id (mesh duplicates).
     # - If per-device sensors are disabled, also remove the new scheme.
     registry = er.async_get(hass)
-    device_sensors_enabled = _device_sensors_enabled()
+    device_sensors_enabled = _device_sensors_enabled(hass)
 
     for ent in list(registry.entities.values()):
         if ent.domain != "sensor" or ent.platform != DOMAIN:
@@ -878,16 +882,27 @@ async def async_setup_entry(
 
     @callback
     def _handle_new_device(new_device: dict) -> None:
-        # Evaluate dynamically: topology may arrive AFTER startup
-        if not (_is_main_router() and _device_sensors_enabled()):
+        # Each node creates the sensors for clients it currently serves. The
+        # stable MAC-based unique ids keep one set across mesh handovers.
+        if (
+            not _device_sensors_enabled(hass)
+            or new_device.get(ATTR_TRACKER_UPDATER_ENTRY_ID) != config_entry.entry_id
+        ):
             return
 
         mac = str(new_device.get(ATTR_TRACKER_MAC, "")).strip()
         if not mac:
             return
 
-        # On restart entities may exist in registry but must be instantiated again.
-        to_add: list[SensorEntity] = _build_device_sensors(updater, new_device)
+        # A client can be reported as "new" when it roams to another node.
+        # Its stable sensors may already be live on the old platform; the
+        # registry move keeps them, so only add genuinely missing sensors here.
+        reg = er.async_get(hass)
+        to_add: list[SensorEntity] = [
+            sensor
+            for sensor in _build_device_sensors(updater, new_device)
+            if reg.async_get_entity_id("sensor", DOMAIN, sensor.unique_id) is None
+        ]
         if to_add:
             async_add_entities(to_add)
 
@@ -1111,24 +1126,12 @@ async def _async_add_all_sensors_later(
             )
         )
 
-    # Per-device sensors (clients) only from main router
-    if CONF_ENABLE_DEVICE_SENSORS in (config_entry.options or {}):
-        device_sensors_enabled = bool(
-            config_entry.options.get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS)
-        )
-    else:
-        device_sensors_enabled = bool(
-            (config_entry.data or {}).get(CONF_ENABLE_DEVICE_SENSORS, DEFAULT_ENABLE_DEVICE_SENSORS)
-        )
-
-    is_main_router: bool = bool(
-        (updater.data or {}).get("topo_graph", {}).get("graph", {}).get("is_main", False)
-    )
-
-    if device_sensors_enabled and is_main_router:
+    if _device_sensors_enabled(hass):
         # IMPORTANT: do not use entity_registry existence to skip.
         # On restart those entities exist in registry but must be instantiated again.
         for device in (updater.devices or {}).values():
+            if device.get(ATTR_TRACKER_UPDATER_ENTRY_ID) != config_entry.entry_id:
+                continue
             mac = str(device.get(ATTR_TRACKER_MAC, "")).strip()
             if not mac:
                 continue
@@ -1160,4 +1163,3 @@ async def _async_add_all_sensors_later(
 
     if unique_entities:
         async_add_entities(unique_entities)
-
