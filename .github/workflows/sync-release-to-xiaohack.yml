@@ -2,19 +2,30 @@ name: Sync release to XiaoHack web
 
 on:
   release:
-    types: [published]
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to sync
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   sync-release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send published release to XiaoHack
+      - name: Send release to XiaoHack
         env:
           WEBHOOK_URL: ${{ secrets.XIAOHACK_RELEASE_WEBHOOK_URL }}
           WEBHOOK_TOKEN: ${{ secrets.XIAOHACK_RELEASE_WEBHOOK_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
           REPOSITORY: ${{ github.repository }}
-          TAG_NAME: ${{ github.event.release.tag_name }}
+          TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
           RELEASE_NAME: ${{ github.event.release.name }}
           RELEASE_BODY: ${{ github.event.release.body }}
           RELEASE_URL: ${{ github.event.release.html_url }}
@@ -26,17 +37,33 @@ jobs:
           import json
           import os
           import sys
+          import urllib.parse
           import urllib.request
+
+          release = {}
+          if os.environ["EVENT_NAME"] == "workflow_dispatch":
+              repository = os.environ["REPOSITORY"]
+              tag_name = urllib.parse.quote(os.environ["TAG_NAME"], safe="")
+              request = urllib.request.Request(
+                  f"https://api.github.com/repos/{repository}/releases/tags/{tag_name}",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                      "User-Agent": "miwifi-release-sync",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  release = json.load(response)
 
           payload = {
               "repository": os.environ["REPOSITORY"],
               "tag_name": os.environ["TAG_NAME"],
-              "name": os.environ.get("RELEASE_NAME", ""),
-              "body_en": os.environ.get("RELEASE_BODY", ""),
-              "html_url": os.environ["RELEASE_URL"],
-              "published_at": os.environ["PUBLISHED_AT"],
-              "prerelease": os.environ["PRERELEASE"].lower() == "true",
-              "draft": os.environ["DRAFT"].lower() == "true",
+              "name": release.get("name", os.environ.get("RELEASE_NAME", "")),
+              "body_en": release.get("body", os.environ.get("RELEASE_BODY", "")),
+              "html_url": release.get("html_url", os.environ.get("RELEASE_URL", "")),
+              "published_at": release.get("published_at", os.environ.get("PUBLISHED_AT", "")),
+              "prerelease": release.get("prerelease", os.environ.get("PRERELEASE", "").lower() == "true"),
+              "draft": release.get("draft", os.environ.get("DRAFT", "").lower() == "true"),
           }
 
           data = json.dumps(payload).encode("utf-8")
