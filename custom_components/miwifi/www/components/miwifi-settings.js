@@ -1,9 +1,9 @@
-import { getRouterImage } from "../pages/utils.js?v=3.7.0";
-import { LitElement, html } from "../vendor/lit.js?v=3.7.0";
-import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.7.0";
-import { localize } from "../translations/localize.js?v=3.7.0";
+import { getRouterImage } from "../pages/utils.js?v=3.8.0";
+import { LitElement, html } from "../vendor/lit.js?v=3.8.0";
+import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.8.0";
+import { localize } from "../translations/localize.js?v=3.8.0";
 
-const MIWIFI_VERSION = "3.7.0";
+const MIWIFI_VERSION = "3.8.0";
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 
 export class MiWiFiSettingsPanel extends LitElement {

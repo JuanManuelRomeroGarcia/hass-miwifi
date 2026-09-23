@@ -121,5 +121,5 @@
       "deviceType": "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
     }
   ],
-  "version": "3.7.0"
+  "version": "3.8.0"
 }

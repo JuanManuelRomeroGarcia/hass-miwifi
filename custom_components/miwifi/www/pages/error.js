@@ -1,5 +1,5 @@
-import { html } from "../vendor/lit.js?v=3.7.0";
-import { localize } from "../translations/localize.js?v=3.7.0";
+import { html } from "../vendor/lit.js?v=3.8.0";
+import { localize } from "../translations/localize.js?v=3.8.0";
 
 export function renderError(hass) {
   return html`

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.8.0
+
+- Make scheduled automatic device purging conservative and allow disabling it with a zero-day interval. Undated devices are preserved by default; the manual dry-run service remains available (#321).
+- Correct Mesh client counts and attribute clients to the serving node, including nodes that use a different backhaul MAC (#322).
+- Keep each roaming client, its device tracker, and its sensors together under the currently serving router in Home Assistant. Update the parent link without reloading and remove stale MiWiFi-only device rows (#323).
+- Adapt device registry and targeted service lookups for current Home Assistant APIs while retaining compatibility with older versions (#323).
+- Refresh the bundled panel cache version to 3.8.0.
+
+Thanks to [@brembygit](https://github.com/brembygit) for contributing the fixes in #321, #322, and #323.
+
+### Upgrade
+
+Update the integration through HACS, restart Home Assistant, and refresh the browser. The panel remains bundled with the integration.
+
 ## 3.7.0
 
 - Ship the frontend, Lit, translations and images inside the integration; update them together through HACS.
