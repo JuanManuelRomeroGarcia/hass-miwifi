@@ -16,6 +16,7 @@ import pytest
 
 from custom_components.miwifi.const import ATTR_WIFI_ADAPTER_LENGTH
 from custom_components.miwifi.exceptions import LuciError
+from custom_components.miwifi.logger import _LOGGER
 from custom_components.miwifi.updater import LuciUpdater
 
 MOCK_IP: str = "192.0.2.102"
@@ -57,7 +58,7 @@ async def test_mapped_and_skipped_adapters_are_reported(caplog) -> None:
     )
     data: dict = {}
 
-    with caplog.at_level(logging.DEBUG):
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER.name):
         await updater._async_prepare_wifi(data)
 
     reported = [rec.getMessage() for rec in caplog.records if "wifi adapters" in rec.getMessage()]
@@ -78,7 +79,7 @@ async def test_the_picture_is_reported_once_while_it_holds(caplog) -> None:
         return_value={"bsd": 1, "info": [_adapter("wl1")]}
     )
 
-    with caplog.at_level(logging.DEBUG):
+    with caplog.at_level(logging.DEBUG, logger=_LOGGER.name):
         await updater._async_prepare_wifi({})
         await updater._async_prepare_wifi({})
 
