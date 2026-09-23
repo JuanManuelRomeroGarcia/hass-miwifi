@@ -1,10 +1,10 @@
-import { loadTranslations, localize } from "./translations/localize.js?v=3.8.0";
-import { navigate, goBack } from "./router.js?v=3.8.0";
-import { logToBackend } from "./pages/utils.js?v=3.8.0";
-import { html, css, LitElement } from "./vendor/lit.js?v=3.8.0";
-import { until } from "./vendor/lit.js?v=3.8.0";
+import { loadTranslations, localize } from "./translations/localize.js?v=3.8.1";
+import { navigate, goBack } from "./router.js?v=3.8.1";
+import { logToBackend } from "./pages/utils.js?v=3.8.1";
+import { html, css, LitElement } from "./vendor/lit.js?v=3.8.1";
+import { until } from "./vendor/lit.js?v=3.8.1";
 
-const MIWIFI_VERSION = "3.8.0";
+const MIWIFI_VERSION = "3.8.1";
 class MiWiFiPanel extends LitElement {
 
   static properties = {
@@ -446,8 +446,9 @@ _startAutoRefresh() {
     z-index:1000; 
   }
 
-  .dialog{ 
-    background:var(--card-background-color); 
+  .dialog{
+    background:var(--card-background-color, #fff);
+    color:var(--primary-text-color, #212121);
     padding:16px; 
     border-radius:12px; 
     max-width:520px; 

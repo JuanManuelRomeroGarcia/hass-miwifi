@@ -1,9 +1,9 @@
-import { getRouterImage } from "../pages/utils.js?v=3.8.0";
-import { LitElement, html } from "../vendor/lit.js?v=3.8.0";
-import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.8.0";
-import { localize } from "../translations/localize.js?v=3.8.0";
+import { getRouterImage } from "../pages/utils.js?v=3.8.1";
+import { LitElement, html } from "../vendor/lit.js?v=3.8.1";
+import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.8.1";
+import { localize } from "../translations/localize.js?v=3.8.1";
 
-const MIWIFI_VERSION = "3.8.0";
+const MIWIFI_VERSION = "3.8.1";
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 
 export class MiWiFiSettingsPanel extends LitElement {
@@ -239,14 +239,9 @@ export class MiWiFiSettingsPanel extends LitElement {
       this.isDumpLoading = true;
       const opts = { ...this.dumpOptions };
       await this.hass.callService("miwifi", "dump_router_data", opts);
+      await this._downloadExport("dump");
       this.isDumpLoading = false;
       this._closeDumpModal();
-
-      this.hass.callService("persistent_notification", "create", {
-        title: localize("dump_done_title") || "Dump requested",
-        message: localize("dump_done_msg") || "You will find the file in your Home Assistant storage/logs folder.",
-        notification_id: "miwifi_dump_ok",
-      });
     } catch (e) {
       this.isDumpLoading = false;
       this._closeDumpModal();
@@ -254,6 +249,26 @@ export class MiWiFiSettingsPanel extends LitElement {
         title: localize("dump_error_title") || "Dump error",
         message: (localize("ui_error") || "Error") + ": " + (e?.message || e),
         notification_id: "miwifi_dump_err",
+      });
+    }
+  }
+
+  async _downloadExport(kind) {
+    const { url } = await this.hass.callWS({ type: "miwifi/get_download_url", kind });
+    const { path } = await this.hass.callWS({ type: "auth/sign_path", path: url, expires: 120 });
+    window.location.assign(path);
+  }
+
+  async _downloadLogs() {
+    try {
+      await this.hass.callService("miwifi", "download_logs");
+      await this._downloadExport("logs");
+    } catch (error) {
+      console.error("MiWiFi log download failed:", error);
+      this.hass.callService("persistent_notification", "create", {
+        title: localize("title") || "MiWiFi",
+        message: `${localize("ui_error") || "Download error"}: ${error?.message || error}`,
+        notification_id: "miwifi_download_error",
       });
     }
   }
@@ -683,7 +698,7 @@ export class MiWiFiSettingsPanel extends LitElement {
           <h3>${localize("settings_extra")}</h3>
           ${led ? html`<div>${localize("label_led")} ${renderToggle(this.hass, led)}</div>` : ""}
           ${reboot ? html`<button class="reboot-btn" @click=${handleReboot}>${localize("settings_restart_router")}</button>` : ""}
-          <button class="reboot-btn" @click=${() => this.hass.callService("miwifi", "download_logs")}>
+          <button class="reboot-btn" @click=${() => this._downloadLogs()}>
             📥 ${localize("settings_download_logs")}
           </button>
           <button class="reboot-btn" @click=${() => {
