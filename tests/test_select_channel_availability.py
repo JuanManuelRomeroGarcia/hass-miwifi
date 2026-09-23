@@ -1,11 +1,12 @@
-"""A channel picker is offered only for a band whose channel the router states.
+"""A channel picker stays available whether or not the router states its channel.
 
-Band steering was the first suspect - it is what takes the 5 GHz switches out of
-service in switch.py - but under the same merged network the RD28 pair answers
-with a real 5 GHz channel (100) while the RA82 pair answers with nothing. Keying
-on the merge hid a working control on half the fleet, and with it the only
-per-node view of the channel: the panel's own wifi endpoint is main-only, so it
-shows one router's numbers on every node's card.
+Some nodes answer wifi_detail_all with an adapter that carries power and status
+but no channel. Hiding the picker there was considered and rejected: across
+router models and firmwares a missing channel in the read path says nothing
+about whether set_wifi accepts one, so taking the control away could remove a
+working setting. The picker keeps the availability it always had, the updater
+recovers the channel from the diagnostics endpoint where it can, and where it
+cannot the state simply reads `unknown`.
 """
 
 # pylint: disable=no-member,protected-access
@@ -78,40 +79,33 @@ def _select(key: str, dual_band: bool = True, **data) -> MiWifiSelect:
 
 @pytest.mark.parametrize("key", CHANNEL_CONTROLS)
 def test_a_reported_channel_keeps_its_picker(key: str) -> None:
-    """The RD28 case: merged bands, and a real channel to show and set."""
+    """Merged bands, and a real channel to show and set."""
 
     select = _select(key, **{key: "100"})
 
-    assert select._channel_is_reported() is True
+    select._handle_coordinator_update()
+
+    assert select._attr_available is True
+    assert select._attr_current_option == "100"
+
+
+@pytest.mark.parametrize("key", CHANNEL_CONTROLS)
+@pytest.mark.parametrize("reported", (None, "", "0", 0))
+def test_an_unstated_channel_does_not_take_the_picker_away(key: str, reported) -> None:
+    """The read path saying nothing is no proof that the write path is broken."""
+
+    select = _select(key, **{key: reported})
 
     select._handle_coordinator_update()
 
     assert select._attr_available is True
 
 
-@pytest.mark.parametrize("key", CHANNEL_CONTROLS)
-@pytest.mark.parametrize("reported", (None, "", "0", 0))
-def test_a_channel_the_router_will_not_state_takes_the_picker_away(
-    key: str, reported
-) -> None:
-    """The RA82 case: the control used to sit there reading `unknown`."""
-
-    select = _select(key, **{key: reported})
-
-    assert select._channel_is_reported() is False
-
-    select._handle_coordinator_update()
-
-    assert select._attr_available is False
-
-
 @pytest.mark.parametrize("key", SIGNAL_CONTROLS)
-def test_signal_strength_is_never_covered(key: str) -> None:
+def test_signal_strength_is_available(key: str) -> None:
     """It is reported on both bands, merged or not."""
 
     select = _select(key)
-
-    assert select._channel_is_reported() is True
 
     select._handle_coordinator_update()
 
@@ -120,12 +114,15 @@ def test_signal_strength_is_never_covered(key: str) -> None:
 
 @pytest.mark.parametrize("key", CHANNEL_CONTROLS)
 def test_band_steering_alone_decides_nothing(key: str) -> None:
-    """The merge is not the test: what the router reports is."""
+    """The merge is not the test."""
 
     merged = _select(key, dual_band=True, **{key: "36"})
     split = _select(key, dual_band=False, **{key: "36"})
 
-    assert merged._channel_is_reported() == split._channel_is_reported() is True
+    merged._handle_coordinator_update()
+    split._handle_coordinator_update()
+
+    assert merged._attr_available is split._attr_available is True
 
 
 def test_registration_does_not_depend_on_reported_values() -> None:
