@@ -30,8 +30,9 @@ from custom_components.miwifi.const import (
     ATTR_STATE,
     ATTR_WIFI_2_4_DATA,
 )
-from custom_components.miwifi.exceptions import LuciRequestError
+from custom_components.miwifi.exceptions import LuciConnectionError, LuciRequestError
 from custom_components.miwifi.select import MIWIFI_SELECTS, MiWifiSelect
+from custom_components.miwifi.switch import MIWIFI_SWITCHES, MiWifiSwitch
 
 OVERRIDDEN = "replaced wifi_2_4_channel with"
 
@@ -226,3 +227,95 @@ async def test_the_value_you_asked_for_is_published_while_it_is_ignored() -> Non
     _report(select, "11")
 
     assert select.extra_state_attributes == {ATTR_SELECT_REQUESTED_OPTION: "6"}
+
+
+@pytest.mark.asyncio
+async def test_an_unanswered_write_is_not_called_a_refusal(caplog) -> None:
+    """set_wifi restarts the radios; the reply can be lost with them."""
+
+    select = _select()
+    select._updater.luci.set_wifi = AsyncMock(
+        side_effect=LuciConnectionError("Connection error")
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await select.async_select_option("6")
+
+    assert "did not answer the change" in caplog.text
+    assert select._attr_current_option == "6"
+    assert select._requested_option == "6"
+
+
+@pytest.mark.asyncio
+async def test_an_unanswered_write_that_did_not_stick_is_reported(caplog) -> None:
+    """The request is kept, so the next refreshes check it like any other."""
+
+    select = _select()
+    select._updater.luci.set_wifi = AsyncMock(
+        side_effect=LuciConnectionError("Connection error")
+    )
+
+    await select.async_select_option("6")
+
+    with caplog.at_level(logging.WARNING):
+        _report(select, "1")
+        _report(select, "1")
+
+    assert OVERRIDDEN in caplog.text
+    assert select.extra_state_attributes == {ATTR_SELECT_REQUESTED_OPTION: "6"}
+
+
+def _switch(key: str = "wifi_2_4") -> MiWifiSwitch:
+    """Build a switch shell with only the attributes the write path touches."""
+
+    switch = MiWifiSwitch.__new__(MiWifiSwitch)
+    switch.entity_description = next(d for d in MIWIFI_SWITCHES if d.key == key)
+    switch._attr_is_on = True
+    switch._wifi_data = {"ssid": "net", "on": 1}
+
+    updater = MagicMock()
+    updater.ip = "192.0.2.104"
+    updater.data = {key: True}
+    updater.luci.set_wifi = AsyncMock()
+    switch._updater = updater
+    switch.async_write_ha_state = MagicMock()
+
+    hass = MagicMock()
+
+    async def _run(func, *args):
+        return func(*args)
+
+    hass.async_add_executor_job = _run
+    switch.hass = hass
+
+    return switch
+
+
+@pytest.mark.asyncio
+async def test_a_refused_switch_write_surfaces_and_does_not_move_the_switch() -> None:
+    """The router answered with an error code: that is a refusal."""
+
+    switch = _switch()
+    switch._updater.luci.set_wifi = AsyncMock(side_effect=LuciRequestError("Invalid"))
+
+    with pytest.raises(HomeAssistantError, match="refused the change"):
+        await switch.async_turn_off()
+
+    assert switch._attr_is_on is True
+    switch.async_write_ha_state.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_an_unanswered_switch_write_is_not_called_a_refusal(caplog) -> None:
+    """No reply is an unknown outcome; the next refresh settles it."""
+
+    switch = _switch()
+    switch._updater.luci.set_wifi = AsyncMock(
+        side_effect=LuciConnectionError("Connection error")
+    )
+
+    with caplog.at_level(logging.WARNING):
+        await switch.async_turn_off()
+
+    assert "did not answer the change" in caplog.text
+    assert switch._attr_is_on is False

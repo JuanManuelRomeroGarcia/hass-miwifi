@@ -45,7 +45,7 @@ from .const import (
 )
 from .entity import MiWifiEntity
 from .enum import Wifi, DeviceClass
-from .exceptions import LuciError
+from .exceptions import LuciConnectionError, LuciError
 from .updater import LuciUpdater, async_get_updater
 
 PARALLEL_UPDATES = 0
@@ -207,9 +207,7 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
         self._override_reported: str | None = None
 
         self._attr_available: bool = (
-            updater.data.get(ATTR_STATE, False)
-            and len(self._attr_options) > 0
-            and self._channel_is_reported()
+            updater.data.get(ATTR_STATE, False) and len(self._attr_options) > 0
         )
 
     def _options_with_current(self, current: Any) -> list:
@@ -251,39 +249,6 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
         except (TypeError, ValueError):  # pragma: no cover
             return options
 
-    def _channel_is_reported(self) -> bool:
-        """Does the router tell us which channel this band is on?
-
-        Band steering was the first suspect - it is what takes the 5 GHz
-        switches out of service in switch.py - but it is the wrong test here.
-        Under the same merged network the RD28 pair answers with a real 5 GHz
-        channel while the RA82 pair answers with nothing, so keying on the
-        merge hid a working control on half the fleet, and with it the only
-        per-node view of the channel: the panel's own wifi endpoint is
-        main-only (`ws_api._pick_updater`), so it shows one router's numbers on
-        every node's card.
-
-        What is actually broken is a channel picker for a band whose channel
-        the router will not state. That is the condition, and it needs no
-        knowledge of why the router is quiet.
-
-        Signal strength is not covered: it is reported everywhere, on both
-        bands, merged or not.
-
-        Availability only. Registration must not depend on this: the value
-        changes, a registry default does not.
-
-        :return bool: not a channel control, or one the router reports
-        """
-
-        if self.entity_description.key not in CHANNELS_MAP:
-            return True
-
-        channel = self._updater.data.get(self.entity_description.key)
-
-        # "0" is how a firmware says "unset" where it says anything at all.
-        return str(channel or "").strip() not in ("", "0")
-
     @property
     def icon(self) -> str | None:
         option = self._attr_current_option
@@ -322,7 +287,6 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
             self._updater.data.get(ATTR_STATE, False)
             and len(options) > 0
             and len(wifi_data) > 0
-            and self._channel_is_reported()
         )
 
         self._check_requested_option(current_option)
@@ -371,10 +335,23 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
 
         try:
             await self._updater.luci.set_wifi(new_data)
+        except LuciConnectionError:
+            # set_wifi restarts the radios, and on some models and links the
+            # reply is lost with them: no answer is not a refusal. The request
+            # is kept, and _check_requested_option reports it if it does not
+            # hold once the router is reachable again.
+            _LOGGER.warning(
+                "[MiWiFi] %s did not answer the change to %s;"
+                " it will be checked on the next refresh",
+                self._updater.ip,
+                self.entity_description.key,
+            )
+            return
         except LuciError as _e:
-            # This used to be swallowed at debug level while the entity went on
-            # to show the new value anyway, so a router that refused the change
-            # looked exactly like one that accepted it.
+            # The router answered and refused. This used to be swallowed at
+            # debug level while the entity went on to show the new value anyway,
+            # so a router that refused the change looked exactly like one that
+            # accepted it.
             _LOGGER.debug("WiFi update error: %r", _e)
 
             raise HomeAssistantError(
