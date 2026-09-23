@@ -39,7 +39,7 @@ def _pick_updater(hass: HomeAssistant):
 
 @websocket_api.websocket_command({"type": "miwifi/get_download_url", "kind": str})
 @websocket_api.require_admin
-async def handle_get_download_url(hass: HomeAssistant, connection, msg) -> None:
+def handle_get_download_url(hass: HomeAssistant, connection, msg) -> None:
     """Return a private export path to an authenticated administrator."""
     kind = msg["kind"]
     if kind not in ("logs", "dump"):

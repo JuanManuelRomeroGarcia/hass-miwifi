@@ -446,8 +446,9 @@ _startAutoRefresh() {
     z-index:1000; 
   }
 
-  .dialog{ 
-    background:var(--card-background-color); 
+  .dialog{
+    background:var(--card-background-color, #fff);
+    color:var(--primary-text-color, #212121);
     padding:16px; 
     border-radius:12px; 
     max-width:520px; 

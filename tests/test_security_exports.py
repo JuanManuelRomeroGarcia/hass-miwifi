@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import datetime
+import inspect
 import os
 import re
 import secrets
@@ -97,6 +98,20 @@ def _load_log_export_service(notifications):
     return namespace["MiWifiDownloadLogsService"]
 
 
+def _load_download_command():
+    tree = ast.parse((COMPONENT / "ws_api.py").read_text(encoding="utf-8"))
+    node = next(
+        item for item in tree.body
+        if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and item.name == "handle_get_download_url"
+    )
+    node.decorator_list = []
+    future = ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0)
+    namespace = {"DOMAIN": "miwifi"}
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[future, node], type_ignores=[])), "ws_api.py", "exec"), namespace)
+    return namespace[node.name]
+
+
 class ExportSecurityTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.source = _load_http_code()
@@ -167,6 +182,17 @@ class ExportSecurityTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse((self.root / "www").exists())
         self.assertTrue(self.hass.data["miwifi"]["last_log_zip_url"].startswith("/api/miwifi/exports/"))
         self.assertTrue(notifications)
+
+    async def test_download_websocket_command_returns_without_a_coroutine(self):
+        command = _load_download_command()
+        self.assertFalse(inspect.iscoroutinefunction(command))
+        self.hass.data["miwifi"] = {"last_log_zip_url": "/api/miwifi/exports/logs_test.zip"}
+        connection = SimpleNamespace(send_result=Mock(), send_error=Mock())
+
+        self.assertIsNone(command(self.hass, connection, {"id": 1, "kind": "logs"}))
+        connection.send_result.assert_called_once_with(
+            1, {"url": "/api/miwifi/exports/logs_test.zip"}
+        )
 
 
 if __name__ == "__main__":

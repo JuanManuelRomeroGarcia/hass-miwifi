@@ -256,12 +256,7 @@ export class MiWiFiSettingsPanel extends LitElement {
   async _downloadExport(kind) {
     const { url } = await this.hass.callWS({ type: "miwifi/get_download_url", kind });
     const { path } = await this.hass.callWS({ type: "auth/sign_path", path: url, expires: 120 });
-    const link = document.createElement("a");
-    link.href = path;
-    link.download = "";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    window.location.assign(path);
   }
 
   async _downloadLogs() {
@@ -270,6 +265,11 @@ export class MiWiFiSettingsPanel extends LitElement {
       await this._downloadExport("logs");
     } catch (error) {
       console.error("MiWiFi log download failed:", error);
+      this.hass.callService("persistent_notification", "create", {
+        title: localize("title") || "MiWiFi",
+        message: `${localize("ui_error") || "Download error"}: ${error?.message || error}`,
+        notification_id: "miwifi_download_error",
+      });
     }
   }
 
