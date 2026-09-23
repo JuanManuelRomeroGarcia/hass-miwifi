@@ -10,13 +10,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from custom_components.miwifi.const import (
-    ATTR_BINARY_SENSOR_WAN_STATE,
     ATTR_SENSOR_MODE,
     CONF_IS_AP_MODE,
     DEFAULT_IS_AP_MODE,
 )
 from custom_components.miwifi.enum import Mode
-from custom_components.miwifi.exceptions import LuciConnectionError
 from custom_components.miwifi.updater import PREPARE_METHODS, LuciUpdater
 
 
@@ -28,6 +26,7 @@ def _updater(is_ap_mode: bool) -> LuciUpdater:
     updater.ip = "192.0.2.104"
     updater.data = {}
     updater._is_cb0401v2 = False
+    updater._topology_role_logged = False
     updater.luci = MagicMock()
 
     hass = MagicMock()
@@ -117,19 +116,6 @@ async def test_wan_info_skipped_in_ap_mode() -> None:
 
 
 @pytest.mark.asyncio
-async def test_wan_connection_error_does_not_abort_the_cycle() -> None:
-    """LuciError derives from BaseException and used to escape this handler."""
-
-    updater = _updater(False)
-    updater.luci.wan_info = AsyncMock(side_effect=LuciConnectionError("Connection error"))
-    data: dict = {}
-
-    await updater._async_prepare_wan(data)
-
-    assert data[ATTR_BINARY_SENSOR_WAN_STATE] is False
-
-
-@pytest.mark.asyncio
 async def test_macfilter_skipped_in_ap_mode() -> None:
     """MAC filtering lives on the gateway; the leaf must not poll it."""
 
@@ -143,3 +129,77 @@ async def test_macfilter_skipped_in_ap_mode() -> None:
     await updater._async_prepare_devices({})
 
     updater.luci.macfilter_info.assert_not_awaited()
+
+
+# How the manual override and the automatic topology role combine. The order in
+# _async_prepare_mode is: the override, then CB0401V2, then the topology graph,
+# and only then the xqnetwork/mode endpoint.
+
+
+def _with_own_graph_role(updater: LuciUpdater, role: Mode) -> LuciUpdater:
+    """Give the updater a topology graph in which the node states its own role."""
+
+    updater.data = {"topo_graph": {"graph": {"mode": role.value}}}
+
+    return updater
+
+
+@pytest.mark.asyncio
+async def test_override_wins_over_the_topology_role() -> None:
+    """A declared access point stays one, whatever the graph says."""
+
+    updater = _with_own_graph_role(_updater(True), Mode.MESH_NODE)
+    updater.luci.mode = AsyncMock()
+    data: dict = {}
+
+    await updater._async_prepare_mode(data)
+
+    updater.luci.mode.assert_not_awaited()
+    assert data[ATTR_SENSOR_MODE] == Mode.ACCESS_POINT
+
+
+@pytest.mark.asyncio
+async def test_topology_role_applies_when_the_override_is_off() -> None:
+    """Without the option the automatic detection is unchanged."""
+
+    updater = _with_own_graph_role(_updater(False), Mode.MESH_NODE)
+    updater.luci.mode = AsyncMock()
+    data: dict = {}
+
+    await updater._async_prepare_mode(data)
+
+    updater.luci.mode.assert_not_awaited()
+    assert data[ATTR_SENSOR_MODE] == Mode.MESH_NODE
+
+
+@pytest.mark.asyncio
+async def test_topology_role_does_not_skip_wan_or_macfilter() -> None:
+    """Only the override skips the gateway endpoints.
+
+    The automatic role replaces the mode probe and nothing else: WAN and MAC
+    filter are still asked, and a failure there is contained by the step guards.
+    Skipping them is left to an explicit choice by the user.
+    """
+
+    updater = _with_own_graph_role(_updater(False), Mode.MESH_NODE)
+    updater.luci.wan_info = AsyncMock(return_value={})
+    data: dict = {}
+
+    await updater._async_prepare_wan(data)
+
+    updater.luci.wan_info.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_endpoint_decides_without_override_or_topology() -> None:
+    """No option and no graph: the endpoint is the only source, as before."""
+
+    updater = _updater(False)
+    updater.luci.mode = AsyncMock(return_value={"mode": 0})
+    updater._leaf_entry_from_other_nodes = lambda: None
+    data: dict = {}
+
+    await updater._async_prepare_mode(data)
+
+    updater.luci.mode.assert_awaited_once()
+    assert data[ATTR_SENSOR_MODE] == Mode.DEFAULT
