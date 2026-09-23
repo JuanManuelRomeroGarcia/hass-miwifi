@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 import asyncio
 import time
 from functools import cached_property
@@ -62,10 +64,10 @@ from .const import (
     ATTR_DEVICE_MODEL,
 )
 
-from .registry import get_device
 from .enum import Connection, DeviceClass
 from .helper import (
     detect_manufacturer,
+    device_registry_rows,
     get_config_value,
     map_signal_quality,
     parse_last_activity,
@@ -73,16 +75,33 @@ from .helper import (
 )
 from .logger import _LOGGER
 from .update import MiWiFiNewDeviceNotifier
+
+# From core 2026.9 a device belongs to one config entry and moving it is a single
+# `new_config_entry_id`. The add/remove pair it replaces still works there, but is
+# deprecated and becomes an error in 2027.8 - and older cores have nothing else.
+_MOVES_WITH_NEW_CONFIG_ENTRY_ID: Final = (
+    "new_config_entry_id"
+    in inspect.signature(dr.DeviceRegistry.async_update_device).parameters
+)
+
+# `via_device` names the parent by identifier, which stopped being unique when a
+# device became the property of one config entry; 2026.9 takes the parent's row
+# id instead and drops the tuple in 2027.8.
+_LINKS_BY_VIA_DEVICE_ID: Final = (
+    "via_device_id"
+    in inspect.signature(dr.DeviceRegistry.async_get_or_create).parameters
+)
 from .updater import LuciUpdater, async_get_updater, async_get_integrations
 
-def _ensure_via_device_exists(
-    hass: HomeAssistant, via_router_mac: Any
-) -> dict:
-    """Ensure the router/node device exists before using via_device.
+def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
+    """Return the node's device row, creating it if we can, else None.
 
-    - Avoids HA 2025.12+ break by never referencing a non-existing via_device.
+    - Avoids HA 2025.12+ break by never referencing a non-existing parent.
     - Creates the router device entry (minimal) if we can map MAC -> config_entry_id.
     - Safely ignores non-dict values inside hass.data[DOMAIN].
+
+    The row itself, rather than its identifier, because that is what a recent
+    core wants: see `_via_device_info`.
     """
 
     def _norm_mac(val: Any) -> str:
@@ -98,14 +117,17 @@ def _ensure_via_device_exists(
 
     via_router_mac_lc = _norm_mac(via_router_mac)
     if not via_router_mac_lc or via_router_mac_lc in ("none", "null"):
-        return {}
+        return None
 
     dev_reg = dr.async_get(hass)
 
+    # If already exists, ok.
+    if rows := device_registry_rows(dev_reg, identifiers={(DOMAIN, via_router_mac_lc)}):
+        return rows[0]
     # Map router-mac -> config_entry_id using hass.data[DOMAIN][entry_id][UPDATER]
     domain_data = hass.data.get(DOMAIN, {})
     if not isinstance(domain_data, dict):
-        return {}
+        return None
 
     target_entry_id: str | None = None
     target_name: str | None = None
@@ -139,24 +161,201 @@ def _ensure_via_device_exists(
 
     # If we cannot map it to a known router updater, do NOT set via_device.
     if not target_entry_id:
+        return None
+
+    # Create minimal router device so HA can reference the parent safely
+    return dev_reg.async_get_or_create(
+        config_entry_id=target_entry_id,
+        identifiers={(DOMAIN, via_router_mac_lc)},
+        connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)},
+        name=target_name,
+        manufacturer=target_manufacturer,
+        model=target_model,
+    )
+
+def _via_device_info(node: Any) -> dict:
+    """The DeviceInfo key that hangs a client off the node serving it.
+
+    Which key that is depends on the core: `via_device_id` from 2026.9, the
+    `via_device` identifier tuple before it. Nothing at all when we could not
+    resolve the node - pointing at a device that does not exist is the 2025.12
+    breakage this whole path exists to avoid.
+
+    :param node: the node's device row, or None
+    :return dict: zero or one DeviceInfo key
+    """
+
+    if node is None:
         return {}
 
-    existing = get_device(
-        dev_reg, target_entry_id, identifier=(DOMAIN, via_router_mac_lc)
+    if _LINKS_BY_VIA_DEVICE_ID:
+        return {"via_device_id": node.id}
+
+    return {"via_device": next(iter(node.identifiers), None)}
+def _move_device_row(
+    dev_reg: dr.DeviceRegistry, row: Any, entry_id: str, stale_links: set[str]
+) -> None:
+    """Put a device row under the config entry that serves it now.
+
+    A device belongs to one config entry, so from core 2026.9 this is one call:
+    `new_config_entry_id`. Before that it took an add followed by a remove, and
+    the two together are what that core still recognises as a move rather than a
+    deletion - it is deprecated (an error from 2027.8) but it is all an older
+    core understands.
+
+    :param dev_reg: dr.DeviceRegistry
+    :param row: the row to move
+    :param entry_id: str: the entry of the node serving the client
+    :param stale_links: set[str]: our own entries still on the row
+    """
+
+    if _MOVES_WITH_NEW_CONFIG_ENTRY_ID:
+        dev_reg.async_update_device(row.id, new_config_entry_id=entry_id)
+        return
+
+    if entry_id not in row.config_entries:
+        dev_reg.async_update_device(row.id, add_config_entry_id=entry_id)
+
+    for old_entry_id in stale_links:
+        dev_reg.async_update_device(row.id, remove_config_entry_id=old_entry_id)
+
+
+def _reparent_client_device(
+    hass: HomeAssistant, mac_lc: str, entry_id: str, via_router_mac: str | None = None
+) -> bool:
+    """Hand a client over to the node that is serving it now.
+
+    A client keeps one entity for the whole mesh - identity is the MAC, by
+    design - but the registry records a device row per config entry that ever
+    published it, and nothing takes those rows away again. A client therefore
+    collected a row per node it had ever been seen on, so no entry's device list
+    answered "the clients on this node": on the mesh this was traced on, one
+    phone sat under two nodes at once, having roamed between them.
+
+    The registry must keep the tracker and its sensors together when a client
+    changes nodes:
+
+    1. move every MiWiFi entity to the row carrying the tracker and the new entry;
+    2. remove rows left empty under our other entries;
+    3. move the kept row to the serving entry and update its parent link.
+
+    The entity registry deletes an entity when its device row changes config
+    entry while that entity still points at the old one (`async_device_modified`,
+    core 2026.9). Update all our entities before moving the row, preserving
+    their entity IDs and history.
+
+    A row is removed only after it is empty. Rows carrying entities owned by
+    another integration are left alone.
+
+    :param hass: HomeAssistant
+    :param mac_lc: str: client MAC, lower case
+    :param entry_id: str: the entry of the node serving it now
+    :param via_router_mac: str | None: MAC of the node serving the client
+    :return bool: True when something was actually moved or dropped
+    """
+
+    dev_reg = dr.async_get(hass)
+
+    rows: list = device_registry_rows(dev_reg, identifiers={(DOMAIN, mac_lc)})
+    if not rows:
+        return False
+
+    # Only ever touch our own entries. The same physical device can legitimately
+    # be held by another integration, and that row is none of our business.
+    ours: set[str] = {
+        entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)
+    }
+
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id(
+        "device_tracker", DOMAIN, f"{DOMAIN}-{mac_lc}"
     )
-    if existing is None:
-        existing = dev_reg.async_get_or_create(
-            config_entry_id=target_entry_id,
-            identifiers={(DOMAIN, via_router_mac_lc)},
-            connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)},
-            name=target_name,
-            manufacturer=target_manufacturer,
-            model=target_model,
+    entity_entry = registry.async_get(entity_id) if entity_id else None
+
+    # The row holding the tracker is the one to keep: move any other and the
+    # entity stays behind, on a row about to be emptied or dropped.
+    keep = None
+    if entity_entry is not None and entity_entry.device_id:
+        keep = next((row for row in rows if row.id == entity_entry.device_id), None)
+    if keep is None:
+        keep = next((row for row in rows if entry_id in row.config_entries), rows[0])
+
+    # Entity.device_info is only applied when an entity is added. Roaming also
+    # needs to update the existing device row's "Connected via" link.
+    via_node = _ensure_via_device_exists(hass, via_router_mac)
+    via_id = via_node.id if via_node is not None else None
+    via_changed = (
+        via_id is not None
+        and via_id != keep.id
+        and getattr(keep, "via_device_id", None) != via_id
+    )
+
+    row_moved: bool = entry_id not in keep.config_entries
+    # A core before 2026.9 could put several entries on one row, so the row we
+    # keep may itself still carry an old node - with or without a move.
+    stale_links: set[str] = (keep.config_entries & ours) - {entry_id}
+    # Sensors and the tracker share the client's identity. Since 2026.9 Core
+    # may split that identity into one row per entry. Move every MiWiFi entity
+    # onto the row we keep *before* changing its owner: otherwise Core deletes
+    # sensors still tied to the old entry when the device row changes owner.
+    to_relink = [
+        entity
+        for row in rows
+        for entity in er.async_entries_for_device(
+            registry, row.id, include_disabled_entities=True
+        )
+        if entity.platform == DOMAIN
+        and entity.config_entry_id in ours
+        and (entity.config_entry_id != entry_id or entity.device_id != keep.id)
+    ]
+    prunable_rows = [
+        row
+        for row in rows
+        if row.id != keep.id
+        and row.config_entries
+        and row.config_entries <= ours
+        and all(
+            entity.platform == DOMAIN and entity.config_entry_id in ours
+            for entity in er.async_entries_for_device(
+                registry, row.id, include_disabled_entities=True
+            )
+        )
+    ]
+
+    if not (
+        to_relink or row_moved or stale_links or prunable_rows or via_changed
+    ):
+        return False
+
+    for entity in to_relink:
+        registry.async_update_entity(
+            entity.entity_id, config_entry_id=entry_id, device_id=keep.id
         )
 
-    if "via_device_id" in DeviceInfo.__annotations__:
-        return {"via_device_id": existing.id}
-    return {"via_device": (DOMAIN, via_router_mac_lc)}
+    # Remove now-empty rows before moving keep to the target entry, since an
+    # existing target row with the same MAC would otherwise collide with it.
+    dropped = 0
+    for row in prunable_rows:
+        if not er.async_entries_for_device(
+            registry, row.id, include_disabled_entities=True
+        ):
+            dev_reg.async_remove_device(row.id)
+            dropped += 1
+
+    if row_moved or stale_links:
+        _move_device_row(dev_reg, keep, entry_id, stale_links)
+
+    if via_changed:
+        dev_reg.async_update_device(keep.id, via_device_id=via_id)
+
+    _LOGGER.debug(
+        "[MiWiFi] Client %s now belongs to entry %s; dropped %s empty device row(s)",
+        mac_lc,
+        entry_id,
+        dropped,
+    )
+
+    return True
 
 
 SOURCE_TYPE_ROUTER = "router"
@@ -288,8 +487,7 @@ async def async_setup_entry(
         # If live instance exists, update it and exit
         ent = ent_map.get(unique_id)
         if ent is not None:
-            ent._device = dict(new_device)  # noqa: SLF001
-            ent.async_write_ha_state()
+            ent.update_from_router(new_device)
             return
 
         # Avoid parallel duplicate creations across mesh nodes
@@ -456,6 +654,20 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         self.hass.data[DOMAIN].setdefault("device_tracker_entities", {})
         self.hass.data[DOMAIN]["device_tracker_entities"][self.unique_id] = self
 
+        # Adding the entity is what creates this client's device row, under the
+        # entry whose platform added it - so a restart leaves the node that held
+        # the client before with a row and no entity. Roaming reaches the update
+        # branch of `add_device` and is already handled there; a restart never
+        # does, which is why the rows survived one.
+        entry_id = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        if entry_id:
+            _reparent_client_device(
+                self.hass,
+                self.mac_address,
+                entry_id,
+                self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
+            )
+
         if not self._enable_port_probe:
             return
 
@@ -463,6 +675,20 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             DEFAULT_CALL_DELAY,
             lambda: self.hass.async_create_task(self.check_ports()),
         )
+
+    @callback
+    def update_from_router(self, device: dict) -> None:
+        """Refresh a live client and its registry ownership after a mesh update."""
+        self._device = dict(device)
+        entry_id = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        if entry_id:
+            _reparent_client_device(
+                self.hass,
+                self.mac_address,
+                entry_id,
+                self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
+            )
+        self.async_write_ha_state()
 
     async def async_will_remove_from_hass(self) -> None:
         """Cleanup when entity is removed."""
@@ -597,7 +823,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         via_router_mac_lc = str(
             self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS) or ""
         ).strip().lower()
-        via_device = _ensure_via_device_exists(self.hass, via_router_mac_lc)
+        via_node = _via_device_info(
+            _ensure_via_device_exists(self.hass, via_router_mac_lc)
+        )
 
         _optional_mac = self._device.get(ATTR_TRACKER_OPTIONAL_MAC, None)
         if _optional_mac is not None:
@@ -609,8 +837,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
                 # Identify the device by its own MAC (stable across mesh)
                 identifiers={(DOMAIN, self.mac_address)},
                 name=self._attr_name,
-                **via_device,
                 manufacturer=self.manufacturer,
+                **via_node,
             )
 
         return DeviceInfo(
@@ -619,7 +847,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             name=self._attr_name,
             configuration_url=self.configuration_url,
             manufacturer=self.manufacturer,
-            **via_device,
+            **via_node,
         )
 
     @cached_property
@@ -721,19 +949,18 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         entry_id: str | None = track_device.get(ATTR_TRACKER_ENTRY_ID)
 
         device_registry: dr.DeviceRegistry = dr.async_get(self.hass)
-        # The entity remains owned by its original config entry when roaming.
-        entity_entry = er.async_get(self.hass).async_get(self.entity_id)
-        owner_entry_id = entity_entry.config_entry_id if entity_entry else self._updater._entry_id
-        device = get_device(
-            device_registry, owner_entry_id,
-            connection=(dr.CONNECTION_NETWORK_MAC, self.mac_address),
+        rows: list = device_registry_rows(
+            device_registry,
+            connections={(dr.CONNECTION_NETWORK_MAC, self.mac_address)},
         )
+        device: dr.DeviceEntry | None = rows[0] if rows else None
 
+        # Which node owns this client is decided in one place, and it is
+        # _reparent_client_device. What used to stand here added the tracker's
+        # entry to the device on every cycle, which is how the links piled up in
+        # the first place - and from core 2026.9 an add on its own does nothing
+        # at all except warn.
         if device is not None:
-            if (not hasattr(device_registry, "async_get_device_by_connection")
-                and entry_id and device.config_entries and entry_id not in device.config_entries):
-                device_registry.async_update_device(device.id, add_config_entry_id=entry_id)
-
             if device.configuration_url is None and self.configuration_url is not None:
                 device_registry.async_update_device(device.id, configuration_url=self.configuration_url)
 

@@ -1789,11 +1789,13 @@ class LuciUpdater(DataUpdateCoordinator):
             ent = ent_map.get(uid)
 
             if ent is not None:
-                ent._device = latest
-                ent.async_write_ha_state()
+                ent.update_from_router(latest)
 
         except Exception:
-            pass
+            _LOGGER.exception(
+                "[MiWiFi] Could not update client tracker %s",
+                device[ATTR_TRACKER_MAC],
+            )
 
         if not is_from_parent and action == DeviceAction.MOVE:
             self._moved_devices.append(device[ATTR_TRACKER_MAC])
