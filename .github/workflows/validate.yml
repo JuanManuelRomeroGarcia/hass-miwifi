@@ -17,6 +17,7 @@ jobs:
         with:
           node-version: "22"
       - run: python -B tests/test_issue_regressions.py
+      - run: python -B tests/test_security_exports.py
       - run: python -B tools/check_frontend_packaging.py
   hassfest:
     runs-on: ubuntu-latest
