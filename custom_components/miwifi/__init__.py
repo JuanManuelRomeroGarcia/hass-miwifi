@@ -152,7 +152,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         get_store(hass, _ip),
         entry_id=entry.entry_id,
         protocol=get_config_value(entry, CONF_PROTOCOL, DEFAULT_PROTOCOL),
-        is_ap_mode=get_config_value(entry, CONF_IS_AP_MODE, DEFAULT_IS_AP_MODE),
         config_entry=entry,
     )
 
