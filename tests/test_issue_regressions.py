@@ -272,6 +272,64 @@ class MeshSensorTests(unittest.TestCase):
         self.assertFalse(enabled(hass))
 
 
+class ClientSensorOwnerTests(unittest.TestCase):
+    def setUp(self):
+        env = {'DOMAIN': 'miwifi', 'CLIENT_SENSOR_OWNERS': 'client_sensor_owners', 'callback': lambda func: func}
+        self.claim = load_function('sensor.py', '_claim_client_sensors', env)
+        self.release_entry = load_function('sensor.py', '_release_client_sensors', env)
+        self.hass = SimpleNamespace(data={})
+
+    @staticmethod
+    def sensors(*keys):
+        def make(key):
+            sensor = SimpleNamespace(unique_id=f'miwifi-dev-02:00:00:00:00:01-{key}', on_remove=[])
+            sensor.async_on_remove = sensor.on_remove.append
+            return sensor
+        return [make(key) for key in keys]
+
+    @staticmethod
+    def remove(sensor):
+        for func in sensor.on_remove:
+            func()
+
+    def test_two_nodes_holding_one_client_instantiate_one_set(self):
+        first = self.sensors('ip', 'online')
+        second = self.sensors('ip', 'online')
+
+        self.assertEqual(self.claim(self.hass, 'main', first), first)
+        self.assertEqual(self.claim(self.hass, 'leaf', second), [])
+        self.assertEqual(self.claim(self.hass, 'main', self.sensors('ip')), [])
+
+    def test_removed_or_aborted_sensor_can_be_claimed_again(self):
+        first = self.sensors('ip', 'signal')
+        self.claim(self.hass, 'main', first)
+        # HA runs on_remove callbacks both on removal and when it skips a disabled entity.
+        self.remove(first[1])
+
+        claimed = self.claim(self.hass, 'leaf', self.sensors('ip', 'signal'))
+        self.assertEqual([sensor.unique_id for sensor in claimed], [first[1].unique_id])
+
+    def test_late_release_of_an_old_instance_keeps_the_new_claim(self):
+        old = self.sensors('ip')
+        self.claim(self.hass, 'main', old)
+        self.release_entry(self.hass, 'main')
+        new = self.sensors('ip')
+        self.assertEqual(self.claim(self.hass, 'leaf', new), new)
+
+        self.remove(old[0])
+        self.assertEqual(self.claim(self.hass, 'main', self.sensors('ip')), [])
+
+    def test_unload_releases_only_the_entry_claims(self):
+        self.claim(self.hass, 'main', self.sensors('ip'))
+        leaf = [SimpleNamespace(unique_id='miwifi-dev-02:00:00:00:00:02-ip', async_on_remove=lambda func: None)]
+        self.claim(self.hass, 'leaf', leaf)
+
+        self.release_entry(self.hass, 'main')
+
+        owners = self.hass.data['miwifi']['client_sensor_owners']
+        self.assertEqual(list(owners), ['miwifi-dev-02:00:00:00:00:02-ip'])
+
+
 class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_response_event_uses_the_requesting_node(self):
         foreign = SimpleNamespace(id='foreign-row', config_entry_id='other')

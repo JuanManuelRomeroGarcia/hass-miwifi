@@ -845,6 +845,52 @@ def _device_sensors_enabled(hass: HomeAssistant) -> bool:
     )
 
 
+CLIENT_SENSOR_OWNERS: Final = "client_sensor_owners"
+
+
+def _claim_client_sensors(
+    hass: HomeAssistant, entry_id: str, sensors: list[SensorEntity]
+) -> list[SensorEntity]:
+    """Return the client sensors no config entry has instantiated yet.
+
+    Client sensor unique ids depend only on the MAC, but several nodes can hold
+    the same client at once (e.g. each one restored it from its own device
+    store). The first instance claims the unique id; the claim is released when
+    that instance is removed or not added, or when its entry unloads.
+    """
+    owners: dict[str, tuple[str, SensorEntity]] = hass.data.setdefault(
+        DOMAIN, {}
+    ).setdefault(CLIENT_SENSOR_OWNERS, {})
+
+    claimed: list[SensorEntity] = []
+    for sensor in sensors:
+        uid = sensor.unique_id
+        if not uid or uid in owners:
+            continue
+
+        owners[uid] = (entry_id, sensor)
+
+        @callback
+        def _release(uid: str = uid, sensor: SensorEntity = sensor) -> None:
+            owner = owners.get(uid)
+            if owner is not None and owner[1] is sensor:
+                del owners[uid]
+
+        # Runs on removal and also when HA does not add the entity (disabled).
+        sensor.async_on_remove(_release)
+        claimed.append(sensor)
+
+    return claimed
+
+
+@callback
+def _release_client_sensors(hass: HomeAssistant, entry_id: str) -> None:
+    """Drop every client sensor claim held by a config entry."""
+    owners = (hass.data.get(DOMAIN) or {}).get(CLIENT_SENSOR_OWNERS) or {}
+    for uid in [uid for uid, owner in owners.items() if owner[0] == entry_id]:
+        del owners[uid]
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -898,11 +944,15 @@ async def async_setup_entry(
         # Its stable sensors may already be live on the old platform; the
         # registry move keeps them, so only add genuinely missing sensors here.
         reg = er.async_get(hass)
-        to_add: list[SensorEntity] = [
-            sensor
-            for sensor in _build_device_sensors(updater, new_device)
-            if reg.async_get_entity_id("sensor", DOMAIN, sensor.unique_id) is None
-        ]
+        to_add: list[SensorEntity] = _claim_client_sensors(
+            hass,
+            config_entry.entry_id,
+            [
+                sensor
+                for sensor in _build_device_sensors(updater, new_device)
+                if reg.async_get_entity_id("sensor", DOMAIN, sensor.unique_id) is None
+            ],
+        )
         if to_add:
             async_add_entities(to_add)
 
@@ -931,6 +981,10 @@ async def async_setup_entry(
     )
     config_entry.async_on_unload(
         async_dispatcher_connect(hass, SIGNAL_PURGE_DEVICE, _handle_purge)
+    )
+    # Also covers cores that do not run on_remove callbacks for aborted adds.
+    config_entry.async_on_unload(
+        lambda: _release_client_sensors(hass, config_entry.entry_id)
     )
 
     # Defer initial entity creation to avoid blocking startup.
@@ -1160,6 +1214,20 @@ async def _async_add_all_sensors_later(
             seen_entity_ids.add(eid)
 
         unique_entities.append(ent)
+
+    # Another node may already have instantiated the same client sensors.
+    client_sensors = [
+        ent for ent in unique_entities if isinstance(ent, MiWifiDeviceAttributeSensor)
+    ]
+    if client_sensors:
+        claimed = set(
+            map(id, _claim_client_sensors(hass, config_entry.entry_id, client_sensors))
+        )
+        unique_entities = [
+            ent
+            for ent in unique_entities
+            if not isinstance(ent, MiWifiDeviceAttributeSensor) or id(ent) in claimed
+        ]
 
     if unique_entities:
         async_add_entities(unique_entities)
