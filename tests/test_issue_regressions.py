@@ -272,6 +272,56 @@ class MeshSensorTests(unittest.TestCase):
         self.assertFalse(enabled(hass))
 
 
+class ClientSensorOwnerTests(unittest.TestCase):
+    """#330: skip a client sensor only while another MiWiFi platform provides it."""
+
+    def setUp(self):
+        self.registry = {}
+        self.platforms = []
+        env = {
+            'DOMAIN': 'miwifi',
+            'er': SimpleNamespace(async_get=lambda hass: SimpleNamespace(
+                async_get_entity_id=lambda domain, platform, uid: self.registry.get(uid))),
+            'async_get_platforms': lambda hass, name: self.platforms,
+        }
+        self.keep = load_function('sensor.py', '_not_provided_elsewhere', env)
+
+    @staticmethod
+    def sensor(uid):
+        return SimpleNamespace(unique_id=uid)
+
+    def test_sensor_provided_by_another_platform_is_skipped(self):
+        self.registry['miwifi-dev-a-ip'] = 'sensor.a_ip'
+        self.platforms = [SimpleNamespace(domain='sensor', entities={'sensor.a_ip': object()})]
+        self.assertEqual(self.keep(None, [self.sensor('miwifi-dev-a-ip')]), [])
+
+    def test_registered_but_not_provided_sensor_is_added(self):
+        # After a restart the registry row exists but no platform provides it.
+        self.registry['miwifi-dev-a-ip'] = 'sensor.a_ip'
+        self.platforms = [SimpleNamespace(domain='sensor', entities={})]
+        sensor = self.sensor('miwifi-dev-a-ip')
+        self.assertEqual(self.keep(None, [sensor]), [sensor])
+
+    def test_new_sensor_is_added(self):
+        sensor = self.sensor('miwifi-dev-b-ip')
+        self.assertEqual(self.keep(None, [sensor]), [sensor])
+
+    def test_only_sensor_platforms_count(self):
+        self.registry['miwifi-dev-a-ip'] = 'sensor.a_ip'
+        self.platforms = [SimpleNamespace(domain='device_tracker', entities={'sensor.a_ip': object()})]
+        sensor = self.sensor('miwifi-dev-a-ip')
+        self.assertEqual(self.keep(None, [sensor]), [sensor])
+
+    def test_nothing_is_kept_between_calls(self):
+        self.registry['miwifi-dev-a-ip'] = 'sensor.a_ip'
+        live = SimpleNamespace(domain='sensor', entities={'sensor.a_ip': object()})
+        self.platforms = [live]
+        self.assertEqual(self.keep(None, [self.sensor('miwifi-dev-a-ip')]), [])
+        live.entities.clear()  # the providing entry unloaded
+        sensor = self.sensor('miwifi-dev-a-ip')
+        self.assertEqual(self.keep(None, [sensor]), [sensor])
+
+
 class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):
     async def test_response_event_uses_the_requesting_node(self):
         foreign = SimpleNamespace(id='foreign-row', config_entry_id='other')
