@@ -326,6 +326,9 @@ ATTR_SELECT_WIFI_5_0_GAME_CHANNEL_OPTIONS: Final = [
 
 ATTR_SELECT_SIGNAL_STRENGTH_OPTIONS: Final = ["min", "mid", "max"]
 
+# What you asked for, published while the router is not honouring it.
+ATTR_SELECT_REQUESTED_OPTION: Final = "requested_option"
+
 ATTR_SELECT_WIFI_2_4_SIGNAL_STRENGTH: Final = "wifi_2_4_signal_strength"
 ATTR_SELECT_WIFI_2_4_SIGNAL_STRENGTH_NAME: Final = f"{ATTR_WIFI_NAME} 2.4G signal strength"
 
