@@ -35,6 +35,8 @@ DIAGNOSTIC_CONTENT: Final = "content"
 """Helper const"""
 UPDATER: Final = "updater"
 UPDATE_LISTENER: Final = "update_listener"
+# hass.data[DOMAIN] key: the mesh-wide client sensor setting the entries were set up with.
+DEVICE_SENSORS_MESH: Final = "device_sensors_mesh"
 OPTION_IS_FROM_FLOW: Final = "is_from_flow"
 STORAGE_VERSION: Final = 1
 
