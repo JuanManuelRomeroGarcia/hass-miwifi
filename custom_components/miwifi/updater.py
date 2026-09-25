@@ -30,6 +30,7 @@ from homeassistant.helpers.httpx_client import get_async_client
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.helpers.translation import async_get_translations
+from homeassistant.helpers.typing import UNDEFINED
 from homeassistant.util import utcnow
 from httpx import codes
 
@@ -245,6 +246,7 @@ class LuciUpdater(DataUpdateCoordinator):
         is_only_login: bool = False,
         entry_id: str | None = None,
         protocol: str = DEFAULT_PROTOCOL,
+        config_entry=None,
     ) -> None:
         """Initialize updater.
 
@@ -261,6 +263,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param is_only_login: bool: Only config flow
         :param entry_id: str | None: Entry ID
         :param protocol: str: Connection protocol (auto, http, https)
+        :param config_entry: ConfigEntry | None: Entry owning this coordinator
         """
 
         client_factory = lambda: get_async_client(hass, False)
@@ -314,6 +317,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 name=f"{NAME} updater",
                 update_interval=self._update_interval,
                 update_method=self.update,
+                config_entry=config_entry if config_entry is not None else UNDEFINED,
             )
 
         self.data: dict[str, Any] = {}

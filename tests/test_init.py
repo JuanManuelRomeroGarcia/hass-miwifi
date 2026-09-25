@@ -39,14 +39,10 @@ async def test_init(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ), patch(
         "custom_components.miwifi.helper.Store"
     ) as mock_store:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         mock_store.return_value.async_load = AsyncMock(return_value=None)
         mock_store.return_value.async_save = AsyncMock(return_value=None)
         mock_store.return_value.async_remove = AsyncMock(return_value=None)

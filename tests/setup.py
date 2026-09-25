@@ -11,6 +11,7 @@ from typing import Final
 from unittest.mock import AsyncMock
 
 from homeassistant import setup
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
@@ -36,7 +37,7 @@ from custom_components.miwifi.enum import EncryptionAlgorithm
 from custom_components.miwifi.helper import get_config_value, get_store
 from custom_components.miwifi.updater import LuciUpdater
 
-MOCK_IP_ADDRESS: Final = "192.168.31.1"
+MOCK_IP_ADDRESS: Final = "192.0.2.1"
 MOCK_PASSWORD: Final = "**REDACTED**"
 OPTIONS_FLOW_DATA: Final = {
     CONF_IP_ADDRESS: MOCK_IP_ADDRESS,
@@ -91,6 +92,7 @@ async def async_setup(
         activity_days,
         None if without_store else get_store(hass, _ip),
         entry_id=config_entry.entry_id,
+        config_entry=config_entry,
     )
 
     @callback
@@ -113,6 +115,27 @@ async def async_setup(
     }
 
     return [updater, config_entry]
+
+
+async def async_first_refresh(hass: HomeAssistant, updater: LuciUpdater) -> None:
+    """Run the coordinator's first refresh the way a config entry setup would.
+
+    Home Assistant only allows `async_config_entry_first_refresh` while the entry
+    is in SETUP_IN_PROGRESS. These tests drive the updater directly instead of
+    going through `hass.config_entries.async_setup`, so the state is set around
+    the call and put back afterwards - some of the callers go on to set the entry
+    up for real, which in turn requires NOT_LOADED.
+
+    :param hass: HomeAssistant
+    :param updater: LuciUpdater
+    """
+
+    config_entry = updater.config_entry
+    config_entry.mock_state(hass, ConfigEntryState.SETUP_IN_PROGRESS)
+    try:
+        await updater.async_config_entry_first_refresh()
+    finally:
+        config_entry.mock_state(hass, ConfigEntryState.NOT_LOADED)
 
 
 async def async_mock_luci_client(mock_luci_client) -> None:

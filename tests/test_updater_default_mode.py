@@ -78,9 +78,13 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.enum import Connection, Mode, Model
 from custom_components.miwifi.updater import LuciUpdater
-from tests.setup import async_mock_luci_client, async_setup
+from tests.setup import (
+    async_first_refresh,
+    async_mock_luci_client,
+    async_setup,
+)
 
-MOCK_IP_ADDRESS: Final = "192.168.31.1"
+MOCK_IP_ADDRESS: Final = "192.0.2.1"
 MOCK_PASSWORD: Final = "**REDACTED**"
 
 _LOGGER = logging.getLogger(__name__)
@@ -116,7 +120,7 @@ async def test_updater_default_mode(
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(hass, updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -132,17 +136,17 @@ async def test_updater_default_mode(
 
     assert updater.device_info["identifiers"] == {(DOMAIN, "00:00:00:00:00:00")}
     assert updater.device_info["connections"] == {
-        (CONF_IP_ADDRESS, "192.168.31.1"),
+        (CONF_IP_ADDRESS, "192.0.2.1"),
         (CONNECTION_NETWORK_MAC, "00:00:00:00:00:00"),
     }
     assert updater.device_info["name"] == "XIAOMI RA67"
     assert updater.device_info["manufacturer"] == "Xiaomi"
-    assert updater.device_info["model"] == "xiaomi.router.ra67"
+    assert updater.device_info["model"] == "router.example.test"
     assert updater.device_info["sw_version"] == "3.0.34 (CN)"
     assert updater.device_info["hw_version"] == "29543/F0SW88385"
     assert updater.device_info["configuration_url"] == f"http://{MOCK_IP_ADDRESS}/"
 
-    assert updater.data[ATTR_DEVICE_MODEL] == "xiaomi.router.ra67"
+    assert updater.data[ATTR_DEVICE_MODEL] == "router.example.test"
     assert updater.data[ATTR_DEVICE_MANUFACTURER] == DEFAULT_MANUFACTURER
     assert updater.data[ATTR_DEVICE_NAME] == "XIAOMI RA67"
     assert updater.data[ATTR_DEVICE_SW_VERSION] == "3.0.34 (CN)"
@@ -249,7 +253,7 @@ async def test_updater_default_mode(
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
+            ATTR_TRACKER_IP: "192.0.2.2",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -266,7 +270,7 @@ async def test_updater_default_mode(
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 2",
-            ATTR_TRACKER_IP: "192.168.31.3",
+            ATTR_TRACKER_IP: "192.0.2.3",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -283,7 +287,7 @@ async def test_updater_default_mode(
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 3",
-            ATTR_TRACKER_IP: "192.168.31.4",
+            ATTR_TRACKER_IP: "192.0.2.4",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -327,7 +331,7 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(hass, updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -348,7 +352,7 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
+            ATTR_TRACKER_IP: "192.0.2.2",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -365,7 +369,7 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 2",
-            ATTR_TRACKER_IP: "192.168.31.3",
+            ATTR_TRACKER_IP: "192.0.2.3",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -382,7 +386,7 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 3",
-            ATTR_TRACKER_IP: "192.168.31.4",
+            ATTR_TRACKER_IP: "192.0.2.4",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -399,7 +403,7 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 5",
-            ATTR_TRACKER_IP: "192.168.31.55",
+            ATTR_TRACKER_IP: "192.0.2.55",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -444,7 +448,7 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(hass, updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -465,7 +469,7 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
+            ATTR_TRACKER_IP: "192.0.2.2",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -482,7 +486,7 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 2",
-            ATTR_TRACKER_IP: "192.168.31.3",
+            ATTR_TRACKER_IP: "192.0.2.3",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -499,7 +503,7 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 3",
-            ATTR_TRACKER_IP: "192.168.31.4",
+            ATTR_TRACKER_IP: "192.0.2.4",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -516,7 +520,7 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 5",
-            ATTR_TRACKER_IP: "192.168.31.55",
+            ATTR_TRACKER_IP: "192.0.2.55",
             ATTR_TRACKER_CONNECTION: None,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -556,7 +560,7 @@ async def test_updater_incorrect_mac_default_mode(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(hass, updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -590,7 +594,7 @@ async def test_updater_incorrect_mac_default_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 2",
-            ATTR_TRACKER_IP: "192.168.31.3",
+            ATTR_TRACKER_IP: "192.0.2.3",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -607,7 +611,7 @@ async def test_updater_incorrect_mac_default_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 3",
-            ATTR_TRACKER_IP: "192.168.31.4",
+            ATTR_TRACKER_IP: "192.0.2.4",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -651,7 +655,7 @@ async def test_updater_default_mode_auto_remove(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(hass, updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -666,7 +670,7 @@ async def test_updater_default_mode_auto_remove(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
+            ATTR_TRACKER_IP: "192.0.2.2",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -683,7 +687,7 @@ async def test_updater_default_mode_auto_remove(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 2",
-            ATTR_TRACKER_IP: "192.168.31.3",
+            ATTR_TRACKER_IP: "192.0.2.3",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -700,7 +704,7 @@ async def test_updater_default_mode_auto_remove(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 3",
-            ATTR_TRACKER_IP: "192.168.31.4",
+            ATTR_TRACKER_IP: "192.0.2.4",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -743,7 +747,7 @@ async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(hass, updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -758,7 +762,7 @@ async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
+            ATTR_TRACKER_IP: "192.0.2.2",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -775,7 +779,7 @@ async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: 100,
             ATTR_TRACKER_NAME: "Device 2",
-            ATTR_TRACKER_IP: "192.168.31.3",
+            ATTR_TRACKER_IP: "192.0.2.3",
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -792,7 +796,7 @@ async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 3",
-            ATTR_TRACKER_IP: "192.168.31.4",
+            ATTR_TRACKER_IP: "192.0.2.4",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,
@@ -809,7 +813,7 @@ async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 5",
-            ATTR_TRACKER_IP: "192.168.31.55",
+            ATTR_TRACKER_IP: "192.0.2.55",
             ATTR_TRACKER_CONNECTION: Connection.LAN,
             ATTR_TRACKER_DOWN_SPEED: 0.0,
             ATTR_TRACKER_UP_SPEED: 0.0,

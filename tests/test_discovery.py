@@ -48,7 +48,7 @@ async def test_discovery(hass: HomeAssistant) -> None:
 
             assert flow["handler"] == DOMAIN
             assert flow["step_id"] == "discovery_confirm"
-            assert flow["context"]["unique_id"] in ["192.168.31.1", "192.168.31.62"]
+            assert flow["context"]["unique_id"] in ["192.0.2.1", "192.0.2.62"]
             assert flow["context"]["source"] == "integration_discovery"
 
 
@@ -77,9 +77,9 @@ async def test_discovery_sub_leaf(hass: HomeAssistant) -> None:
             assert flow["handler"] == DOMAIN
             assert flow["step_id"] == "discovery_confirm"
             assert flow["context"]["unique_id"] in [
-                "192.168.31.1",
-                "192.168.31.62",
-                "192.168.31.162",
+                "192.0.2.1",
+                "192.0.2.62",
+                "192.0.2.162",
             ]
             assert flow["context"]["source"] == "integration_discovery"
 
@@ -135,5 +135,5 @@ async def test_discovery_invalid_device(hass: HomeAssistant) -> None:
 
             assert flow["handler"] == DOMAIN
             assert flow["step_id"] == "discovery_confirm"
-            assert flow["context"]["unique_id"] == "192.168.31.62"
+            assert flow["context"]["unique_id"] == "192.0.2.62"
             assert flow["context"]["source"] == "integration_discovery"
