@@ -35,7 +35,7 @@ def load_class(filename, name, namespace, methods=None, drop_schema=False):
 
 def load_function(filename, name, namespace):
     tree = ast.parse((COMPONENT/filename).read_text(encoding='utf-8'))
-    node = next(item for item in tree.body if isinstance(item, ast.FunctionDef) and item.name == name)
+    node = next(item for item in tree.body if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and item.name == name)
     module = ast.Module(body=[ast.ImportFrom(module='__future__', names=[ast.alias(name='annotations')], level=0), node], type_ignores=[])
     exec(compile(ast.fix_missing_locations(module), filename, 'exec'), namespace)
     return namespace[name]
@@ -299,6 +299,85 @@ class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):
         await cls(hass).async_call_service(SimpleNamespace(data={'uri': 'status'}))
 
         self.assertEqual(hass.bus.async_fire.call_args.args[1]['device_id'], 'node-row')
+
+
+class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
+    """#333: saving one entry's options must not reload the whole mesh."""
+
+    def listener(self, entries, sensors_before, sensors_now):
+        reload = AsyncMock()
+        domain = {e.entry_id: {} for e in entries}
+        if sensors_before is not None:
+            domain['device_sensors_mesh'] = sensors_before
+        hass = SimpleNamespace(
+            data={'miwifi': domain},
+            config_entries=SimpleNamespace(async_entries=lambda domain: entries, async_reload=reload),
+            async_add_executor_job=AsyncMock(),
+        )
+        env = {
+            'asyncio': asyncio, 'DOMAIN': 'miwifi', 'DEVICE_SENSORS_MESH': 'device_sensors_mesh',
+            '_LOGGER': Mock(), '_device_sensors_enabled': lambda hass: sensors_now,
+            'get_global_panel_state': AsyncMock(return_value=False), 'async_remove_miwifi_panel': AsyncMock(),
+            'read_local_version': AsyncMock(), 'async_register_panel': AsyncMock(),
+        }
+        return load_function('__init__.py', 'async_update_options', env), hass, reload
+
+    async def test_reloads_only_the_changed_entry(self):
+        entries = [SimpleNamespace(entry_id=f'e{i}') for i in range(4)]
+        listener, hass, reload = self.listener(entries, sensors_before=True, sensors_now=True)
+        await listener(hass, entries[2])
+        self.assertEqual([c.args[0] for c in reload.await_args_list], ['e2'])
+
+    async def test_mesh_wide_client_sensor_change_reloads_every_entry(self):
+        entries = [SimpleNamespace(entry_id=f'e{i}') for i in range(4)]
+        for before, now in ((False, True), (True, False)):
+            listener, hass, reload = self.listener(entries, sensors_before=before, sensors_now=now)
+            await listener(hass, entries[1])
+            self.assertEqual(sorted(c.args[0] for c in reload.await_args_list), ['e0', 'e1', 'e2', 'e3'])
+            self.assertEqual(hass.data['miwifi']['device_sensors_mesh'], now)
+
+    async def test_unknown_previous_state_reloads_only_the_entry(self):
+        entries = [SimpleNamespace(entry_id='e0'), SimpleNamespace(entry_id='e1')]
+        listener, hass, reload = self.listener(entries, sensors_before=None, sensors_now=True)
+        await listener(hass, entries[0])
+        self.assertEqual([c.args[0] for c in reload.await_args_list], ['e0'])
+
+    async def test_options_flow_keeps_auto_purge_global(self):
+        entry = SimpleNamespace(entry_id='e1', unique_id='192.0.2.2', options={'activity_days': 30})
+        others = [SimpleNamespace(entry_id='e0', options={}), entry]
+        update_entry = Mock()
+        set_purge = AsyncMock()
+        hass = SimpleNamespace(config_entries=SimpleNamespace(
+            async_entries=lambda domain: others, async_update_entry=update_entry))
+
+        class OptionsFlow:
+            def async_create_entry(self, title, data):
+                return {'type': 'create_entry', 'title': title, 'data': data}
+
+        env = {
+            'config_entries': SimpleNamespace(OptionsFlow=OptionsFlow), 'DOMAIN': 'miwifi', '_LOGGER': Mock(),
+            'CONF_LOG_LEVEL': 'log_level', 'CONF_ENABLE_PANEL': 'enable_panel', 'CONF_IP_ADDRESS': 'ip_address',
+            'CONF_PASSWORD': 'password', 'CONF_ENCRYPTION_ALGORITHM': 'encryption_algorithm',
+            'CONF_TIMEOUT': 'timeout', 'CONF_PROTOCOL': 'protocol', 'DEFAULT_PROTOCOL': 'auto',
+            'CONF_AUTO_PURGE_EVERY_DAYS': 'auto_purge_every_days', 'CONF_AUTO_PURGE_AT': 'auto_purge_at',
+            'set_global_log_level': AsyncMock(), 'set_global_panel_state': AsyncMock(),
+            'async_verify_access': AsyncMock(return_value=(200, None)),
+            'codes': SimpleNamespace(is_success=lambda code: code == 200),
+            'set_global_auto_purge': set_purge,
+        }
+        cls = load_class('config_flow.py', 'MiWifiOptionsFlow', env, {'__init__', 'async_step_init', 'async_update_unique_id'})
+        flow = cls(entry)
+        flow.hass = hass
+        user_input = {
+            'ip_address': '192.0.2.2', 'password': 'x', 'encryption_algorithm': 'sha1', 'timeout': 20,
+            'protocol': 'auto', 'auto_purge_every_days': 8, 'auto_purge_at': '01:00:00',
+        }
+
+        result = await flow.async_step_init(user_input)
+
+        self.assertEqual(result['type'], 'create_entry')
+        set_purge.assert_awaited_once_with(hass, every_days=8, at='01:00')
+        update_entry.assert_not_called()
 
 
 class CompatibilityTests(unittest.TestCase):
