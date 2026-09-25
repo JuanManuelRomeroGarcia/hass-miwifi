@@ -110,6 +110,7 @@ from .const import (
     UPDATER,
 )
 from .enum import (
+    MESH_ROLE_MODES,
     Connection,
     DeviceAction,
     EncryptionAlgorithm,
@@ -301,6 +302,9 @@ class LuciUpdater(DataUpdateCoordinator):
         self._sms_next_try = dt_util.utcnow()
         self._cpe_newstatus_next_try = dt_util.utcnow()
 
+        # The topology-derived role is reported once, not once per cycle.
+        self._topology_role_logged: bool = False
+
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -338,6 +342,11 @@ class LuciUpdater(DataUpdateCoordinator):
 
         with contextlib.suppress(Exception):
             await self.luci.logout()
+
+        # Logging out is not enough: the coordinator keeps its refresh timer and
+        # debouncer. Home Assistant cancels them through config_entry.async_on_unload
+        # when there is an entry, but the config flow builds an updater without one.
+        await self.async_shutdown()
 
     @cached_property
     def _update_interval(self) -> timedelta:
@@ -455,6 +464,45 @@ class LuciUpdater(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
 
         return self.data
+
+    def _topology_role(self) -> Mode | None:
+        """The role the topology graph gives this node, if it gives one.
+
+        `xqnetwork/mode` answers `default` on a wired-backhaul leaf, which types
+        it as a standalone gateway and sends the coordinator asking it for WAN
+        and MAC filter data it cannot serve. The graph knows better, from two
+        independent directions: what the node says about itself, and what the
+        node above it says about the node.
+
+        Only a positive identification counts. Nothing here can push a node
+        towards `default`, so a graph that has not arrived yet - our own is
+        written at the end of the cycle, so on the first one it is absent -
+        simply leaves the endpoint in charge.
+
+        :return Mode | None: the mesh role, or None when the graph cannot tell
+        """
+
+        graph: dict = ((self.data.get("topo_graph") or {}).get("graph") or {})
+
+        # The main is never a leaf, whoever else lists it.
+        if graph.get("is_main"):
+            return None
+
+        with contextlib.suppress(KeyError, TypeError, ValueError):
+            if (own_role := Mode(int(graph["mode"]))) in MESH_ROLE_MODES:
+                return own_role
+
+        if (leaf := self._leaf_entry_from_other_nodes()) is not None:
+            # A leaf reports its own mode as 1 in the main's graph, which is
+            # this integration's REPEATER - a different thing, with an upstream
+            # link and an ap signal. Listed as a leaf means mesh node.
+            with contextlib.suppress(KeyError, TypeError, ValueError):
+                if (listed_role := Mode(int(leaf["mode"]))) in MESH_ROLE_MODES:
+                    return listed_role
+
+            return Mode.MESH_NODE
+
+        return None
 
     @property
     def is_repeater(self) -> bool:
@@ -895,6 +943,22 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_SENSOR_MODE] = Mode.DEFAULT
             return
 
+        # The topology graph is the authoritative view of the mesh, and a leaf
+        # behind a foreign gateway answers `default` here. Take the role from the
+        # graph when it has one, and skip a gateway probe the node cannot answer.
+        if (topology_role := self._topology_role()) is not None:
+            data[ATTR_SENSOR_MODE] = topology_role
+
+            if not self._topology_role_logged:
+                self._topology_role_logged = True
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] topology role is %s: skipping the gateway mode probe",
+                    topology_role.phrase,
+                )
+
+            return
+
         try:
             response: dict = await asyncio.wait_for(self.luci.mode(), timeout=6)
         except (asyncio.TimeoutError, LuciError, LuciConnectionError):
@@ -1191,7 +1255,10 @@ class LuciUpdater(DataUpdateCoordinator):
                     data[ATTR_SENSOR_WAN_IP] = mobile_ip.strip()
                     data[ATTR_SENSOR_WAN_TYPE] = "mobile"
 
-        except Exception as e:
+        # LuciError derives from BaseException: without naming it here a WAN
+        # failure escaped this handler and aborted the whole update cycle, so
+        # every prepare step after "wan" (devices included) was skipped.
+        except (Exception, LuciError) as e:
             await self.hass.async_add_executor_job(_LOGGER.error, "Error while preparing WAN info: %s", e)
             data[ATTR_BINARY_SENSOR_WAN_STATE] = False
             data[ATTR_BINARY_SENSOR_WAN_LINK] = False
@@ -1377,7 +1444,19 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         for index in range(1, data.get(ATTR_WIFI_ADAPTER_LENGTH, 2) + 1):
-            response: dict = await self.luci.avaliable_channels(index)
+            try:
+                response: dict = await self.luci.avaliable_channels(index)
+            except LuciError as _e:
+                # LuciError derives from BaseException: unhandled, it escapes the
+                # prepare loop and takes every later step of the cycle with it -
+                # here devices, device_list, device_restore, ap and new_status.
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] channels unavailable (adapter %s): %s",
+                    index,
+                    type(_e).__name__,
+                )
+                continue
 
             if "list" not in response or len(response["list"]) == 0:
                 continue
@@ -1519,7 +1598,18 @@ class LuciUpdater(DataUpdateCoordinator):
     async def _async_prepare_device_list(self, data: dict) -> None:
         """Prepare MiWiFi device list (api/misystem/devicelist)."""
 
-        response: dict = await self.luci.device_list()
+        try:
+            response: dict = await self.luci.device_list()
+        except LuciError as _e:
+            # Losing the client list must not also cost us device_restore, ap and
+            # new_status: a node that is really gone already failed at status.
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] device_list unavailable (%s)",
+                type(_e).__name__,
+            )
+            return
+
         await asyncio.sleep(DEFAULT_CALL_DELAY)
 
         integrations = async_get_integrations(self.hass)
@@ -2026,7 +2116,15 @@ class LuciUpdater(DataUpdateCoordinator):
         if self.data.get(ATTR_SENSOR_MODE, Mode.DEFAULT) != Mode.REPEATER:
             return
 
-        response: dict = await self.luci.wifi_ap_signal()
+        try:
+            response: dict = await self.luci.wifi_ap_signal()
+        except LuciError as _e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] wifi_ap_signal unavailable (%s)",
+                type(_e).__name__,
+            )
+            return
 
         if "signal" in response and isinstance(response["signal"], int):
             data[ATTR_SENSOR_AP_SIGNAL] = response["signal"]
@@ -2041,8 +2139,15 @@ class LuciUpdater(DataUpdateCoordinator):
             #await self.hass.async_add_executor_job(_LOGGER.warning, "⚠️ [new_status] is_force_load is False. Skipping new_status.")
             return
 
-        response: dict = await self.luci.new_status()
-        #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 [new_status] Raw response: %s", response)
+        try:
+            response: dict = await self.luci.new_status()
+        except LuciError as _e:
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] new_status unavailable (%s)",
+                type(_e).__name__,
+            )
+            return
 
         if "count" in response:
             data[ATTR_SENSOR_DEVICES] = response["count"]

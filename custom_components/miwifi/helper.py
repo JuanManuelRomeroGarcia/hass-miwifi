@@ -73,7 +73,6 @@ async def async_verify_access(
 
     try:
         await updater.async_request_refresh()
-        await updater.async_stop()
         await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Login OK - código %s", updater.code)
         return updater.code, ""
     
@@ -88,6 +87,11 @@ async def async_verify_access(
     except Exception as e:
         await hass.async_add_executor_job(_LOGGER.exception, "[MiWiFi] Error inesperado durante el login con %s", ip)
         return codes.INTERNAL_SERVER_ERROR, str(e)
+
+    finally:
+        # Only the success path used to stop it, so a login that failed left an
+        # updater polling the router for as long as the instance ran.
+        await updater.async_stop()
 
 
 
