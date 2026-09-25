@@ -23,11 +23,13 @@ except Exception:
 from .const import (
     CONF_ACTIVITY_DAYS,
     CONF_ENCRYPTION_ALGORITHM,
+    CONF_IS_AP_MODE,
     CONF_IS_FORCE_LOAD,
     CONF_IS_TRACK_DEVICES,
     CONF_PROTOCOL,
     CONF_STAY_ONLINE,
     DEFAULT_ACTIVITY_DAYS,
+    DEFAULT_IS_AP_MODE,
     DEFAULT_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STAY_ONLINE,
@@ -317,6 +319,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_AUTO_PURGE_AT, default=ap_at): str,
                 vol.Optional(CONF_ENABLE_DEVICE_SENSORS,default=get_config_value(self._config_entry,CONF_ENABLE_DEVICE_SENSORS,DEFAULT_ENABLE_DEVICE_SENSORS,),): cv.boolean,
                 vol.Optional(CONF_ENABLE_PORT_PROBE, default=get_config_value(self._config_entry, CONF_ENABLE_PORT_PROBE, DEFAULT_ENABLE_PORT_PROBE)): cv.boolean,
+                # Offered for every node: a leaf behind a foreign gateway often
+                # fails to report its own mode, so it never looks like a repeater.
+                vol.Optional(CONF_IS_AP_MODE, default=get_config_value(self._config_entry, CONF_IS_AP_MODE, DEFAULT_IS_AP_MODE)): cv.boolean,
             }
 
             with contextlib.suppress(ValueError):
