@@ -190,7 +190,8 @@ async def test_update(hass: HomeAssistant) -> None:
 
         assert (
             state.attributes["entity_picture"]
-            == f"https://raw.githubusercontent.com/{REPOSITORY}/main/images/RA67.png"
+            == f"https://raw.githubusercontent.com/{REPOSITORY}/main/"
+            "custom_components/miwifi/www/images/RA67.png"
         )
 
 
@@ -265,7 +266,8 @@ async def test_need_update(hass: HomeAssistant) -> None:
 
         assert (
             state.attributes["entity_picture"]
-            == f"https://raw.githubusercontent.com/{REPOSITORY}/main/images/RA67.png"
+            == f"https://raw.githubusercontent.com/{REPOSITORY}/main/"
+            "custom_components/miwifi/www/images/RA67.png"
         )
 
 

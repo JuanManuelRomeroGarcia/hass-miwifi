@@ -153,6 +153,8 @@ const ROUTER_IMAGES = {
   "rn06": "RN06.png",
   "rn07": "RN07.png",
   "rn09": "RN09.png",
+  "rp01": "RP01.png",
+  "rp03": "RP03.png",
   "rp04": "RP04.png",
   "table": "table.png"
 };

@@ -144,7 +144,10 @@ class MiWifiUpdate(MiWifiEntity, UpdateEntity):
     @property
     def entity_picture(self) -> str | None:
         model: Model = self._updater.data.get(ATTR_MODEL, Model.NOT_KNOWN)
-        return f"https://raw.githubusercontent.com/{REPOSITORY}/main/images/{model.name}.png"
+        return (
+            f"https://raw.githubusercontent.com/{REPOSITORY}/main/"
+            f"custom_components/miwifi/www/images/{model.name}.png"
+        )
 
     def _handle_coordinator_update(self) -> None:
         if self.state_attributes.get(ATTR_IN_PROGRESS, False):
