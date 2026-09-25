@@ -140,6 +140,11 @@ PREPARE_METHODS: Final = (
     "new_status",
 )
 
+# hass.data[DOMAIN] keys: MACs reported by a main router as mesh nodes (isap > 0),
+# and those whose leftover client entities have already been purged.
+MESH_NODE_MACS: Final = "mesh_node_macs"
+MESH_NODE_PURGED: Final = "mesh_node_purged"
+
 NEW_STATUS_MAP: Final = {
     "2g": ATTR_SENSOR_DEVICES_2_4,
     "5g": ATTR_SENSOR_DEVICES_5_0,
@@ -195,6 +200,44 @@ def _ap_macs_by_ip(response: dict) -> dict[str, str]:
         if fallback:
             macs[fallback] = mac
     return macs
+
+
+def _known_mesh_nodes(hass: HomeAssistant) -> tuple[set[str], set[str]]:
+    """Return the MACs and IPs that belong to mesh nodes rather than clients.
+
+    MACs: those a main router reported with ``isap`` > 0 since startup, plus the
+    MAC of every node that is set up. IPs: the address of every MiWiFi entry,
+    read from the entries so it does not depend on setup order.
+    """
+
+    macs: set[str] = set(hass.data.get(DOMAIN, {}).get(MESH_NODE_MACS, ()))
+    ips: set[str] = set()
+
+    for ip, integration in async_get_integrations(hass).items():
+        ips.add(ip)
+        mac = (getattr(integration.get(UPDATER), "data", None) or {}).get(
+            ATTR_DEVICE_MAC_ADDRESS
+        )
+        if isinstance(mac, str) and mac.strip():
+            macs.add(mac.strip().upper())
+
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        ip = entry.options.get(CONF_IP_ADDRESS, entry.data.get(CONF_IP_ADDRESS))
+        if isinstance(ip, str) and ip:
+            ips.add(ip)
+
+    return macs, ips
+
+
+def _remember_mesh_node_macs(
+    hass: HomeAssistant, macs: set[str], key: str = MESH_NODE_MACS
+) -> set[str]:
+    """Record MACs under a hass.data key and return the ones not recorded before."""
+
+    known: set[str] = hass.data.setdefault(DOMAIN, {}).setdefault(key, set())
+    learned = macs - known
+    known |= learned
+    return learned
 
 REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_NAME,
@@ -1536,6 +1579,10 @@ class LuciUpdater(DataUpdateCoordinator):
                 if (backhaul := ap_macs.get(ip)) and backhaul not in mac_to_ip:
                     mac_to_ip[backhaul] = ip
 
+        node_macs, node_ips = _known_mesh_nodes(self.hass)
+        node_macs |= set(mac_to_ip)
+        reported_nodes: set[str] = set()
+
         # Collect devices that should be pushed to a leaf updater (key = integration IP)
         add_to: dict[str, list[dict]] = {}
 
@@ -1546,6 +1593,8 @@ class LuciUpdater(DataUpdateCoordinator):
             # Skip mesh/AP nodes from client counters and trackers
             try:
                 if int(device.get("isap", 0) or 0) > 0:
+                    if node_mac := str(device.get("mac") or "").strip().upper():
+                        reported_nodes.add(node_mac)
                     continue
             except Exception:
                 pass
@@ -1561,6 +1610,13 @@ class LuciUpdater(DataUpdateCoordinator):
                 None,
             )
             if not active_ip:
+                continue
+
+            # A mesh node can also be listed with isap 0, e.g. while it rejoins
+            # the mesh. It is still a node, not a client.
+            mac_u = str(device.get(ATTR_TRACKER_MAC, "") or "").strip().upper()
+            if mac_u in node_macs or active_ip.get("ip") in node_ips:
+                self._forget_mesh_node(mac_u, integrations)
                 continue
 
             # Keep only the active IP entry
@@ -1617,6 +1673,19 @@ class LuciUpdater(DataUpdateCoordinator):
             if ATTR_TRACKER_MAC in device:
                 await self.add_device(device, action=action)
 
+        for mac in _remember_mesh_node_macs(self.hass, reported_nodes):
+            self._forget_mesh_node(mac, integrations)
+
+        # A node may still have a client tracker and sensors from an earlier
+        # cycle or a device store. Purge them once per session, but not during
+        # the first refresh: the platforms are set up after it and would miss
+        # the signal.
+        if not self._is_first_update:
+            for mac in _remember_mesh_node_macs(
+                self.hass, reported_nodes, MESH_NODE_PURGED
+            ):
+                self._forget_mesh_node(mac, integrations, purge=True)
+
         # Push per-leaf device list to each leaf updater
         for ip, devices in add_to.items():
             integration = integrations.get(ip)
@@ -1662,9 +1731,18 @@ class LuciUpdater(DataUpdateCoordinator):
             return
 
         integrations: dict = async_get_integrations(self.hass)
+        node_macs, node_ips = _known_mesh_nodes(self.hass)
 
         for mac, device in devices.items():
             if mac in self.devices:
+                continue
+
+            # A store can hold a node's MAC, saved while the node was listed as
+            # a client; restoring it would recreate a client that never comes online.
+            if (
+                str(mac).strip().upper() in node_macs
+                or device.get(ATTR_TRACKER_IP) in node_ips
+            ):
                 continue
 
             try:
@@ -2111,6 +2189,37 @@ class LuciUpdater(DataUpdateCoordinator):
                 entry_id = self._entry_id or ""
                 async_dispatcher_send(self.hass, SIGNAL_PURGE_DEVICE, entry_id, mac)
 
+
+    def _forget_mesh_node(
+        self, mac: str, integrations: dict[str, dict], purge: bool = False
+    ) -> None:
+        """Stop tracking a mesh node's MAC as a client on every node.
+
+        :param mac: str: Upper-case MAC of the node
+        :param integrations: dict[str, dict]: Integrations list
+        :param purge: bool: Also remove its client tracker and sensors
+        """
+
+        if not mac:
+            return
+
+        updaters = [self] + [
+            integration.get(UPDATER)
+            for integration in integrations.values()
+            if isinstance(integration.get(UPDATER), LuciUpdater)
+            and integration.get(UPDATER) is not self
+        ]
+        for updater in updaters:
+            updater.devices.pop(mac, None)
+            with contextlib.suppress(ValueError):
+                updater._moved_devices.remove(mac)
+
+        self.hass.data.get(DOMAIN, {}).get("devices_cache", {}).pop(mac, None)
+
+        if purge:
+            async_dispatcher_send(
+                self.hass, SIGNAL_PURGE_DEVICE, self._entry_id or "", mac
+            )
 
     def reset_counter(self, is_force: bool = False, is_remove: bool = False) -> None:
         """Reset counter
