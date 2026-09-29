@@ -1,4 +1,4 @@
-"""Client sensors must be provided after startup and reload, and only once (#330).
+"""Client sensors must be provided after startup, reload and reconnect, and only once (#330).
 
 Runs on a real Home Assistant core (pytest-homeassistant-custom-component):
 two MiWiFi config entries, two sensor platforms and the real entity registry.
@@ -7,16 +7,37 @@ two MiWiFi config entries, two sensor platforms and the real entity registry.
 from __future__ import annotations
 
 import logging
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEntityPlatform
 
-from custom_components.miwifi.const import DOMAIN
-from custom_components.miwifi.sensor import _not_provided_elsewhere
+from custom_components.miwifi.const import (
+    ATTR_TRACKER_IP,
+    ATTR_TRACKER_MAC,
+    ATTR_TRACKER_UPDATER_ENTRY_ID,
+    CONF_ENABLE_DEVICE_SENSORS,
+    DOMAIN,
+    SIGNAL_NEW_DEVICE,
+    UPDATER,
+)
+from custom_components.miwifi.device_tracker import _reparent_client_device
+from custom_components.miwifi.sensor import (
+    MIWIFI_DEVICE_SENSORS,
+    _not_provided_elsewhere,
+    async_setup_entry,
+)
 
 UID = "miwifi-dev-02:00:00:00:00:01-ip"
+
+MAC = "02:00:00:00:00:02"
+CLIENT_UIDS = [f"miwifi-dev-{MAC.lower()}-{desc.key}" for desc in MIWIFI_DEVICE_SENSORS]
+CLIENT_IP_UID = f"miwifi-dev-{MAC.lower()}-{ATTR_TRACKER_IP}"
 
 
 class ClientSensor(SensorEntity):
@@ -24,8 +45,8 @@ class ClientSensor(SensorEntity):
 
     _attr_should_poll = False
 
-    def __init__(self, value: str) -> None:
-        self._attr_unique_id = UID
+    def __init__(self, value: str, unique_id: str = UID) -> None:
+        self._attr_unique_id = unique_id
         self._attr_name = "Client IP"
         self._attr_native_value = value
 
@@ -39,7 +60,9 @@ def _platform(hass: HomeAssistant, entry: MockConfigEntry) -> MockEntityPlatform
 
 def _entries(hass: HomeAssistant) -> tuple[MockConfigEntry, MockConfigEntry]:
     main = MockConfigEntry(domain=DOMAIN, title="192.0.2.1")
-    node = MockConfigEntry(domain=DOMAIN, title="192.0.2.2")
+    node = MockConfigEntry(
+        domain=DOMAIN, title="192.0.2.2", options={CONF_ENABLE_DEVICE_SENSORS: True}
+    )
     main.add_to_hass(hass)
     node.add_to_hass(hass)
     return main, node
@@ -93,3 +116,105 @@ async def test_sensor_is_provided_again_after_the_other_entry_reloads(hass: Home
     state = hass.states.get(entity_id)
     assert state is not None and state.state == "192.0.2.11"
     assert not state.attributes.get("restored")
+
+
+async def _set_up_node_sensors(hass: HomeAssistant, node: MockConfigEntry) -> DataUpdateCoordinator:
+    """Run the node's sensor setup; only the new-device path is exercised."""
+    updater = DataUpdateCoordinator(
+        hass, logging.getLogger(__name__), config_entry=node, name="node"
+    )
+    updater.data = {}
+    updater.devices = {}
+    hass.data.setdefault(DOMAIN, {})[node.entry_id] = {UPDATER: updater}
+    platform = _platform(hass, node)
+
+    def add_entities(entities, update_before_add=False):
+        hass.async_create_task(platform.async_add_entities(entities))
+
+    with patch("custom_components.miwifi.sensor._async_add_all_sensors_later", AsyncMock()):
+        await async_setup_entry(hass, node, add_entities)
+    return updater
+
+
+def _client_comes_back(hass: HomeAssistant, updater: DataUpdateCoordinator, node: MockConfigEntry) -> None:
+    device = {
+        ATTR_TRACKER_MAC: MAC,
+        ATTR_TRACKER_IP: "192.0.2.20",
+        ATTR_TRACKER_UPDATER_ENTRY_ID: node.entry_id,
+    }
+    updater.devices[MAC] = device
+    async_dispatcher_send(hass, SIGNAL_NEW_DEVICE, device)
+
+
+async def test_client_back_after_restart_gets_its_registered_sensors(hass: HomeAssistant) -> None:
+    _, node = _entries(hass)
+    # The client was away at startup: its rows exist, enabled, and nothing provides them.
+    registry = er.async_get(hass)
+    for uid in CLIENT_UIDS:
+        registry.async_get_or_create("sensor", DOMAIN, uid, config_entry=node)
+    updater = await _set_up_node_sensors(hass, node)
+
+    _client_comes_back(hass, updater, node)
+    await hass.async_block_till_done()
+
+    for uid in CLIENT_UIDS:
+        assert hass.states.get(registry.async_get_entity_id("sensor", DOMAIN, uid)) is not None
+    state = hass.states.get(registry.async_get_entity_id("sensor", DOMAIN, CLIENT_IP_UID))
+    assert state.state == "192.0.2.20"
+    assert not state.attributes.get("restored")
+
+
+async def test_new_device_skips_a_sensor_live_on_another_entry(hass: HomeAssistant, caplog) -> None:
+    main, node = _entries(hass)
+    main_platform = _platform(hass, main)
+    await main_platform.async_add_entities([ClientSensor("192.0.2.10", CLIENT_IP_UID)])
+    updater = await _set_up_node_sensors(hass, node)
+
+    caplog.set_level(logging.ERROR)
+    _client_comes_back(hass, updater, node)
+    await hass.async_block_till_done()
+
+    assert "does not generate unique IDs" not in caplog.text
+    registry = er.async_get(hass)
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, CLIENT_IP_UID)
+    assert entity_id in main_platform.entities
+    assert hass.states.get(entity_id).state == "192.0.2.10"
+
+
+async def test_client_back_on_another_node_ends_on_one_device_row(hass: HomeAssistant) -> None:
+    main, node = _entries(hass)
+    # Rows left by the node that served the client before the restart.
+    devices = dr.async_get(hass)
+    device = devices.async_get_or_create(
+        config_entry_id=main.entry_id,
+        identifiers={(DOMAIN, MAC.lower())},
+        connections={(dr.CONNECTION_NETWORK_MAC, MAC.lower())},
+    )
+    registry = er.async_get(hass)
+    for uid in CLIENT_UIDS:
+        registry.async_get_or_create(
+            "sensor", DOMAIN, uid, config_entry=main, device_id=device.id
+        )
+    updater = await _set_up_node_sensors(hass, node)
+
+    _client_comes_back(hass, updater, node)
+    await hass.async_block_till_done()
+    entity_id = registry.async_get_entity_id("sensor", DOMAIN, CLIENT_IP_UID)
+    assert hass.states.get(entity_id).state == "192.0.2.20"
+
+    # From 2026.9 the node's add gives it a row of its own; the tracker hands the
+    # client over when it is added and on every refresh, and that joins them.
+    _reparent_client_device(hass, MAC.lower(), node.entry_id)
+    await hass.async_block_till_done()
+
+    rows = [
+        row
+        for entry in (main, node)
+        for row in dr.async_entries_for_config_entry(devices, entry.entry_id)
+        if (DOMAIN, MAC.lower()) in row.identifiers
+    ]
+    assert len(rows) == 1
+    for uid in CLIENT_UIDS:
+        sensor = registry.async_get(registry.async_get_entity_id("sensor", DOMAIN, uid))
+        assert sensor.device_id == rows[0].id
+    assert hass.states.get(entity_id).state == "192.0.2.20"
