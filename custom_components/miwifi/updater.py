@@ -1929,7 +1929,18 @@ class LuciUpdater(DataUpdateCoordinator):
                 online_uptime = ""
 
         ip_value = ip_attr.get("ip") if isinstance(ip_attr, dict) else None
-        
+
+        # Speeds come only from the devicelist entry. A client listed only by a
+        # node's Wi-Fi list (force load) has none: that is unknown, not idle.
+        down_speed: float | None = 0.0
+        up_speed: float | None = 0.0
+        if is_online:
+            if isinstance(ip_attr, dict):
+                down_speed = _to_float(ip_attr.get("downspeed"))
+                up_speed = _to_float(ip_attr.get("upspeed"))
+            else:
+                down_speed = up_speed = None
+
         # ✅ WAN access state (keep stable across refreshes):
         # - Preferred: explicit internet_blocked already computed upstream
         # - Fallback: devicelist authority.wan (0=blocked, 1=allowed)
@@ -1966,9 +1977,8 @@ class LuciUpdater(DataUpdateCoordinator):
             ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_IP: ip_value,
             ATTR_TRACKER_CONNECTION: connection,
-            # ✅ Safe numeric parsing (handles "" / None)
-            ATTR_TRACKER_DOWN_SPEED: _to_float(ip_attr.get("downspeed")) if (is_online and isinstance(ip_attr, dict)) else 0.0,
-            ATTR_TRACKER_UP_SPEED: _to_float(ip_attr.get("upspeed")) if (is_online and isinstance(ip_attr, dict)) else 0.0,
+            ATTR_TRACKER_DOWN_SPEED: down_speed,
+            ATTR_TRACKER_UP_SPEED: up_speed,
             ATTR_TRACKER_ONLINE: online_uptime,
             ATTR_TRACKER_LAST_ACTIVITY: last_activity,
             ATTR_TRACKER_FIRST_SEEN: self.devices.get(

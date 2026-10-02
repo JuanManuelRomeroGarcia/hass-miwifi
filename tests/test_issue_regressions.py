@@ -324,5 +324,112 @@ class CompatibilityTests(unittest.TestCase):
             self.assertIs(namespace['ScannerEntity'], expected)
 
 
+
+def load_constants():
+    """Plain literal constants from const.py, without importing Home Assistant."""
+    tree = ast.parse((COMPONENT/'const.py').read_text(encoding='utf-8'))
+    constants = {}
+    for item in tree.body:
+        if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+            target, value = item.target.id, item.value
+        elif isinstance(item, ast.Assign) and len(item.targets) == 1 and isinstance(item.targets[0], ast.Name):
+            target, value = item.targets[0].id, item.value
+        else:
+            continue
+        if isinstance(value, ast.Constant):
+            constants[target] = value.value
+    return constants
+
+
+class ClientValuesWithoutDataTests(unittest.TestCase):
+    """A client that only a node's Wi-Fi list reports has no uptime or speeds."""
+
+    MAC = '02:00:00:00:00:0A'
+
+    def setUp(self):
+        from datetime import datetime, timedelta
+        env = {**load_constants(), 'DataUpdateCoordinator': object, 'datetime': datetime, 'timedelta': timedelta}
+        cls = load_class('updater.py', 'LuciUpdater', env, {'_build_device'})
+        self.updater = cls.__new__(cls)
+        self.updater._resolve_connection = lambda device: None
+        self.updater.data = {'mac': '00:00:00:00:00:01'}
+        self.updater.devices = {}
+        self.updater._signals = {self.MAC: 90}
+        self.c = env
+
+    def build(self, **device):
+        return self.updater._build_device({'mac': self.MAC, 'entry_id': 'entry', **device})
+
+    def test_wifi_list_client_has_unknown_speeds(self):
+        # xqnetwork/wifi_connect_devices gives only mac, wifiIndex and signal.
+        device = self.build(wifiIndex=1, signal=90)
+        self.assertIsNone(device[self.c['ATTR_TRACKER_DOWN_SPEED']])
+        self.assertIsNone(device[self.c['ATTR_TRACKER_UP_SPEED']])
+        self.assertEqual(device[self.c['ATTR_TRACKER_ONLINE']], '')
+        self.assertIsNone(device[self.c['ATTR_TRACKER_IP']])
+
+    def test_devicelist_client_keeps_its_values(self):
+        device = self.build(online=1, ip=[{'ip': '192.0.2.5', 'online': '3600', 'downspeed': '10', 'upspeed': '5', 'active': 1}])
+        self.assertEqual(device[self.c['ATTR_TRACKER_DOWN_SPEED']], 10.0)
+        self.assertEqual(device[self.c['ATTR_TRACKER_UP_SPEED']], 5.0)
+        self.assertEqual(device[self.c['ATTR_TRACKER_ONLINE']], '1:00:00')
+
+    def test_offline_client_is_idle(self):
+        device = self.build(online=0, ip=[{'ip': '192.0.2.5', 'online': '3600', 'downspeed': '10', 'upspeed': '5', 'active': 1}])
+        self.assertEqual(device[self.c['ATTR_TRACKER_DOWN_SPEED']], 0.0)
+        self.assertEqual(device[self.c['ATTR_TRACKER_UP_SPEED']], 0.0)
+        self.assertEqual(device[self.c['ATTR_TRACKER_ONLINE']], '')
+
+
+class ClientSensorValueTests(unittest.TestCase):
+    """The client sensors report a missing value as unknown."""
+
+    def setUp(self):
+        env = {**load_constants(), 'CoordinatorEntity': type('CoordinatorEntity', (), {}), 'SensorEntity': type('SensorEntity', (), {}), 'Connection': Enum('Connection', 'LAN'), 'KEY_SIGNAL_QUALITY': 'signal_quality'}
+        cls = load_class('sensor.py', 'MiWifiDeviceAttributeSensor', env, {'native_value'})
+        self.sensor = cls.__new__(cls)
+        self.sensor.hass = SimpleNamespace(data={})
+        self.sensor._mac = '02:00:00:00:00:0A'
+        self.c = env
+
+    def value(self, key, device):
+        self.sensor._updater = SimpleNamespace(devices={self.sensor._mac: device})
+        self.sensor.entity_description = SimpleNamespace(key=key)
+        return self.sensor.native_value
+
+    def test_empty_uptime_is_unknown(self):
+        self.assertIsNone(self.value(self.c['ATTR_TRACKER_ONLINE'], {self.c['ATTR_TRACKER_ONLINE']: ''}))
+
+    def test_uptime_is_reported(self):
+        self.assertEqual(self.value(self.c['ATTR_TRACKER_ONLINE'], {self.c['ATTR_TRACKER_ONLINE']: '1:00:00'}), '1:00:00')
+
+    def test_missing_speed_is_unknown(self):
+        self.assertIsNone(self.value(self.c['ATTR_TRACKER_DOWN_SPEED'], {self.c['ATTR_TRACKER_DOWN_SPEED']: None}))
+
+
+class TrackerSpeedAttributeTests(unittest.TestCase):
+    def setUp(self):
+        import math
+        env = {**load_constants(), 'ScannerEntity': type('ScannerEntity', (), {}), 'CoordinatorEntity': type('CoordinatorEntity', (), {})}
+        env['pretty_size'] = load_function('helper.py', 'pretty_size', {'math': math})
+        self.cls = load_class('device_tracker.py', 'MiWifiDeviceTracker', env, {'_speed_attribute'})
+        self.key = env['ATTR_TRACKER_DOWN_SPEED']
+
+    def attribute(self, speed, connected=True):
+        tracker = self.cls.__new__(self.cls)
+        tracker._device = {self.key: speed}
+        tracker.is_connected = connected
+        return tracker._speed_attribute(self.key)
+
+    def test_unknown_speed_is_empty(self):
+        self.assertEqual(self.attribute(None), '')
+
+    def test_speed_is_formatted(self):
+        self.assertEqual(self.attribute(0.0), '0 B/s')
+        self.assertEqual(self.attribute(2048.0), '2.0 KB/s')
+
+    def test_disconnected_client_has_no_speed(self):
+        self.assertEqual(self.attribute(2048.0, connected=False), '')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

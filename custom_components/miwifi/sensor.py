@@ -786,6 +786,11 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
                 return dt_util.as_local(dt) if dt else None
             return None
 
+        if key == ATTR_TRACKER_ONLINE:
+            # "" means no uptime: the client is offline, or only a node's Wi-Fi
+            # list (force load) reports it, and that list has no uptime.
+            return dev.get(key) or None
+
         return dev.get(key)
     
     @property

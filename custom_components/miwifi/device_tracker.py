@@ -735,6 +735,13 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         """Return device icon."""
         return "mdi:lan-connect" if self.is_connected else "mdi:lan-disconnect"
 
+    def _speed_attribute(self, key: str) -> str:
+        """Format a speed, or leave it empty when the router reports none."""
+        speed = self._device.get(key, 0.0)
+        if not self.is_connected or speed is None:
+            return ""
+        return pretty_size(float(speed))
+
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
@@ -782,16 +789,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             "connected_via_entry_id": connected_via_entry_id,
             
             ATTR_TRACKER_SIGNAL: signal,
-            ATTR_TRACKER_DOWN_SPEED: pretty_size(
-                float(self._device.get(ATTR_TRACKER_DOWN_SPEED, 0.0))
-            )
-            if self.is_connected
-            else "",
-            ATTR_TRACKER_UP_SPEED: pretty_size(
-                float(self._device.get(ATTR_TRACKER_UP_SPEED, 0.0))
-            )
-            if self.is_connected
-            else "",
+            ATTR_TRACKER_DOWN_SPEED: self._speed_attribute(ATTR_TRACKER_DOWN_SPEED),
+            ATTR_TRACKER_UP_SPEED: self._speed_attribute(ATTR_TRACKER_UP_SPEED),
             ATTR_TRACKER_LAST_ACTIVITY: self._device.get(ATTR_TRACKER_LAST_ACTIVITY, None),
             ATTR_TRACKER_SIGNAL_QUALITY: signal_key,
             ATTR_TRACKER_TOTAL_USAGE: total_usage_str,
