@@ -466,6 +466,20 @@ class LuciUpdater(DataUpdateCoordinator):
         return self.data.get(ATTR_SENSOR_MODE, Mode.DEFAULT).value > 0
 
     @property
+    def _counters_pushed_by_parent(self) -> bool:
+        """Are this node's client counters owned by the node above it?
+
+        A repeater or access point without force load does not reset its
+        counters at the start of every cycle: the main pushes its clients in
+        through add_device(is_from_parent=True), having forced a reset first.
+        Resetting here as well would blank the pushed values on the next poll.
+
+        :return bool: counters are maintained by the parent
+        """
+
+        return self.is_repeater and not self.is_force_load
+
+    @property
     def supports_wan(self) -> bool:
         """Is supports wan
 
@@ -1617,6 +1631,17 @@ class LuciUpdater(DataUpdateCoordinator):
             if ATTR_TRACKER_MAC in device:
                 await self.add_device(device, action=action)
 
+        # No client of our own this cycle. A leaf keeps what the main pushed in,
+        # but a node no other node lists as a leaf - e.g. the main of a mesh in
+        # access point mode - has nobody to push its counters: zero is the count.
+        if (
+            self._counters_pushed_by_parent
+            and not self._counters_reset_this_cycle
+            and not self._parent_push_pending
+            and self._leaf_entry_from_other_nodes() is None
+        ):
+            self.reset_counter(is_force=True)
+
         # Push per-leaf device list to each leaf updater
         for ip, devices in add_to.items():
             integration = integrations.get(ip)
@@ -1833,6 +1858,17 @@ class LuciUpdater(DataUpdateCoordinator):
 
         if not is_from_parent and self._parent_push_pending:
             self._parent_push_pending = False
+            self.reset_counter(is_force=True)
+        elif (
+            not is_from_parent
+            and self._counters_pushed_by_parent
+            and not self._counters_reset_this_cycle
+        ):
+            # A node whose counters are pushed by the parent skips the reset at
+            # the top of the cycle, but it still enumerates its own clients
+            # through misystem/devicelist, and every one of them lands here.
+            # Without a reset the counters would only ever grow. Reset on the
+            # first client we count for ourselves in this cycle.
             self.reset_counter(is_force=True)
 
         if "new_status" not in self.data:
@@ -2119,7 +2155,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param is_remove: bool: Force remove
         """
 
-        if self.is_repeater and not self.is_force_load and not is_force:
+        if self._counters_pushed_by_parent and not is_force:
             return
 
         self._counters_reset_this_cycle = True
