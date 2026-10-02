@@ -30,6 +30,7 @@ from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     EntityPlatform,
     async_get_current_platform,
+    async_get_platforms,
 )
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -850,6 +851,34 @@ def _device_sensors_enabled(hass: HomeAssistant) -> bool:
     )
 
 
+def _not_provided_elsewhere(
+    hass: HomeAssistant, sensors: list[SensorEntity]
+) -> list[SensorEntity]:
+    """Drop the client sensors that a MiWiFi platform currently provides.
+
+    Client sensor unique ids depend only on the MAC, and several nodes can hold
+    the same client, at startup (e.g. each restored it from its own device
+    store) or when it roams. Adding it again would only make Home Assistant log
+    a unique-ID error. A registry row alone does not count: after a restart it
+    exists even for clients that nothing provides. The check looks at the live
+    platforms at the time of the add, so nothing is kept that could block a
+    later add.
+    """
+    reg = er.async_get(hass)
+    live = [
+        platform
+        for platform in async_get_platforms(hass, DOMAIN)
+        if platform.domain == "sensor"
+    ]
+    kept: list[SensorEntity] = []
+    for sensor in sensors:
+        entity_id = reg.async_get_entity_id("sensor", DOMAIN, sensor.unique_id)
+        if entity_id and any(entity_id in platform.entities for platform in live):
+            continue
+        kept.append(sensor)
+    return kept
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -899,15 +928,14 @@ async def async_setup_entry(
         if not mac:
             return
 
-        # A client can be reported as "new" when it roams to another node.
-        # Its stable sensors may already be live on the old platform; the
-        # registry move keeps them, so only add genuinely missing sensors here.
-        reg = er.async_get(hass)
-        to_add: list[SensorEntity] = [
-            sensor
-            for sensor in _build_device_sensors(updater, new_device)
-            if reg.async_get_entity_id("sensor", DOMAIN, sensor.unique_id) is None
-        ]
+        # A client can be reported as "new" when it roams to another node, and
+        # its sensors may still be live on the old node's platform. A client
+        # that was away at startup is also "new" when it comes back, and its
+        # registry rows exist but nothing provides them. Checking the registry
+        # would skip both cases, so check the live platforms instead.
+        to_add = _not_provided_elsewhere(
+            hass, _build_device_sensors(updater, new_device)
+        )
         if to_add:
             async_add_entities(to_add)
 
@@ -1165,6 +1193,20 @@ async def _async_add_all_sensors_later(
             seen_entity_ids.add(eid)
 
         unique_entities.append(ent)
+
+    # Another node may already provide the same client sensors.
+    addable = {
+        id(ent)
+        for ent in _not_provided_elsewhere(
+            hass,
+            [ent for ent in unique_entities if isinstance(ent, MiWifiDeviceAttributeSensor)],
+        )
+    }
+    unique_entities = [
+        ent
+        for ent in unique_entities
+        if not isinstance(ent, MiWifiDeviceAttributeSensor) or id(ent) in addable
+    ]
 
     if unique_entities:
         async_add_entities(unique_entities)
