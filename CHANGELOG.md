@@ -1,5 +1,24 @@
 # Changelog
 
+## 3.8.3
+
+- Prevent duplicate client sensor creation when several routers hold the same client at startup or during roaming. Skip a sensor only while a live MiWiFi sensor platform provides it; existing registry rows do not block sensor recovery after restart or reconnect (#330).
+- Reset self-counted client counters once per polling cycle on access points and other repeater roles without force load. Preserve counters pushed to leaf nodes by their parent and the existing gateway/force-load behavior (#341, fixes #340).
+- Add a real Home Assistant regression test for one disconnected client restored by two routers. The control reproduces duplicate IDs without the live-platform filter; the corrected path provides every client sensor once.
+- Refresh the integration and bundled panel cache version to 3.8.3.
+
+Thanks to [@brembygit](https://github.com/brembygit) for #330 and #341.
+
+### Validation
+
+39 standalone regression tests, 7 client-counter tests, 8 tests on Home Assistant 2026.9.3, 5 export security tests, and frontend packaging checks pass. Manual testing confirmed startup without duplicate IDs with a disconnected client, sensor recovery on reconnect, working mesh client sensors and roaming, and stable client counts during node changes. The access-point accumulation case was reproduced in automated tests (4 clients became 12 after three cycles before the fix; they remain 4 after it).
+
+The separate tracker loss after reloading its origin entry (#332) and the unconfirmed router-sensor duplication race (#333) remain outside this release.
+
+### Upgrade
+
+Update through HACS, restart Home Assistant, and refresh the browser. The panel remains bundled with the integration. This release does not repair historical client-count statistics recorded before the fix.
+
 ## 3.8.2
 
 - Reload only the router whose options changed. Reload all MiWiFi entries only when the effective mesh-wide client-sensor setting changes (#336, related to #333).

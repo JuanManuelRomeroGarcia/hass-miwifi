@@ -7,7 +7,11 @@ two MiWiFi config entries, two sensor platforms and the real entity registry.
 from __future__ import annotations
 
 import logging
+import asyncio
+from contextlib import ExitStack
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.core import HomeAssistant
@@ -30,6 +34,7 @@ from custom_components.miwifi.device_tracker import _reparent_client_device
 from custom_components.miwifi.sensor import (
     MIWIFI_DEVICE_SENSORS,
     _not_provided_elsewhere,
+    _async_add_all_sensors_later,
     async_setup_entry,
 )
 
@@ -38,6 +43,51 @@ UID = "miwifi-dev-02:00:00:00:00:01-ip"
 MAC = "02:00:00:00:00:02"
 CLIENT_UIDS = [f"miwifi-dev-{MAC.lower()}-{desc.key}" for desc in MIWIFI_DEVICE_SENSORS]
 CLIENT_IP_UID = f"miwifi-dev-{MAC.lower()}-{ATTR_TRACKER_IP}"
+
+
+@pytest.mark.parametrize("filter_live", [False, True])
+async def test_offline_client_restored_by_two_nodes_has_one_live_sensor_set(hass: HomeAssistant, caplog, filter_live) -> None:
+    """A disconnected client restored in two stores must not duplicate at startup."""
+    main, node = _entries(hass)
+    registry = er.async_get(hass)
+    for uid in CLIENT_UIDS:
+        registry.async_get_or_create("sensor", DOMAIN, uid, config_entry=main)
+
+    updaters = []
+    platforms = []
+    for entry in (main, node):
+        updater = DataUpdateCoordinator(hass, logging.getLogger(__name__), config_entry=entry, name=entry.entry_id)
+        updater.data = {"topo_graph": {"graph": {"is_main": False}}}
+        updater.devices = {MAC: {ATTR_TRACKER_MAC: MAC, ATTR_TRACKER_UPDATER_ENTRY_ID: entry.entry_id,
+                                 ATTR_TRACKER_IP: "192.0.2.20", "is_restored": True, "online": ""}}
+        updater.async_request_refresh = AsyncMock()
+        hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {UPDATER: updater}
+        updaters.append(updater)
+        platforms.append(_platform(hass, entry))
+
+    caplog.set_level(logging.ERROR)
+    with ExitStack() as stack:
+        if not filter_live:
+            # Control: reproduce the old startup path without the live-platform check.
+            stack.enter_context(patch("custom_components.miwifi.sensor._not_provided_elsewhere",
+                                      side_effect=lambda hass, sensors: sensors))
+        # Router diagnostics are outside this regression; use separate unique IDs.
+        stack.enter_context(patch("custom_components.miwifi.sensor.MIWIFI_SENSORS", []))
+        stack.enter_context(patch("custom_components.miwifi.sensor._is_cb0401v2", return_value=False))
+        for name in ("MiWifiTopologyGraphSensor", "MiWifiConfigSensor"):
+            stack.enter_context(patch(f"custom_components.miwifi.sensor.{name}",
+                side_effect=lambda updater, kind=name: ClientSensor("0", f"{kind}-{updater.name}")))
+        await asyncio.gather(*[
+            _async_add_all_sensors_later(hass, entry, platform._async_schedule_add_entities)
+            for entry, platform in zip((main, node), platforms)
+        ])
+        await hass.async_block_till_done()
+
+    assert ("does not generate unique IDs" in caplog.text) is (not filter_live)
+    for uid in CLIENT_UIDS:
+        entity_id = registry.async_get_entity_id("sensor", DOMAIN, uid)
+        assert sum(entity_id in platform.entities for platform in platforms) == 1
+    assert hass.states.get(registry.async_get_entity_id("sensor", DOMAIN, CLIENT_IP_UID)).state == "192.0.2.20"
 
 
 class ClientSensor(SensorEntity):
