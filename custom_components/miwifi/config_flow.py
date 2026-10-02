@@ -236,13 +236,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                     at=at_val,
                 )
 
-                for e in self.hass.config_entries.async_entries(DOMAIN):
-                    new_opts = dict(e.options)
-                    if CONF_AUTO_PURGE_EVERY_DAYS in user_input:
-                        new_opts[CONF_AUTO_PURGE_EVERY_DAYS] = int(user_input[CONF_AUTO_PURGE_EVERY_DAYS])
-                    if CONF_AUTO_PURGE_AT in user_input and at_val:
-                        new_opts[CONF_AUTO_PURGE_AT] = at_val
-                    self.hass.config_entries.async_update_entry(e, options=new_opts)
+                # The schedule and every entry's form read the global store
+                # above. Copying the values into each entry's options was not
+                # read anywhere, and it reloaded every entry once more.
 
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
                 return self.async_create_entry(title=user_input[CONF_IP_ADDRESS], data=user_input)

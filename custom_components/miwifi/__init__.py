@@ -33,6 +33,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SLEEP,
     DEFAULT_TIMEOUT,
+    DEVICE_SENSORS_MESH,
     DOMAIN,
     OPTION_IS_FROM_FLOW,
     PLATFORMS,
@@ -54,6 +55,7 @@ from .helper import (
 )
 from .auto_purge import schedule_auto_purge, cancel_auto_purge
 from .services import SERVICES
+from .sensor import _device_sensors_enabled
 from .updater import LuciUpdater
 from .frontend import (
     async_register_panel,
@@ -159,6 +161,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_IP_ADDRESS: _ip,
         UPDATER: _updater,
     }
+    hass.data[DOMAIN][DEVICE_SENSORS_MESH] = _device_sensors_enabled(hass)
     hass.data[DOMAIN][entry.entry_id][UPDATE_LISTENER] = entry.add_update_listener(
         async_update_options
     )
@@ -207,9 +210,19 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     except Exception as e:
          await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] Error managing the panel: {e}")
 
+    # Most options belong to one node, so only its entry is reloaded. Reloading
+    # every entry here made one save reload the whole mesh, once more for each
+    # entry whose options changed with it.
+    # Client sensors are the exception: they are mesh-wide (on when any entry
+    # enables them), so a change of that value reloads every entry.
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    device_sensors = _device_sensors_enabled(hass)
+    mesh_changed = domain_data.get(DEVICE_SENSORS_MESH, device_sensors) != device_sensors
+    domain_data[DEVICE_SENSORS_MESH] = device_sensors
+
+    entries = hass.config_entries.async_entries(DOMAIN) if mesh_changed else [entry]
     await asyncio.gather(*[
-        hass.config_entries.async_reload(e.entry_id)
-        for e in hass.config_entries.async_entries(DOMAIN)
+        hass.config_entries.async_reload(e.entry_id) for e in entries
     ])
 
 
