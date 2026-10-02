@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.8.2
+
+- Reload only the router whose options changed. Reload all MiWiFi entries only when the effective mesh-wide client-sensor setting changes (#336, related to #333).
+- Keep the automatic purge schedule in the global store instead of copying it into every router's options and triggering repeated reloads (#336).
+- Report missing client speeds as unknown when a client is detected only through a node's Wi-Fi list. Report empty client uptime as unknown, while preserving available router values and numeric zero speeds for offline clients (#338).
+- Restore the router photo gallery in the README, use bundled router images in the updater, and remove duplicate root images (#335).
+- Refresh the bundled panel cache version to 3.8.2 and add regression coverage for mesh value preservation, speed recovery, effective sensor settings, and unloaded entries.
+
+Thanks to [@brembygit](https://github.com/brembygit) for #336 and #338.
+
+### Validation
+
+34 standalone regression tests, 5 export security tests, and frontend packaging checks pass. Manual RC01 + RC06 wired-mesh tests confirmed client sensors and speeds, restart recovery, roaming in both directions, per-node options reloads, and automatic sensor removal/restoration when the effective mesh-wide setting changes. The Wi-Fi-list-only missing-data case is covered by automated tests; it was not reproduced on this wired-mesh setup.
+
+The duplicate router-sensor race also reported in #333 remains unconfirmed. This release fixes its confirmed reload fan-out, without claiming to resolve that race or the separate tracker-reload issue #332.
+
+### Upgrade
+
+Update through HACS, restart Home Assistant, and refresh the browser. The panel remains bundled with the integration. Client sensors remain enabled across the mesh while any router entry enables them.
+
 ## 3.8.0
 
 - Make scheduled automatic device purging conservative and allow disabling it with a zero-day interval. Undated devices are preserved by default; the manual dry-run service remains available (#321).

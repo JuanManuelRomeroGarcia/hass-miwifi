@@ -342,6 +342,34 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
         await listener(hass, entries[0])
         self.assertEqual([c.args[0] for c in reload.await_args_list], ['e0'])
 
+    async def test_disabling_one_entry_keeps_sensors_when_another_enables_them(self):
+        entries = [
+            SimpleNamespace(entry_id='main', options={'enable_device_sensors': True}, data={}),
+            SimpleNamespace(entry_id='leaf', options={'enable_device_sensors': False}, data={}),
+        ]
+        config_value = load_function('helper.py', 'get_config_value', {})
+        enabled = load_function('sensor.py', '_device_sensors_enabled', {
+            'get_config_value': config_value, 'DOMAIN': 'miwifi',
+            'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
+            'DEFAULT_ENABLE_DEVICE_SENSORS': False,
+        })
+        listener, hass, reload = self.listener(entries, sensors_before=True, sensors_now=True)
+        listener.__globals__['_device_sensors_enabled'] = enabled
+        await listener(hass, entries[1])
+        self.assertEqual([c.args[0] for c in reload.await_args_list], ['leaf'])
+
+        reload.reset_mock()
+        entries[0].options['enable_device_sensors'] = False
+        await listener(hass, entries[0])
+        self.assertEqual(sorted(c.args[0] for c in reload.await_args_list), ['leaf', 'main'])
+
+    async def test_unloaded_entry_does_not_reload_other_nodes(self):
+        entries = [SimpleNamespace(entry_id='main'), SimpleNamespace(entry_id='leaf')]
+        listener, hass, reload = self.listener(entries, sensors_before=False, sensors_now=True)
+        del hass.data['miwifi']['leaf']
+        await listener(hass, entries[1])
+        reload.assert_not_awaited()
+
     async def test_options_flow_keeps_auto_purge_global(self):
         entry = SimpleNamespace(entry_id='e1', unique_id='192.0.2.2', options={'activity_days': 30})
         others = [SimpleNamespace(entry_id='e0', options={}), entry]
@@ -428,7 +456,11 @@ class ClientValuesWithoutDataTests(unittest.TestCase):
     def setUp(self):
         from datetime import datetime, timedelta
         env = {**load_constants(), 'DataUpdateCoordinator': object, 'datetime': datetime, 'timedelta': timedelta}
-        cls = load_class('updater.py', 'LuciUpdater', env, {'_build_device'})
+        tree = ast.parse((COMPONENT/'updater.py').read_text(encoding='utf-8'))
+        skip_attrs = next(item for item in tree.body if isinstance(item, ast.AnnAssign)
+                          and isinstance(item.target, ast.Name) and item.target.id == 'REPEATER_SKIP_ATTRS')
+        env['REPEATER_SKIP_ATTRS'] = eval(compile(ast.Expression(skip_attrs.value), 'updater.py', 'eval'), env)
+        cls = load_class('updater.py', 'LuciUpdater', env, {'_build_device', '_mass_update_device'})
         self.updater = cls.__new__(cls)
         self.updater._resolve_connection = lambda device: None
         self.updater.data = {'mac': '00:00:00:00:00:01'}
@@ -458,6 +490,26 @@ class ClientValuesWithoutDataTests(unittest.TestCase):
         self.assertEqual(device[self.c['ATTR_TRACKER_DOWN_SPEED']], 0.0)
         self.assertEqual(device[self.c['ATTR_TRACKER_UP_SPEED']], 0.0)
         self.assertEqual(device[self.c['ATTR_TRACKER_ONLINE']], '')
+
+    def test_speed_recovers_when_router_starts_reporting_data(self):
+        missing = self.build(wifiIndex=1)
+        self.updater.devices[self.MAC] = missing
+        reported = self.build(online=1, ip=[{'ip': '192.0.2.5', 'online': 60, 'downspeed': 20, 'upspeed': 10}])
+        self.assertEqual(reported[self.c['ATTR_TRACKER_DOWN_SPEED']], 20.0)
+        self.assertEqual(reported[self.c['ATTR_TRACKER_UP_SPEED']], 10.0)
+        self.assertEqual(reported[self.c['ATTR_TRACKER_ONLINE']], '0:01:00')
+
+    def test_force_load_leaf_does_not_replace_main_router_values(self):
+        main_device = self.build(online=1, ip=[{'ip': '192.0.2.5', 'online': 60, 'downspeed': 20, 'upspeed': 10}])
+        main = SimpleNamespace(data={}, devices={self.MAC: dict(main_device)})
+        self.updater.ip = '192.0.2.2'
+        self.updater.is_repeater = True
+        self.updater.is_force_load = True
+        integrations = {'192.0.2.1': {self.c['UPDATER']: main}}
+        found = self.updater._mass_update_device({'mac': self.MAC, 'entry_id': 'leaf', 'wifiIndex': 1}, integrations)
+        self.assertTrue(found)
+        for key in ('ATTR_TRACKER_DOWN_SPEED', 'ATTR_TRACKER_UP_SPEED', 'ATTR_TRACKER_ONLINE', 'ATTR_TRACKER_IP'):
+            self.assertEqual(main.devices[self.MAC][self.c[key]], main_device[self.c[key]])
 
 
 class ClientSensorValueTests(unittest.TestCase):
