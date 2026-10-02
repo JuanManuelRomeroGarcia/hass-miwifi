@@ -3,7 +3,7 @@
   "graph": {
     "ssid": "**REDACTED**",
     "color": 101,
-    "ip": "192.168.31.1",
+    "ip": "192.0.2.1",
     "locale": "Home",
     "name": "MAIN",
     "channel": "release",
@@ -13,7 +13,7 @@
       {
         "ssid": "**REDACTED**",
         "color": 100,
-        "ip": "192.168.31.62",
+        "ip": "192.0.2.62",
         "locale": "Bedroom",
         "name": "AP",
         "channel": "release",

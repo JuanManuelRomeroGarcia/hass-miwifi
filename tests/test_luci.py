@@ -14,6 +14,7 @@ from httpx import HTTPError, Request
 from pytest_homeassistant_custom_component.common import get_fixture_path, load_fixture
 from pytest_httpx import HTTPXMock
 
+from custom_components.miwifi.const import PROTOCOL_HTTP
 from custom_components.miwifi.enum import EncryptionAlgorithm
 from custom_components.miwifi.exceptions import (
     LuciConnectionError,
@@ -33,7 +34,10 @@ async def test_login(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("login_data.json"), method="POST")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     assert await client.login() == json.loads(load_fixture("login_data.json"))
@@ -52,7 +56,10 @@ async def test_login_error_request(hass: HomeAssistant, httpx_mock: HTTPXMock) -
     httpx_mock.add_exception(exception=HTTPError)  # type: ignore
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     with pytest.raises(LuciConnectionError):
@@ -68,7 +75,10 @@ async def test_login_incorrect_token(
     httpx_mock.add_response(text='{"code": 1}', method="POST")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     with pytest.raises(LuciRequestError):
@@ -80,7 +90,10 @@ async def test_logout_without_token(hass: HomeAssistant, httpx_mock: HTTPXMock) 
     """Logout test"""
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.logout()
@@ -96,7 +109,10 @@ async def test_logout(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text="OK", method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -119,7 +135,10 @@ async def test_logout_error(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_exception(exception=HTTPError, method="GET")  # type: ignore
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -133,7 +152,10 @@ async def test_get_without_token(hass: HomeAssistant, httpx_mock: HTTPXMock) -> 
     """get test"""
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     with pytest.raises(LuciRequestError):
@@ -150,7 +172,10 @@ async def test_get(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -174,6 +199,7 @@ async def test_get_sha256(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
         f"{MOCK_IP_ADDRESS}/",
         "test",
         EncryptionAlgorithm.SHA256,
+        PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -192,7 +218,10 @@ async def test_get_without_stok(hass: HomeAssistant, httpx_mock: HTTPXMock) -> N
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     assert await client.get("misystem/miwifi", use_stok=False) == {"code": 0}
@@ -211,7 +240,10 @@ async def test_get_error(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_exception(exception=HTTPError, method="GET")  # type: ignore
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -228,7 +260,10 @@ async def test_get_error_code(hass: HomeAssistant, httpx_mock: HTTPXMock) -> Non
     httpx_mock.add_response(text='{"code": 1}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -250,7 +285,10 @@ async def test_topo_graph(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("topo_graph_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -271,7 +309,10 @@ async def test_init_info(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("init_info_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -292,7 +333,10 @@ async def test_status(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("status_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -313,7 +357,10 @@ async def test_new_status(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("new_status_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -334,7 +381,10 @@ async def test_mode(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("mode_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -355,7 +405,10 @@ async def test_wifi_ap_signal(hass: HomeAssistant, httpx_mock: HTTPXMock) -> Non
     httpx_mock.add_response(text=load_fixture("wifi_ap_signal_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -380,7 +433,10 @@ async def test_wifi_detail_all(hass: HomeAssistant, httpx_mock: HTTPXMock) -> No
     )
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -405,7 +461,10 @@ async def test_wifi_diag_detail_all(hass: HomeAssistant, httpx_mock: HTTPXMock) 
     )
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -428,7 +487,10 @@ async def test_vpn_status(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("vpn_status_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -449,7 +511,10 @@ async def test_set_wifi(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -482,7 +547,10 @@ async def test_set_guest_wifi(hass: HomeAssistant, httpx_mock: HTTPXMock) -> Non
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -526,7 +594,10 @@ async def test_set_avaliable_channels(
     )
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -573,7 +644,10 @@ async def test_wan_info(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("wan_info_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -594,7 +668,10 @@ async def test_reboot(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -629,7 +706,10 @@ async def test_set_led(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     )
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -670,7 +750,10 @@ async def test_device_list(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("device_list_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -695,7 +778,10 @@ async def test_wifi_connect_devices(hass: HomeAssistant, httpx_mock: HTTPXMock) 
     )
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -718,7 +804,10 @@ async def test_rom_update(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text=load_fixture("rom_update_data.json"), method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -739,7 +828,10 @@ async def test_rom_upgrade(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()
@@ -764,7 +856,10 @@ async def test_flash_permission(hass: HomeAssistant, httpx_mock: HTTPXMock) -> N
     httpx_mock.add_response(text='{"code": 0}', method="GET")
 
     client: LuciClient = LuciClient(
-        get_async_client(hass, False), f"{MOCK_IP_ADDRESS}/", "test"
+        get_async_client(hass, False),
+        f"{MOCK_IP_ADDRESS}/",
+        "test",
+        protocol=PROTOCOL_HTTP,
     )
 
     await client.login()

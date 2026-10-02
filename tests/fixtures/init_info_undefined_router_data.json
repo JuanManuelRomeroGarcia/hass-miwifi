@@ -7,7 +7,7 @@
   "inited": 1,
   "connect": 0,
   "routerId": "**REDACTED**",
-  "model": "xiaomi.router.ra999",
+  "model": "synthetic.router.example.test",
   "hardware": "RA999",
   "bound": 0,
   "language": "cn",

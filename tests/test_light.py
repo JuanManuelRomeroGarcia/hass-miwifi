@@ -61,12 +61,8 @@ async def test_init(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         await async_mock_luci_client(mock_luci_client)
 
         setup_data: list = await async_setup(hass)
@@ -105,13 +101,9 @@ async def test_update_led(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
-
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))

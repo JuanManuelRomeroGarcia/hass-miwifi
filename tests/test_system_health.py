@@ -43,12 +43,8 @@ async def test_system_health(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
-
         await async_mock_luci_client(mock_luci_client)
 
         assert await async_setup_component(hass, "system_health", {})
@@ -65,5 +61,5 @@ async def test_system_health(hass: HomeAssistant) -> None:
 
         assert info == {
             "version": await async_get_version(hass),
-            "192.168.31.1 (xiaomi.router.ra67)": "ok",
+            "192.0.2.1 (router.example.test)": "ok",
         }

@@ -1,6 +1,8 @@
 pytest-homeassistant-custom-component>=0.8.11
 aiohttp_cors>=0.7.0
 aiodiscover>=1.4.8
+aiodhcpwatcher>=1.2.7
+cached-ipaddress>=1.1.2
 scapy>=2.4.5
 async_upnp_client>=0.27.0
 
