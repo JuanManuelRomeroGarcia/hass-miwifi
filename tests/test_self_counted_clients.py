@@ -88,14 +88,23 @@ def load_updater(integrations):
         "_LOGGER": Mock(),
         "async_dispatcher_send": Mock(),
         "async_get_integrations": lambda hass: integrations,
+        "CONF_IP_ADDRESS": "ip_address",
+        "LuciError": type("LuciError", (Exception,), {}),
     }
 
+    # Module-level helpers and constants the counter paths may call. Taken by
+    # kind rather than by name, so a helper added to device_list is picked up.
     tree = _parse("updater.py")
     for item in tree.body:
-        if isinstance(item, ast.FunctionDef) and item.name in {"_find_leaf", "_ap_macs_by_ip"}:
-            _exec(item, "updater.py", namespace)
-        elif isinstance(item, ast.AnnAssign) and getattr(item.target, "id", None) == "REPEATER_SKIP_ATTRS":
-            _exec(item, "updater.py", namespace)
+        if isinstance(item, ast.FunctionDef):
+            # A helper decorated with a HA-only decorator is not one of them.
+            with contextlib.suppress(NameError):
+                _exec(item, "updater.py", namespace)
+        elif isinstance(item, (ast.Assign, ast.AnnAssign)):
+            targets = item.targets if isinstance(item, ast.Assign) else [item.target]
+            if all(isinstance(target, ast.Name) and target.id.isupper() for target in targets):
+                with contextlib.suppress(NameError):
+                    _exec(item, "updater.py", namespace)
 
     node = next(item for item in tree.body if isinstance(item, ast.ClassDef) and item.name == "LuciUpdater")
     node.bases = []
@@ -139,6 +148,9 @@ class Mesh:
         updater.devices = {}
         updater.luci = Mock()
         updater.hass = Mock(data={})
+        updater.hass.config_entries.async_entries = lambda domain: []
+        updater._is_first_update = True
+        updater._forget_mesh_node = lambda *args, **kwargs: None
         updater.new_device_callback = None
         updater._entry_id = f"entry-{ip}"
         updater._moved_devices = []
