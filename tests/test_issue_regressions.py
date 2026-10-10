@@ -114,6 +114,32 @@ class EntryCollection:
         raise AssertionError('Deprecated mapping lookup used')
 
 
+class SingleOwnerDevice(SimpleNamespace):
+    """Current API: fail if integration reads the deprecated collection."""
+    @property
+    def config_entries(self):
+        raise AssertionError('Deprecated DeviceEntry.config_entries used')
+
+
+class DeviceOwnershipApiTests(unittest.TestCase):
+    def test_composite_device_preserves_all_owners(self):
+        read = load_function('helper.py', 'device_config_entry_ids', {})
+        row = SimpleNamespace(is_composite_device=True, config_entry_id='main', config_entries={'main', 'foreign'})
+        self.assertEqual(read(row), {'main', 'foreign'})
+
+    def test_current_owner_avoids_deprecated_property(self):
+        read = load_function('helper.py', 'device_config_entry_ids', {})
+        self.assertEqual(read(SingleOwnerDevice(config_entry_id='main')), {'main'})
+
+    def test_current_unowned_device_does_not_fall_back(self):
+        read = load_function('helper.py', 'device_config_entry_ids', {})
+        self.assertEqual(read(SingleOwnerDevice(config_entry_id=None)), set())
+
+    def test_legacy_shared_ownership_is_preserved(self):
+        read = load_function('helper.py', 'device_config_entry_ids', {})
+        self.assertEqual(read(SimpleNamespace(config_entries={'main', 'foreign'})), {'main', 'foreign'})
+
+
 class PurgeTests(unittest.IsolatedAsyncioTestCase):
     def make_service(self, entries, modern=True, entities=None):
         devices = {entry.id: entry for entry in entries}
@@ -122,6 +148,7 @@ class PurgeTests(unittest.IsolatedAsyncioTestCase):
         notifier = SimpleNamespace(get_translations=AsyncMock(return_value={}), notify=AsyncMock())
         env = {'time': time, 're': re, 'DOMAIN': 'miwifi', 'UPDATER': 'updater', 'ATTR_TRACKER_ENTRY_ID': 'entry_id', 'ATTR_TRACKER_LAST_ACTIVITY': 'last_activity', 'ATTR_TRACKER_MAC': 'mac', 'SIGNAL_PURGE_DEVICE': 'purge', 'async_get_integrations': lambda hass: {}, 'MiWiFiNotifier': lambda hass: notifier, 'async_dispatcher_send': Mock(), 'parse_last_activity': lambda value: int(value), 'dr': SimpleNamespace(async_get=lambda hass: dev_reg), 'er': SimpleNamespace(async_get=lambda hass: ent_reg, async_entries_for_device=lambda registry, device_id, **kwargs: (entities or {}).get(device_id, []))}
         load_function('services.py', '_all_device_entries', env)
+        load_function('helper.py', 'device_config_entry_ids', env)
         load_function('services.py', '_has_domain_identifier', env)
         cls = load_class('services.py', 'MiWifiPurgeInactiveDevicesServiceCall', env, drop_schema=True)
         return cls(SimpleNamespace(states=SimpleNamespace(get=lambda entity: None))), dev_reg, notifier
@@ -148,6 +175,12 @@ class PurgeTests(unittest.IsolatedAsyncioTestCase):
         service, registry, _ = self.make_service(entries, entities={'with-entity': [object()]})
         await service.async_call_service(SimpleNamespace(data={'apply': True, 'verbose': False}))
         registry.async_remove_device.assert_not_called()
+
+    async def test_purge_current_device_without_deprecated_owner_access(self):
+        device = SingleOwnerDevice(id='client', identifiers={('miwifi', '02:11:22:33:44:55')}, config_entry_id='miwifi-entry')
+        service, registry, _ = self.make_service([device])
+        await service.async_call_service(SimpleNamespace(data={'apply': True, 'verbose': False}))
+        registry.async_remove_device.assert_called_once_with('client')
 
     async def test_randomized_filter_preserves_known_nonrandom_mac(self):
         entries = [self.device('physical', {('miwifi', '00:11:22:33:44:55')})]
@@ -185,15 +218,26 @@ class RegistryOwnershipTests(unittest.TestCase):
             'device_registry_rows': lambda *args, **kwargs: [kept, shared],
             '_ensure_via_device_exists': lambda *args: None,
         }
+        load_function('helper.py', 'device_config_entry_ids', env)
         reparent = load_function('device_tracker.py', '_reparent_client_device', env)
 
         self.assertFalse(reparent(hass, '02:00:00:00:00:01', 'new'))
         dev_reg.async_remove_device.assert_not_called()
 
     def test_roaming_keeps_tracker_and_all_sensors_on_one_device(self):
+        self._check_roaming(False)
+
+    def test_roaming_current_api_never_reads_deprecated_owner_collection(self):
+        self._check_roaming(True)
+
+    def _check_roaming(self, modern):
         mac = '02:00:00:00:00:01'
-        old = SimpleNamespace(id='old-client', config_entries={'mesh'}, via_device_id='mesh-router')
-        target = SimpleNamespace(id='target-client', config_entries={'main'}, via_device_id=None)
+        if modern:
+            old = SingleOwnerDevice(id='old-client', config_entry_id='mesh', via_device_id='mesh-router')
+            target = SingleOwnerDevice(id='target-client', config_entry_id='main', via_device_id=None)
+        else:
+            old = SimpleNamespace(id='old-client', config_entries={'mesh'}, via_device_id='mesh-router')
+            target = SimpleNamespace(id='target-client', config_entries={'main'}, via_device_id=None)
         parent = SimpleNamespace(id='main-router')
         rows = [old, target]
         tracker = SimpleNamespace(entity_id='device_tracker.client', platform='miwifi', config_entry_id='mesh', device_id=old.id)
@@ -213,7 +257,10 @@ class RegistryOwnershipTests(unittest.TestCase):
         def update_device(device_id, **changes):
             row = next(item for item in rows if item.id == device_id)
             if 'new_config_entry_id' in changes:
-                row.config_entries = {changes['new_config_entry_id']}
+                if modern:
+                    row.config_entry_id = changes['new_config_entry_id']
+                else:
+                    row.config_entries = {changes['new_config_entry_id']}
             if 'via_device_id' in changes:
                 row.via_device_id = changes['via_device_id']
             calls.append(('device', device_id))
@@ -242,12 +289,13 @@ class RegistryOwnershipTests(unittest.TestCase):
             '_LOGGER': Mock(),
         }
         load_function('device_tracker.py', '_move_device_row', env)
+        load_function('helper.py', 'device_config_entry_ids', env)
         reparent = load_function('device_tracker.py', '_reparent_client_device', env)
         hass = SimpleNamespace(config_entries=SimpleNamespace(async_entries=lambda domain: [SimpleNamespace(entry_id='mesh'), SimpleNamespace(entry_id='main')]))
 
         self.assertTrue(reparent(hass, mac, 'main', '02:00:00:00:00:02'))
         self.assertEqual(rows, [old])
-        self.assertEqual(old.config_entries, {'main'})
+        self.assertEqual(env['device_config_entry_ids'](old), {'main'})
         self.assertEqual(old.via_device_id, parent.id)
         self.assertTrue(all(entity.device_id == old.id and entity.config_entry_id == 'main' for entity in entities))
         self.assertEqual(len(entities), 13)
@@ -344,6 +392,7 @@ class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):
             'CONF_TYPE': 'type', 'CONF_REQUEST': 'request', 'CONF_RESPONSE': 'response',
             'EVENT_LUCI': 'miwifi_luci', 'EVENT_TYPE_RESPONSE': 'response',
         }
+        load_function('helper.py', 'device_config_entry_ids', env)
         cls = load_class('services.py', 'MiWifiRequestServiceCall', env, drop_schema=True)
 
         await cls(hass).async_call_service(SimpleNamespace(data={'uri': 'status'}))
@@ -461,7 +510,7 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
 class CompatibilityTests(unittest.TestCase):
     def test_model_identifiers(self):
         model = load_class('enum.py', 'Model', {'Enum': Enum})
-        for code in ('RP01', 'RP03', 'RP04'):
+        for code in ('RP01', 'RP03', 'RP04', 'RN12'):
             self.assertEqual(model(code.lower()).name, code)
 
     def test_scanner_import_new_and_legacy(self):

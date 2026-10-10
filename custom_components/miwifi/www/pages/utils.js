@@ -1,5 +1,5 @@
-import { html } from "../vendor/lit.js?v=3.8.3";
-import { localize } from "../translations/localize.js?v=3.8.3";
+import { html } from "../vendor/lit.js?v=3.8.4";
+import { localize } from "../translations/localize.js?v=3.8.4";
 
 export function renderToggle(hass, entity) {
   return html`
@@ -153,6 +153,7 @@ const ROUTER_IMAGES = {
   "rn06": "RN06.png",
   "rn07": "RN07.png",
   "rn09": "RN09.png",
+  "rn12": "RN12.png",
   "rp01": "RP01.png",
   "rp03": "RP03.png",
   "rp04": "RP04.png",

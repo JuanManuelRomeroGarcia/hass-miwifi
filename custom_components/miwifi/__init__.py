@@ -5,6 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
+import voluptuous as vol
+
 from .http import async_register_http_views
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components import websocket_api
@@ -35,10 +37,12 @@ from .const import (
     DEFAULT_TIMEOUT,
     DEVICE_SENSORS_MESH,
     DOMAIN,
+    LOG_LEVEL_OPTIONS,
     OPTION_IS_FROM_FLOW,
     PLATFORMS,
     UPDATE_LISTENER,
     UPDATER,
+    WAN_SPEED_UNIT_OPTIONS,
 )
 from .logger import _LOGGER
 from . import ws_api
@@ -65,6 +69,14 @@ from .frontend import (
 
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+APPLY_CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Optional("log_level"): vol.In(LOG_LEVEL_OPTIONS),
+        vol.Optional("speed_unit"): vol.In(WAN_SPEED_UNIT_OPTIONS),
+        vol.Optional("panel_active"): cv.boolean,
+    }
+)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -103,7 +115,9 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         ])
 
     if not hass.services.has_service(DOMAIN, "apply_config"):
-        async_register_admin_service(hass, DOMAIN, "apply_config", handle_apply_config)
+        async_register_admin_service(
+            hass, DOMAIN, "apply_config", handle_apply_config, schema=APPLY_CONFIG_SCHEMA
+        )
         
     # 📡 Websocket command for downloading logs
     websocket_api.async_register_command(hass, ws_api.handle_get_download_url)

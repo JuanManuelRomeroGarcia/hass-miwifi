@@ -1,5 +1,26 @@
 # Changelog
 
+## 3.8.4
+
+- Recognize RN12 (Xiaomi Range Extender AX1500) during setup and add its bundled image to the panel and README gallery (#343). The reporter confirmed setup over HTTPS with firmware 1.0.63; individual features remain subject to the router's API capabilities.
+- Accept the panel settings payload in `miwifi.apply_config`, validate its three supported fields, retain administrator-only access, and document the action in `services.yaml` (#337).
+- Re-create a known client's tracker when its original platform unloads after the client moves to another mesh entry. Preserve the entity ID and keep new-device notifications restricted to actual discoveries (#332).
+- Read single-owner device rows through `config_entry_id` to avoid Home Assistant 2026.10 deprecation reports. Preserve multiple owners on composite devices and older cores, including inactive-device purge safeguards (related to #344).
+- Prevent a tracker from linking its device row to itself when a stored parent MAC, an alternate MAC, or merged identifiers resolve to the client's own row. Keep the client and omit only the invalid parent link.
+- Refresh the integration and bundled panel cache version to 3.8.4 and add regression coverage for settings validation, tracker recovery, parent links and device ownership.
+
+Thanks to [@brembygit](https://github.com/brembygit) for the #332 reproduction, independent router testing, and the composite-device coverage in #344, and to the #343 reporter for verifying RN12 setup.
+
+### Validation
+
+126 tests pass: 69 targeted tests on Home Assistant Core 2026.10.0 and 57 standalone regression, client-counter and private-export security tests. Frontend packaging and syntax checks also pass. Coverage includes the real service registry and entity platforms, tracker reload/disable recovery with force load enabled and disabled, preserved entity IDs, duplicate prevention, disabled entities, valid parent links, and legacy/composite device ownership.
+
+Manual testing confirmed panel settings save successfully and clients continue updating after reload. A disconnected laptop's tracker previously failed to load because of a self-parent link; after the guard, startup and reconnect/reload worked without that error. Independent tests on an RD28/RA82 wired mesh confirmed the #332 fix: affected trackers recovered within 30 seconds after origin reload or disable, retained their IDs and serving-node ownership, and remained live after the origin was re-enabled.
+
+### Upgrade and remaining work
+
+Update through HACS, restart Home Assistant, and refresh the browser. The panel is bundled with the integration. This release does not repair incorrect parent data already reported by a router or shown in the panel; the observed self-parent label remains under investigation. The separate NAT connection-error handling and router-sensor duplication race (#333) are not fixed here. PRs #324-#327 and #331 remain separate work.
+
 ## 3.8.3
 
 - Prevent duplicate client sensor creation when several routers hold the same client at startup or during roaming. Skip a sensor only while a live MiWiFi sensor platform provides it; existing registry rows do not block sensor recovery after restart or reconnect (#330).

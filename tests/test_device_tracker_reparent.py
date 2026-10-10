@@ -58,6 +58,30 @@ class _Device:
         self.via_device_id = None
 
 
+class _ReportingDevice(_Device):
+    """A row on core 2026.10, where reading `config_entries` is reported.
+
+    It has a single `config_entry_id` and `is_composite_device`. The fake
+    registries still write `config_entries`, so the setter stays; reading it
+    fails the test instead of logging a deprecation.
+    """
+
+    is_composite_device: bool = False
+
+    @property
+    def config_entry_id(self) -> str:
+        (entry_id,) = self._entries
+        return entry_id
+
+    @property
+    def config_entries(self) -> set[str]:
+        raise AssertionError("read the deprecated DeviceEntry.config_entries")
+
+    @config_entries.setter
+    def config_entries(self, value: set[str]) -> None:
+        self._entries = set(value)
+
+
 class _LegacyDeviceRegistry:
     """A core before 2026.9: no async_get_devices, one row holds every entry."""
 
@@ -367,6 +391,57 @@ def test_the_entity_still_moves_first_on_a_recent_core() -> None:
     _, calls, _ = _run([row], _EntityEntry(OLD, device_id=row.id), modern_move=True)
 
     assert calls.index(("entity-move", NEW)) < calls.index(("device-move", NEW))
+
+
+def test_core_2026_10_moves_a_roamed_client_by_its_single_entry() -> None:
+    """2026.10 reports every read of `config_entries`; the move must not need it."""
+
+    row = _ReportingDevice({OLD}, entities=1)
+    entity = _EntityEntry(OLD, device_id=row.id)
+
+    moved, calls, _ = _run([row], entity, modern_move=True)
+
+    assert moved is True
+    assert row.config_entry_id == NEW
+    assert entity.config_entry_id == NEW
+    assert ("device-move", NEW) in calls
+
+
+def test_core_2026_10_leaves_a_client_that_has_not_moved_alone() -> None:
+    """The steady state runs every cycle, so it is where a report would repeat."""
+
+    row = _ReportingDevice({NEW}, entities=1)
+
+    moved, calls, _ = _run([row], _EntityEntry(NEW, device_id=row.id), modern_move=True)
+
+    assert moved is False
+    assert calls == []
+
+
+def test_core_2026_10_still_removes_the_row_another_node_left_behind() -> None:
+    kept = _ReportingDevice({NEW}, entities=1)
+    leftover = _ReportingDevice({OLD}, entities=0)
+
+    moved, calls, dev_reg = _run(
+        [kept, leftover], _EntityEntry(NEW, device_id=kept.id), modern_move=True
+    )
+
+    assert moved is True
+    assert dev_reg.rows == [kept]
+    assert ("row-remove", leftover.id) in calls
+
+
+def test_core_2026_10_picks_the_serving_row_for_an_unplaced_tracker() -> None:
+    on_target = _ReportingDevice({NEW}, entities=0)
+    other = _ReportingDevice({OLD}, entities=0)
+
+    moved, calls, dev_reg = _run(
+        [other, on_target], _EntityEntry(NEW, device_id=None), modern_move=True
+    )
+
+    assert moved is True
+    assert dev_reg.rows == [on_target]
+    assert ("row-remove", other.id) in calls
 
 
 def test_roaming_updates_both_owner_and_connected_via() -> None:

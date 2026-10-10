@@ -67,6 +67,7 @@ from .const import (
 from .enum import Connection, DeviceClass
 from .helper import (
     detect_manufacturer,
+    device_config_entry_ids,
     device_registry_rows,
     get_config_value,
     map_signal_quality,
@@ -213,7 +214,7 @@ def _move_device_row(
         dev_reg.async_update_device(row.id, new_config_entry_id=entry_id)
         return
 
-    if entry_id not in row.config_entries:
+    if entry_id not in device_config_entry_ids(row):
         dev_reg.async_update_device(row.id, add_config_entry_id=entry_id)
 
     for old_entry_id in stale_links:
@@ -278,7 +279,7 @@ def _reparent_client_device(
     if entity_entry is not None and entity_entry.device_id:
         keep = next((row for row in rows if row.id == entity_entry.device_id), None)
     if keep is None:
-        keep = next((row for row in rows if entry_id in row.config_entries), rows[0])
+        keep = next((row for row in rows if entry_id in device_config_entry_ids(row)), rows[0])
 
     # Entity.device_info is only applied when an entity is added. Roaming also
     # needs to update the existing device row's "Connected via" link.
@@ -290,10 +291,11 @@ def _reparent_client_device(
         and getattr(keep, "via_device_id", None) != via_id
     )
 
-    row_moved: bool = entry_id not in keep.config_entries
+    keep_entries = device_config_entry_ids(keep)
+    row_moved: bool = entry_id not in keep_entries
     # A core before 2026.9 could put several entries on one row, so the row we
     # keep may itself still carry an old node - with or without a move.
-    stale_links: set[str] = (keep.config_entries & ours) - {entry_id}
+    stale_links: set[str] = (keep_entries & ours) - {entry_id}
     # Sensors and the tracker share the client's identity. Since 2026.9 Core
     # may split that identity into one row per entry. Move every MiWiFi entity
     # onto the row we keep *before* changing its owner: otherwise Core deletes
@@ -312,8 +314,8 @@ def _reparent_client_device(
         row
         for row in rows
         if row.id != keep.id
-        and row.config_entries
-        and row.config_entries <= ours
+        and device_config_entry_ids(row)
+        and device_config_entry_ids(row) <= ours
         and all(
             entity.platform == DOMAIN and entity.config_entry_id in ours
             for entity in er.async_entries_for_device(
@@ -822,17 +824,27 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         via_router_mac_lc = str(
             self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS) or ""
         ).strip().lower()
-        via_node = _via_device_info(
-            _ensure_via_device_exists(self.hass, via_router_mac_lc)
-        )
-
         _optional_mac = self._device.get(ATTR_TRACKER_OPTIONAL_MAC, None)
+        connections = {(dr.CONNECTION_NETWORK_MAC, self.mac_address)}
+        if _optional_mac is not None:
+            connections.add(
+                (dr.CONNECTION_NETWORK_MAC, str(_optional_mac).strip().lower())
+            )
+
+        node = _ensure_via_device_exists(self.hass, via_router_mac_lc)
+        # A stored parent MAC or an alias can resolve to the client's own row.
+        # Core rejects that link before adding the tracker; keep the client
+        # identity and omit only the invalid parent reference.
+        if node is not None and (
+            (DOMAIN, self.mac_address) in node.identifiers
+            or connections & node.connections
+        ):
+            node = None
+        via_node = _via_device_info(node)
+
         if _optional_mac is not None:
             return DeviceInfo(
-                connections={
-                    (dr.CONNECTION_NETWORK_MAC, self.mac_address),
-                    (dr.CONNECTION_NETWORK_MAC, str(_optional_mac).strip().lower()),
-                },
+                connections=connections,
                 # Identify the device by its own MAC (stable across mesh)
                 identifiers={(DOMAIN, self.mac_address)},
                 name=self._attr_name,
@@ -841,7 +853,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             )
 
         return DeviceInfo(
-            connections={(dr.CONNECTION_NETWORK_MAC, self.mac_address)},
+            connections=connections,
             identifiers={(DOMAIN, self.mac_address)},
             name=self._attr_name,
             configuration_url=self.configuration_url,

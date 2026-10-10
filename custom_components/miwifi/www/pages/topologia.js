@@ -1,6 +1,6 @@
-import { html } from "../vendor/lit.js?v=3.8.3";
-import "../components/miwifi-topologia.js?v=3.8.3";
-import { logToBackend } from "./utils.js?v=3.8.3";
+import { html } from "../vendor/lit.js?v=3.8.4";
+import "../components/miwifi-topologia.js?v=3.8.4";
+import { logToBackend } from "./utils.js?v=3.8.4";
 
 function cleanStr(v) {
   return (v ?? "").toString().trim();

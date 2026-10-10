@@ -114,6 +114,7 @@ the APIs available on each router during setup.
 | <img src="custom_components/miwifi/www/images/RN06.png" alt="Xiaomi Router BE3600 2.5G Global" height="80"> | Xiaomi Router BE3600 2.5G Global | RN06 |
 | <img src="custom_components/miwifi/www/images/RD04v2.png" alt="Xiaomi Router AX1500" height="80"> | Xiaomi Router AX1500 | RD04v2 |
 | <img src="custom_components/miwifi/www/images/RN07.png" alt="Xiaomi Router AX3000T" height="80"> | Xiaomi Router AX3000T | RN07 |
+| <img src="custom_components/miwifi/www/images/RN12.png" alt="Xiaomi Range Extender AX1500" height="80"> | Xiaomi Range Extender AX1500 | RN12 |
 | <img src="custom_components/miwifi/www/images/R4ACv2.png" alt="Xiaomi 4A Gigabit Edition" height="80"> | Xiaomi 4A Gigabit Edition | R4ACv2 |
 | <img src="custom_components/miwifi/www/images/RC02.png" alt="Xiaomi Router AX3000 NE" height="80"> | Xiaomi Router AX3000 NE | RC02 |
 | <img src="custom_components/miwifi/www/images/RP04.png" alt="Xiaomi BE10000 Pro" height="80"> | Xiaomi BE10000 Pro | RP04 |

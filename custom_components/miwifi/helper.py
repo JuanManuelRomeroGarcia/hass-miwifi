@@ -257,6 +257,18 @@ async def set_global_auto_purge(
     return data
 
 
+def device_config_entry_ids(device: dr.DeviceEntry) -> set[str]:
+    """Read device ownership without the deprecated collection on current HA."""
+    if getattr(device, "is_composite_device", False):
+        # Composite devices still have multiple owners; preserve every link.
+        return set(device.config_entries)
+    if hasattr(device, "config_entry_id"):
+        entry_id = device.config_entry_id
+        return {entry_id} if entry_id is not None else set()
+    # Older cores allow one device row to be shared by multiple entries.
+    return set(device.config_entries)
+
+
 def device_registry_rows(
     dev_reg: dr.DeviceRegistry,
     *,

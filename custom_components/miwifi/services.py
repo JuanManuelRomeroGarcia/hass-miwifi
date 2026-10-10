@@ -14,7 +14,7 @@ from .logger import _LOGGER, async_recreate_log_handlers
 from typing import Final
 from .sensor import MiWifiNATRulesSensor 
 from .notifier import MiWiFiNotifier
-from .helper import device_registry_rows, parse_last_activity
+from .helper import device_config_entry_ids, device_registry_rows, parse_last_activity
 
 
 import homeassistant.components.persistent_notification as pn
@@ -230,11 +230,7 @@ class MiWifiRequestServiceCall(MiWifiServiceCall):
             (
                 row
                 for row in rows
-                if getattr(row, "config_entry_id", None) == updater._entry_id
-                or (
-                    not hasattr(row, "config_entry_id")
-                    and updater._entry_id in row.config_entries
-                )
+                if updater._entry_id in device_config_entry_ids(row)
             ),
             None,
         )
@@ -1710,7 +1706,7 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                 if not any(identifier and identifier[0] == DOMAIN for identifier in dev.identifiers):
                     continue
 
-                if len(dev.config_entries) > 1:
+                if len(device_config_entry_ids(dev)) > 1:
                     continue
                 dev_reg.async_remove_device(dev_id)
                 devices_removed.append(dev_id)

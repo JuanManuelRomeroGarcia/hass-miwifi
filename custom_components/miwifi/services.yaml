@@ -1,3 +1,30 @@
+apply_config:
+  name: Apply panel settings
+  description: Update global panel settings and reload all MiWiFi entries. Requires administrator access.
+  fields:
+    panel_active:
+      name: Enable panel
+      required: false
+      selector:
+        boolean:
+    speed_unit:
+      name: WAN speed unit
+      required: false
+      selector:
+        select:
+          options:
+            - "B/s"
+            - "Mbps"
+    log_level:
+      name: Log level
+      required: false
+      selector:
+        select:
+          options:
+            - "warning"
+            - "info"
+            - "debug"
+
 calc_passwd:
   name: Calculate passwd
   description: Calculate default passwd.

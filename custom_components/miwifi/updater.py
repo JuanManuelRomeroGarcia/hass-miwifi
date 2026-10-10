@@ -1798,6 +1798,7 @@ class LuciUpdater(DataUpdateCoordinator):
             
         # ✅ Keep a mesh-wide latest snapshot so stable device_tracker entities
         # can follow the client even when it moves between main router and leaf nodes.
+        tracker_missing = False
         try:
             self.hass.data.setdefault(DOMAIN, {})
             self.hass.data[DOMAIN].setdefault("devices_cache", {})
@@ -1812,6 +1813,7 @@ class LuciUpdater(DataUpdateCoordinator):
             ent_map = self.hass.data[DOMAIN].get("device_tracker_entities", {})
             uid = f"{DOMAIN}-{mac_u.lower()}"
             ent = ent_map.get(uid)
+            tracker_missing = ent is None
 
             if ent is not None:
                 ent.update_from_router(latest)
@@ -1827,13 +1829,17 @@ class LuciUpdater(DataUpdateCoordinator):
             action = DeviceAction.ADD
 
         if (
-            is_new
+            (is_new or tracker_missing)
             and action == DeviceAction.ADD
             and self.new_device_callback is not None
         ):
             async_dispatcher_send(
                 self.hass, SIGNAL_NEW_DEVICE, self.devices[device[ATTR_TRACKER_MAC]]
             )
+
+        # Re-providing a known client's tracker after its original platform
+        # unloads must not announce it as a newly discovered device.
+        if is_new and action == DeviceAction.ADD and self.new_device_callback is not None:
             await self.hass.async_add_executor_job(_LOGGER.debug, "Found new device: %s", self.devices[device[ATTR_TRACKER_MAC]])
 
             if ATTR_TRACKER_FIRST_SEEN not in self.devices[device[ATTR_TRACKER_MAC]]:
