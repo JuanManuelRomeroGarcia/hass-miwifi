@@ -67,6 +67,7 @@ from .const import (
 from .enum import Connection, DeviceClass
 from .helper import (
     detect_manufacturer,
+    device_config_entry_ids,
     device_registry_rows,
     get_config_value,
     map_signal_quality,
@@ -278,7 +279,9 @@ def _reparent_client_device(
     if entity_entry is not None and entity_entry.device_id:
         keep = next((row for row in rows if row.id == entity_entry.device_id), None)
     if keep is None:
-        keep = next((row for row in rows if entry_id in row.config_entries), rows[0])
+        keep = next(
+            (row for row in rows if entry_id in device_config_entry_ids(row)), rows[0]
+        )
 
     # Entity.device_info is only applied when an entity is added. Roaming also
     # needs to update the existing device row's "Connected via" link.
@@ -290,10 +293,11 @@ def _reparent_client_device(
         and getattr(keep, "via_device_id", None) != via_id
     )
 
-    row_moved: bool = entry_id not in keep.config_entries
+    keep_entries: set[str] = device_config_entry_ids(keep)
+    row_moved: bool = entry_id not in keep_entries
     # A core before 2026.9 could put several entries on one row, so the row we
     # keep may itself still carry an old node - with or without a move.
-    stale_links: set[str] = (keep.config_entries & ours) - {entry_id}
+    stale_links: set[str] = (keep_entries & ours) - {entry_id}
     # Sensors and the tracker share the client's identity. Since 2026.9 Core
     # may split that identity into one row per entry. Move every MiWiFi entity
     # onto the row we keep *before* changing its owner: otherwise Core deletes
@@ -312,8 +316,8 @@ def _reparent_client_device(
         row
         for row in rows
         if row.id != keep.id
-        and row.config_entries
-        and row.config_entries <= ours
+        and (row_entries := device_config_entry_ids(row))
+        and row_entries <= ours
         and all(
             entity.platform == DOMAIN and entity.config_entry_id in ours
             for entity in er.async_entries_for_device(

@@ -286,3 +286,26 @@ def device_registry_rows(
     )
 
     return [device] if device is not None else []
+
+
+def device_config_entry_ids(device: dr.DeviceEntry) -> set[str]:
+    """The config entries a device registry row belongs to.
+
+    From core 2026.10 every read of `DeviceEntry.config_entries` on a plain row
+    is reported as deprecated (it stops working in 2027.10): a row has carried a
+    single `config_entry_id` since 2026.8. The same release added
+    `is_composite_device`, so its presence tells the cores apart. Where it is
+    missing, `config_entries` is read as before: on cores before 2026.8 it is
+    the only field and can hold several entries, and no core up to 2026.9
+    reports reading it. A composite row still spans several entries, and
+    reading it there is not reported either.
+
+    :param device: dr.DeviceEntry
+    :return set[str]: the row's config entry ids
+    """
+
+    is_composite: bool | None = getattr(device, "is_composite_device", None)
+    if is_composite is None or is_composite:
+        return set(device.config_entries)
+
+    return {device.config_entry_id}
