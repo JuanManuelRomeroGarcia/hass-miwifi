@@ -1,10 +1,10 @@
-import { loadTranslations, localize } from "./translations/localize.js?v=3.8.4";
-import { navigate, goBack } from "./router.js?v=3.8.4";
-import { logToBackend } from "./pages/utils.js?v=3.8.4";
-import { html, css, LitElement } from "./vendor/lit.js?v=3.8.4";
-import { until } from "./vendor/lit.js?v=3.8.4";
+import { loadTranslations, localize } from "./translations/localize.js?v=3.9.0";
+import { navigate, goBack } from "./router.js?v=3.9.0";
+import { logToBackend } from "./pages/utils.js?v=3.9.0";
+import { html, css, LitElement } from "./vendor/lit.js?v=3.9.0";
+import { until } from "./vendor/lit.js?v=3.9.0";
 
-const MIWIFI_VERSION = "3.8.4";
+const MIWIFI_VERSION = "3.9.0";
 class MiWiFiPanel extends LitElement {
 
   static properties = {

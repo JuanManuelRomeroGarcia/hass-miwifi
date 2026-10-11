@@ -243,10 +243,29 @@ set_wifis:
       description: Object with fields to change (e.g., {ssid, password, encryption, hidden})
       selector: { object: {} }
 
+configure_mac_replacement:
+  name: Configure automatic MAC replacement
+  description: Associate unique router names and aliases with one physical client. Retire previous MACs when exactly one is online and all configured nodes have fresh client lists. Names must be unique in your network. An empty object disables replacement.
+  fields:
+    clients:
+      name: Clients and name aliases
+      required: true
+      example: '{"watch": ["SM-L315F", "Reloj JuanMa"]}'
+      selector:
+        object: {}
+
 purge_inactive_devices:
   name: Purge inactive devices
   description: Remove device_trackers and orphaned devices after X days of inactivity.
   fields:
+    macs:
+      name: Limit to these MAC addresses
+      description: Optional non-empty list of MAC addresses. With include_orphans, also clean matching client sensors left without a tracker. Inactivity and other safeguards still apply. Omit to check all clients.
+      required: false
+      example: '["6A:6F:58:3C:FF:00"]'
+      selector:
+        text:
+          multiple: true
     days:
       name: Inactivity days
       description: Number of days without activity before purge.

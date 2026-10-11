@@ -18,6 +18,7 @@ from datetime import datetime
 import importlib
 from pathlib import Path
 import sys
+from time import monotonic
 from types import ModuleType
 import unittest
 from unittest.mock import AsyncMock, Mock
@@ -56,6 +57,7 @@ UPDATER_METHODS = {
     "_async_prepare_device_list",
     "_leaf_entry_from_other_nodes",
     "_async_apply_leaf_client_count",
+    "_has_recent_parent_census",
 }
 
 MAIN_IP, LEAF_IP = "192.0.2.1", "192.0.2.2"
@@ -82,6 +84,7 @@ def load_updater(integrations):
         "asyncio": Mock(sleep=AsyncMock()),
         "contextlib": contextlib,
         "datetime": datetime,
+        "monotonic": monotonic,
         "Connection": Connection,
         "DeviceAction": DeviceAction,
         "Mode": Mode,
@@ -90,6 +93,9 @@ def load_updater(integrations):
         "async_get_integrations": lambda hass: integrations,
         "CONF_IP_ADDRESS": "ip_address",
         "LuciError": type("LuciError", (Exception,), {}),
+        "get_purged_clients": lambda hass: Mock(async_blocked=AsyncMock(return_value=False)),
+        "get_mac_replacement": lambda hass: Mock(async_candidates=AsyncMock(return_value=set())),
+        "async_retire_macs": AsyncMock(),
     }
 
     # Module-level helpers and constants the counter paths may call. Taken by
@@ -156,6 +162,8 @@ class Mesh:
         updater._moved_devices = []
         updater._counters_reset_this_cycle = False
         updater._parent_push_pending = False
+        updater._scan_interval = 20
+        updater.timeout = 20
         updater._build_device = lambda device, integrations=None: dict(device)
         updater._mass_update_device = lambda device, integrations: False
         updater._has_dedicated_iot_wifi = lambda: False
@@ -196,6 +204,77 @@ OWN_COUNTERS = {"devices": 4, "devices_lan": 2, "devices_2_4": 1, "devices_5_0":
 
 
 class SelfCountedClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_parent_census_reclaims_restored_moved_client(self):
+        mesh = Mesh()
+        main = mesh.add(MAIN_IP, MAIN_MAC, Mode.DEFAULT)
+        leaf = mesh.add(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
+        returning = client(10, Connection.WIFI_2_4, parent=LEAF_MAC)
+        leaf.devices[returning["mac"]] = dict(returning)
+        leaf._moved_devices = [returning["mac"], returning["mac"]]
+        pushed = [returning, client(11, Connection.WIFI_5_0, parent=LEAF_MAC)]
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed])
+        self.assertEqual(counters(leaf)["devices"], 2)
+        self.assertNotIn(returning["mac"], leaf._moved_devices)
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed])
+        self.assertEqual(counters(leaf)["devices"], 2)
+
+    async def test_parent_census_survives_multiple_leaf_refreshes(self):
+        mesh = Mesh()
+        main = mesh.add(MAIN_IP, MAIN_MAC, Mode.DEFAULT)
+        leaf = mesh.add(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
+        topology_leaf = {"ip": LEAF_IP, "onlines": 4}
+        main.data["topo_graph"] = {"graph": {"leafs": [topology_leaf]}}
+        pushed = [client(index, Connection.WIFI_2_4, parent=LEAF_MAC)
+                  for index in range(10, 20)]
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed])
+        for _ in range(3):
+            await cycle(leaf, [])
+            self.assertEqual(counters(leaf)["devices"], 10)
+            self.assertEqual(counters(leaf)["devices_2_4"], 10)
+        topology_leaf["onlines"] = 14
+        await cycle(leaf, [])
+        self.assertEqual(counters(leaf)["devices"], 10)
+
+    async def test_topology_fallback_when_parent_census_expires_or_unloads(self):
+        mesh = Mesh()
+        main = mesh.add(MAIN_IP, MAIN_MAC, Mode.DEFAULT)
+        leaf = mesh.add(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
+        main.data["topo_graph"] = {"graph": {"leafs": [{"ip": LEAF_IP, "onlines": 4}]}}
+        pushed = [client(index, Connection.WIFI_2_4, parent=LEAF_MAC)
+                  for index in range(10, 20)]
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed])
+        await cycle(leaf, [])
+        leaf._parent_census_at = monotonic() - 81
+        await cycle(leaf, [])
+        self.assertEqual(counters(leaf)["devices"], 4)
+
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed])
+        replacement = mesh.add(MAIN_IP, MAIN_MAC, Mode.DEFAULT)
+        replacement.data["topo_graph"] = main.data["topo_graph"]
+        await cycle(leaf, [])
+        self.assertEqual(counters(leaf)["devices"], 4)
+
+    async def test_fresh_parent_census_tracks_clients_leaving(self):
+        mesh = Mesh()
+        main = mesh.add(MAIN_IP, MAIN_MAC, Mode.DEFAULT)
+        leaf = mesh.add(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
+        main.data["topo_graph"] = {"graph": {"leafs": [{"ip": LEAF_IP, "onlines": 10}]}}
+        pushed = [client(index, Connection.WIFI_2_4, parent=LEAF_MAC)
+                  for index in range(10, 20)]
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed])
+        await cycle(main, [node(LEAF_MAC, LEAF_IP), *pushed[:1]])
+        for _ in range(3):
+            await cycle(leaf, [])
+            self.assertEqual(counters(leaf)["devices"], 1)
+
+    async def test_topology_fallback_without_a_parent_census(self):
+        mesh = Mesh()
+        main = mesh.add(MAIN_IP, MAIN_MAC, Mode.DEFAULT)
+        leaf = mesh.add(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
+        main.data["topo_graph"] = {"graph": {"leafs": [{"ip": LEAF_IP, "onlines": 4}]}}
+        await cycle(leaf, [])
+        self.assertEqual(counters(leaf)["devices"], 4)
+
     async def test_access_point_counts_its_own_clients_once_per_cycle(self):
         mesh = Mesh()
         main = mesh.add(MAIN_IP, MAIN_MAC, Mode.ACCESS_POINT)

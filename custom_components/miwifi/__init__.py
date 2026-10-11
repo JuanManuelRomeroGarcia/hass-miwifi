@@ -122,6 +122,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     # 📡 Websocket command for downloading logs
     websocket_api.async_register_command(hass, ws_api.handle_get_download_url)
     websocket_api.async_register_command(hass, ws_api.websocket_get_wifis)
+    websocket_api.async_register_command(hass, ws_api.websocket_get_mac_replacement)
 
     # Remove exports left by older releases even if a router entry cannot load.
     await async_register_http_views(hass)
@@ -168,6 +169,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         get_store(hass, _ip),
         entry_id=entry.entry_id,
         protocol=get_config_value(entry, CONF_PROTOCOL, DEFAULT_PROTOCOL),
+        config_entry=entry,
     )
 
     hass.data.setdefault(DOMAIN, {})

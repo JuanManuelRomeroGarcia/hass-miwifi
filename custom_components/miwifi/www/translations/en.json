@@ -250,6 +250,22 @@
   "dump_hide_sensitive": "Hide sensitive data",
 
   "wifi_password": "Password",
-  "guest_password_hint": "Current is shown if you are admin."
-
+  "guest_password_hint": "Current is shown if you are admin.",
+  "mac_duplicate_names": "Each router name must appear only once.",
+  "mac_reload": "Refresh list",
+  "mac_choose_placeholder": "Select a device",
+  "mac_description": "Keep one client when its private MAC changes. Enable this only for router names that uniquely identify the same physical device.",
+  "mac_empty_names": "Enter at least one router name for each device.",
+  "mac_new_client": "New device",
+  "mac_disabled": "Automatic replacement is disabled. Add a device to enable it.",
+  "mac_admin_only": "An administrator account is required to manage automatic MAC replacement.",
+  "mac_add_manual": "Add manually",
+  "mac_choose": "Add a known client",
+  "mac_remove": "Remove rule",
+  "mac_title": "Automatic MAC replacement",
+  "mac_saved": "Configuration saved. No restart is needed.",
+  "mac_aliases": "Router names for this device (one per line)",
+  "mac_saving": "Saving…",
+  "mac_hint": "Include previous and current names after a rename. Replacement waits for fresh data from every node and exactly one connected MAC. Removing a rule stops future replacement for that device.",
+  "mac_load_error": "Could not load the saved configuration"
 }

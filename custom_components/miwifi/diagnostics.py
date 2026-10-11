@@ -16,6 +16,7 @@ from homeassistant.loader import async_get_integration
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    __version__ as HA_VERSION,
     CONF_ID,
     CONF_PASSWORD,
     CONF_TOKEN,
@@ -24,7 +25,8 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant
 
-from .updater import async_get_updater
+from .updater import async_get_updater, async_get_integrations
+from .mesh_diagnostics import build_mesh_support
 
 TO_REDACT: Final = {
     CONF_PASSWORD,
@@ -47,6 +49,11 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry."""
 
     _data: dict = {"config_entry": async_redact_data(config_entry.as_dict(), TO_REDACT)}
+    _data["mesh_support"] = build_mesh_support(hass, async_get_integrations(hass))
+    integration = await async_get_integration(hass, DOMAIN)
+    _data["mesh_support"]["versions"] = {
+        "home_assistant": HA_VERSION, "miwifi": integration.version,
+    }
 
     if _updater := async_get_updater(hass, config_entry.entry_id):
         if hasattr(_updater, "data"):

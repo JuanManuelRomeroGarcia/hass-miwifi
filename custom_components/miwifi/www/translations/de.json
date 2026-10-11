@@ -250,6 +250,22 @@
   "dump_hide_sensitive": "Sensible Daten ausblenden",
 
   "wifi_password": "Passwort",
-  "guest_password_hint": "Aktuelles Passwort wird angezeigt, wenn Sie Admin sind."
-
+  "guest_password_hint": "Aktuelles Passwort wird angezeigt, wenn Sie Admin sind.",
+  "mac_duplicate_names": "Jeder Routername darf nur einmal vorkommen.",
+  "mac_reload": "Liste aktualisieren",
+  "mac_choose_placeholder": "Gerät auswählen",
+  "mac_description": "Behält einen einzigen Client bei, wenn sich seine private MAC-Adresse ändert. Nur für Routernamen aktivieren, die dasselbe physische Gerät eindeutig identifizieren.",
+  "mac_empty_names": "Für jedes Gerät mindestens einen Routernamen eingeben.",
+  "mac_new_client": "Neues Gerät",
+  "mac_disabled": "Der automatische Austausch ist deaktiviert. Zum Aktivieren ein Gerät hinzufügen.",
+  "mac_admin_only": "Zum Verwalten des automatischen MAC-Austauschs ist ein Administratorkonto erforderlich.",
+  "mac_add_manual": "Manuell hinzufügen",
+  "mac_choose": "Bekannten Client hinzufügen",
+  "mac_remove": "Regel entfernen",
+  "mac_title": "Automatischer MAC-Austausch",
+  "mac_saved": "Konfiguration gespeichert. Kein Neustart erforderlich.",
+  "mac_aliases": "Routernamen für dieses Gerät (einer pro Zeile)",
+  "mac_saving": "Wird gespeichert…",
+  "mac_hint": "Nach einer Umbenennung den bisherigen und den aktuellen Namen angeben. Der Austausch wartet auf aktuelle Daten aller Knoten und genau eine verbundene MAC-Adresse. Das Entfernen einer Regel beendet künftige Austausche für dieses Gerät.",
+  "mac_load_error": "Die gespeicherte Konfiguration konnte nicht geladen werden"
 }

@@ -22,7 +22,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.const import __name__ as ha_const_ns
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr
 
 
 
@@ -45,6 +46,7 @@ from .const import (
 from .entity import MiWifiEntity
 from .enum import Model
 from .exceptions import LuciError
+from .helper import device_config_entry_ids
 from .updater import LuciUpdater, async_get_updater
 
 PARALLEL_UPDATES = 0
@@ -88,6 +90,25 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    # Match the integration-owned unique ID, including renamed/disabled entities.
+    registry = er.async_get(hass)
+    panel_devices = set()
+    for entity in er.async_entries_for_config_entry(registry, config_entry.entry_id):
+        if (entity.domain == "update" and entity.platform == DOMAIN
+                and entity.unique_id == f"{config_entry.entry_id}_miwifi_panel"):
+            if entity.device_id:
+                panel_devices.add(entity.device_id)
+            registry.async_remove(entity.entity_id)
+
+    devices = dr.async_get(hass)
+    for device_id in panel_devices:
+        device = devices.async_get(device_id)
+        if (device is not None and device.model == "Panel Frontend"
+                and device_config_entry_ids(device) == {config_entry.entry_id}
+                and not er.async_entries_for_device(registry, device_id,
+                                                    include_disabled_entities=True)):
+            devices.async_remove_device(device_id)
+
     updater: LuciUpdater = async_get_updater(hass, config_entry.entry_id)
 
     entities: list[UpdateEntity] = []
@@ -101,22 +122,6 @@ async def async_setup_entry(
         for description in MIWIFI_UPDATES
         if description.key != ATTR_UPDATE_FIRMWARE or updater.supports_update
     ]
-
-    topo_graph = (updater.data or {}).get("topo_graph", {})
-
-    if not isinstance(topo_graph, dict):
-        topo_graph = {}
-
-    is_main = topo_graph.get("graph", {}).get("is_main", False)
-
-    if is_main:
-        try:
-            panel_entity = MiWifiPanelUpdate(f"{config_entry.entry_id}_miwifi_panel", updater)
-            entities.append(panel_entity)
-        except Exception as e:
-            await hass.async_add_executor_job(_LOGGER.warning, f"[MiWiFi] The panel update entity could not be created: {e}")
-    else:
-        await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Panel update entity not created because this router is not the main one.")
 
     if entities:
         async_add_entities(entities)
@@ -201,56 +206,6 @@ class MiWifiUpdate(MiWifiEntity, UpdateEntity):
 
     async def async_release_notes(self) -> str | None:
         return MAP_NOTES[self.entity_description.key]
-
-from homeassistant.helpers.entity import DeviceInfo
-
-class MiWifiPanelUpdate(MiWifiEntity, UpdateEntity):
-    """Keep the existing panel entity as bundled-version information."""
-
-    def __init__(self, unique_id: str, updater) -> None:
-        description = UpdateEntityDescription(
-            key="miwifi_panel",
-            name="MiWiFi Panel Frontend",
-            entity_category=EntityCategory.CONFIG,
-            entity_registry_enabled_default=True,
-        )
-        super().__init__(unique_id, description, updater, ENTITY_ID_FORMAT)
-        self._attr_translation_key = "panel_title"
-        self._attr_supported_features = UpdateEntityFeature(0)
-        self._attr_should_poll = False
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, updater.data.get("mac", "miwifi_panel"))},
-            name="MiWiFi Panel",
-            manufacturer="Xiaomi",
-            model="Panel Frontend",
-        )
-
-    def _update_from_coordinator_data(self) -> None:
-        version = self._updater.data.get("panel_local_version")
-        self._attr_installed_version = version
-        self._attr_latest_version = version
-        self._attr_available = version is not None
-
-    def _handle_coordinator_update(self) -> None:
-        self._update_from_coordinator_data()
-        self.async_write_ha_state()
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        self._update_from_coordinator_data()
-        self.async_write_ha_state()
-
-    @property
-    def release_summary(self) -> str:
-        return "The frontend is bundled with MiWiFi. Update the integration through HACS."
-
-    @property
-    def release_url(self) -> str:
-        return "https://github.com/JuanManuelRomeroGarcia/hass-miwifi/releases"
-
-    async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:
-        raise HomeAssistantError("Update the MiWiFi integration through HACS to update its panel.")
-
 
 class MiWiFiNewDeviceNotifier:
     def __init__(self, hass):

@@ -251,7 +251,22 @@
   "dump_hide_sensitive": "隐藏敏感数据",
 
   "wifi_password": "密码",
-  "guest_password_hint": "如果您是管理员，则当前密码将显示。"
-
-
+  "guest_password_hint": "如果您是管理员，则当前密码将显示。",
+  "mac_duplicate_names": "每个路由器中的设备名称只能出现一次。",
+  "mac_reload": "刷新列表",
+  "mac_choose_placeholder": "选择设备",
+  "mac_description": "设备的私有 MAC 地址变化时，仅保留一个客户端。仅对能够唯一标识同一台实体设备的路由器中的设备名称启用此功能。",
+  "mac_empty_names": "请为每台设备输入至少一个路由器中的设备名称。",
+  "mac_new_client": "新设备",
+  "mac_disabled": "自动替换已禁用。添加设备即可启用。",
+  "mac_admin_only": "管理 MAC 地址自动替换需要管理员账户。",
+  "mac_add_manual": "手动添加",
+  "mac_choose": "添加已知客户端",
+  "mac_remove": "移除规则",
+  "mac_title": "MAC 地址自动替换",
+  "mac_saved": "配置已保存，无需重启。",
+  "mac_aliases": "此设备在路由器中的名称（每行一个）",
+  "mac_saving": "正在保存…",
+  "mac_hint": "重命名后，请同时填写旧名称和新名称。替换操作需要所有节点的最新数据，且只能有一个 MAC 地址在线。移除规则将停止对此设备进行后续替换。",
+  "mac_load_error": "无法加载已保存的配置"
 }

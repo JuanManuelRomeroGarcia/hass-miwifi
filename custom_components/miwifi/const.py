@@ -79,7 +79,6 @@ PROTOCOL_OPTIONS: Final = [PROTOCOL_AUTO, PROTOCOL_HTTP, PROTOCOL_HTTPS]
 CONF_ENABLE_PANEL = "enable_panel"
 DEFAULT_ENABLE_PANEL = True
 GLOBAL_PANEL_STORE = "miwifi/miwifi_global_panel_state"
-PANEL_STATE_FILE = ".storage/miwifi/miwifi_panel_state.json"  
 
 MAIN_ROUTER_STORE_FILE = ".storage/miwifi/miwifi_main_router.json"
 MAIN_ROUTER_STORE_VERSION = 1

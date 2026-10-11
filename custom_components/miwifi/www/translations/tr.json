@@ -251,7 +251,22 @@
   "dump_hide_sensitive": "Hassas verileri gizle",
 
   "wifi_password": "Şifre",
-  "guest_password_hint": "Mevcut, admin iseniz gösterilir."
-
-
+  "guest_password_hint": "Mevcut, admin iseniz gösterilir.",
+  "mac_duplicate_names": "Her yönlendirici adı yalnızca bir kez kullanılmalıdır.",
+  "mac_reload": "Listeyi yenile",
+  "mac_choose_placeholder": "Bir cihaz seçin",
+  "mac_description": "Özel MAC adresi değiştiğinde tek bir istemciyi korur. Yalnızca aynı fiziksel cihazı benzersiz olarak tanımlayan yönlendirici adları için etkinleştirin.",
+  "mac_empty_names": "Her cihaz için en az bir yönlendirici adı girin.",
+  "mac_new_client": "Yeni cihaz",
+  "mac_disabled": "Otomatik değiştirme devre dışı. Etkinleştirmek için bir cihaz ekleyin.",
+  "mac_admin_only": "Otomatik MAC değiştirmeyi yönetmek için yönetici hesabı gerekir.",
+  "mac_add_manual": "Elle ekle",
+  "mac_choose": "Bilinen bir istemci ekle",
+  "mac_remove": "Kuralı kaldır",
+  "mac_title": "Otomatik MAC değiştirme",
+  "mac_saved": "Yapılandırma kaydedildi. Yeniden başlatma gerekmez.",
+  "mac_aliases": "Bu cihazın yönlendirici adları (her satıra bir ad)",
+  "mac_saving": "Kaydediliyor…",
+  "mac_hint": "Ad değişikliğinden sonra önceki ve yeni adı ekleyin. Değiştirme işlemi tüm düğümlerden güncel veriler ve tam olarak bir bağlı MAC adresi bekler. Kuralın kaldırılması bu cihaz için gelecekteki değiştirmeleri durdurur.",
+  "mac_load_error": "Kaydedilmiş yapılandırma yüklenemedi"
 }

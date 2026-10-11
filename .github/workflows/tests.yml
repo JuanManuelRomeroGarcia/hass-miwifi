@@ -1,0 +1,57 @@
+name: Home Assistant tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: HA ${{ matrix.version }} - ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "2026.10.0"
+            phacc: "0.13.371"
+            suite: maintained
+            experimental: false
+          - version: "2026.9.3"
+            phacc: "0.13.366"
+            suite: maintained
+            experimental: false
+          - version: "2026.10.0"
+            phacc: "0.13.371"
+            suite: legacy
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements_test.txt
+      - name: Install test runtime
+        run: |
+          python -m pip install -r requirements_test.txt "pytest-homeassistant-custom-component==${{ matrix.phacc }}"
+          python -m pip install "$(python .github/scripts/frontend_requirement.py)"
+          python -c "from importlib.metadata import version; assert version('homeassistant') == '${{ matrix.version }}'"
+      - name: Compile integration
+        run: python -m compileall -q custom_components/miwifi
+      - name: Run tests
+        run: >-
+          python -m pytest -q --ha-suite=${{ matrix.suite }}
+          --continue-on-collection-errors
+          --junitxml=pytest-${{ matrix.version }}-${{ matrix.suite }}.xml
+          --cov=custom_components/miwifi --cov-report=term-missing
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-${{ matrix.version }}-${{ matrix.suite }}
+          path: pytest-*.xml

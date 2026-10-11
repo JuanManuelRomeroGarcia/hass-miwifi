@@ -15,6 +15,8 @@ from typing import Final
 from .sensor import MiWifiNATRulesSensor 
 from .notifier import MiWiFiNotifier
 from .helper import device_config_entry_ids, device_registry_rows, parse_last_activity
+from .purged_clients import get_purged_clients
+from .mac_replacement import get_mac_replacement
 
 
 import homeassistant.components.persistent_notification as pn
@@ -49,7 +51,7 @@ from .const import (
     DOMAIN
 )
 from .exceptions import LuciError
-from .updater import LuciUpdater, async_get_updater, async_update_panel_entity, async_get_integrations
+from .updater import LuciUpdater, async_get_updater, async_get_integrations
 from .frontend import async_save_manual_main_mac, async_clear_manual_main_mac
 from .unsupported import (
     safe_call_with_support,
@@ -306,7 +308,7 @@ class MiWifiSelectMainNodeServiceCall(MiWifiServiceCall):
 
         for router in routers:
             await router._async_prepare_topo()
-            await async_update_panel_entity(self.hass, router)
+
 
 
 class MiWifiBlockDeviceServiceCall:
@@ -1485,6 +1487,10 @@ class MiWifiPurgeInactiveDevicesServiceCall:
     """Purge device_trackers and orphaned devices due to inactivity."""
 
     schema = vol.Schema({
+        vol.Optional("macs"): vol.All(
+            cv.ensure_list, vol.Length(min=1),
+            [vol.Match(r"^(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")],
+        ),
         vol.Optional("days", description="service_fields.purge_inactive.days", default=30):
             vol.All(vol.Coerce(int), vol.Range(min=1, max=3650)),
         vol.Optional("only_randomized", description="service_fields.purge_inactive.only_randomized", default=True):
@@ -1555,6 +1561,18 @@ class MiWifiPurgeInactiveDevicesServiceCall:
         verbose: bool = bool(service.data.get("verbose", True))
         apply_changes: bool = bool(service.data.get("apply", False))
 
+        selected_macs = None
+        if "macs" in service.data:
+            requested = service.data["macs"]
+            if not isinstance(requested, (list, tuple)) or not requested:
+                raise vol.Invalid("macs must be a non-empty list of MAC addresses")
+            selected_macs = set()
+            for value in requested:
+                mac = self._norm_mac(value)
+                if mac is None:
+                    raise vol.Invalid("Invalid MAC address in macs")
+                selected_macs.add(mac)
+
         now_ts = int(time.time())
         cutoff = now_ts - days * 86400
 
@@ -1571,14 +1589,16 @@ class MiWifiPurgeInactiveDevicesServiceCall:
         def _last_ts_from_updaters(mac: str | None) -> int | None:
             if not mac:
                 return None
+            latest = None
             for upd in updaters:
                 dev = getattr(upd, "devices", {}).get(mac)
                 if dev and isinstance(dev.get(ATTR_TRACKER_LAST_ACTIVITY), str):
                     try:
-                        return parse_last_activity(dev[ATTR_TRACKER_LAST_ACTIVITY])
+                        observed = parse_last_activity(dev[ATTR_TRACKER_LAST_ACTIVITY])
+                        latest = observed if latest is None else max(latest, observed)
                     except Exception:
                         continue
-            return None
+            return latest
 
         entity_targets: list[tuple[str, str | None, str | None, float | None, str | None]] = []
 
@@ -1592,6 +1612,9 @@ class MiWifiPurgeInactiveDevicesServiceCall:
             if not mac:
                 mac = self._mac_from_unique_id(entry.unique_id)
 
+            if selected_macs is not None and mac not in selected_macs:
+                continue
+
             is_rand = self._is_randomized_mac(mac) if mac else False
             if only_rand and not (is_rand or (mac is None and include_orphans_wo_age)):
                 continue
@@ -1603,8 +1626,9 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                     ts = parse_last_activity(last)
                 except Exception:
                     ts = None
-            if ts is None:
-                ts = _last_ts_from_updaters(mac)
+            updater_ts = _last_ts_from_updaters(mac)
+            if updater_ts is not None:
+                ts = updater_ts if ts is None else max(ts, updater_ts)
 
             if ts is None:
                 # Neither the state nor any updater can date this client. That is
@@ -1642,9 +1666,6 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                     continue
 
                 ents = er.async_entries_for_device(ent_reg, device.id, include_disabled_entities=True)
-                if ents:
-                
-                    continue
 
                 mac: str | None = None
                 for identifier in device.identifiers:
@@ -1657,24 +1678,81 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                             break
 
                 is_rand = self._is_randomized_mac(mac) if mac else False
+                if selected_macs is not None and mac not in selected_macs:
+                    continue
                 if only_rand and not (is_rand or (mac is None and include_orphans_wo_age)):
                     continue
 
                 ts = _last_ts_from_updaters(mac)
+                if ents:
+                    # A selective purge can also finish cleaning a client whose
+                    # tracker was removed earlier. Never infer identity by name,
+                    # or remove unrelated entities attached to the same device.
+                    if selected_macs is None or not mac:
+                        continue
+                    base = f"{DOMAIN}-dev-{mac.lower()}-"
+                    targeted = {row[0]: row for row in entity_targets}
+                    if any(
+                        ent.platform != DOMAIN or not (
+                            ent.entity_id in targeted
+                            or (ent.domain == "sensor" and ent.unique_id.lower().startswith(base))
+                        ) for ent in ents
+                    ):
+                        continue
+                    recent_without_age = False
+                    active = False
+                    for ent in ents:
+                        if ent.entity_id in targeted:
+                            target_age = targeted[ent.entity_id][3]
+                            observed = now_ts - target_age * 86400 if target_age is not None else None
+                            if observed is not None:
+                                ts = observed if ts is None else max(ts, observed)
+                        state = self.hass.states.get(ent.entity_id)
+                        if state is None:
+                            continue
+                        if state.state == "home":
+                            active = True
+                        if ent.unique_id.lower() == base + "last_activity":
+                            try:
+                                observed = datetime.datetime.fromisoformat(state.state).timestamp()
+                                ts = observed if ts is None else max(ts, observed)
+                            except (ValueError, TypeError):
+                                pass
+                        if state.last_changed.timestamp() > cutoff:
+                            recent_without_age = True
+                    if active or (ts is None and recent_without_age):
+                        continue
                 if ts is None and not include_orphans_wo_age:
                     continue
                 if ts is not None and ts > cutoff:
                     continue
 
                 days_ago = None if ts is None else round((now_ts - ts) / 86400, 2)
+                if ents:
+                    for ent in ents:
+                        if ent.entity_id not in targeted:
+                            entity_targets.append((ent.entity_id, device.id, mac, days_ago, ent.config_entry_id))
                 orphan_targets.append((device.id, mac, days_ago))
 
         entities_removed: list[str] = []
         devices_removed: list[str] = []
 
         if apply_changes:
-      
-            macs_to_purge = [mac for *_skip, mac, _days, _entry in entity_targets if mac]
+            touched_devices = {
+                device_id for _, device_id, *_ in entity_targets if device_id
+            } | {device_id for device_id, *_ in orphan_targets}
+            # Signal handlers can remove the empty device before this service
+            # reaches its own device loop. Count removals over the whole call.
+            existing_devices = {
+                device_id for device_id in touched_devices
+                if dev_reg.async_get(device_id) is not None
+            }
+            macs_to_purge = {mac for *_skip, mac, _days, _entry in entity_targets if mac}
+            macs_to_purge.update(mac for _, mac, _ in orphan_targets if mac)
+            if macs_to_purge:
+                await get_purged_clients(self.hass).async_mark(macs_to_purge)
+                for updater in updaters:
+                    await updater.async_purge_clients(macs_to_purge)
             for mac in macs_to_purge:
                 for entry_id in all_entry_ids:
                     async_dispatcher_send(self.hass, SIGNAL_PURGE_DEVICE, entry_id, mac)
@@ -1687,12 +1765,6 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                     entities_removed.append(entity_id)
 
 
-            touched_devices = set(
-                [d for _, d, *_ in entity_targets if d]
-            ) | set(
-                [d for d, *_ in orphan_targets]
-            )
-
             for dev_id in list(touched_devices):
                 if not dev_id:
                     continue
@@ -1701,6 +1773,8 @@ class MiWifiPurgeInactiveDevicesServiceCall:
                     continue
                 dev = dev_reg.async_get(dev_id)
                 if not dev:
+                    if dev_id in existing_devices:
+                        devices_removed.append(dev_id)
                     continue
    
                 if not any(identifier and identifier[0] == DOMAIN for identifier in dev.identifiers):
@@ -1755,11 +1829,43 @@ class MiWifiPurgeInactiveDevicesServiceCall:
 
         return {
             "applied": apply_changes,
+            "selected_macs": sorted(selected_macs) if selected_macs is not None else None,
             "entities": entities_count,
+            "devices": devices_count,
         }
 
         
+class MiWifiConfigureMacReplacementServiceCall:
+    """Associate unique router names/aliases with one physical client."""
+
+    schema = vol.Schema({vol.Required("clients"): {cv.string: vol.All(cv.ensure_list, [cv.string])}})
+
+    def __init__(self, hass):
+        self.hass = hass
+
+    async def async_call_service(self, service):
+        known = []
+        for integration in async_get_integrations(self.hass).values():
+            updater = integration.get(UPDATER)
+            if updater is not None:
+                known.extend(updater.devices.values())
+                stored = await updater._async_load_devices()
+                if isinstance(stored, dict):
+                    known.extend(stored.values())
+        try:
+            await get_mac_replacement(self.hass).async_configure(service.data["clients"], known)
+        except ValueError as err:
+            raise vol.Invalid(str(err)) from err
+        notifier = MiWiFiNotifier(self.hass)
+        await notifier.notify(
+            "Automatic MAC replacement configured for: "
+            + (", ".join(names[0] for names in service.data["clients"].values()) or "none"),
+            title="MiWiFi", notification_id="miwifi_mac_replacement",
+        )
+
+
 SERVICES: Final = (
+    ("configure_mac_replacement", MiWifiConfigureMacReplacementServiceCall),
     (SERVICE_CALC_PASSWD, MiWifiCalcPasswdServiceCall),
     (SERVICE_REQUEST, MiWifiRequestServiceCall),
     ("get_topology_graph", MiWifiGetTopologyGraphServiceCall),

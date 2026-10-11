@@ -1,0 +1,40 @@
+"""Separate maintained HA tests from the pre-existing legacy suite (#325)."""
+
+import pytest
+
+# These modules assert old entity names, service signatures or removed HA APIs.
+# Their failures are reported by a separate CI job, never silently skipped.
+# Remove a module here once its behavior and expectations have been reviewed.
+LEGACY_TEST_FILES = frozenset({
+    "test_binary_sensors.py", "test_button.py", "test_config_flow.py",
+    "test_device_tracker.py", "test_diagnostics.py", "test_discovery.py",
+    "test_init.py", "test_light.py", "test_luci.py", "test_select.py",
+    "test_self_check.py", "test_sensor.py", "test_services.py", "test_switch.py",
+    "test_update.py", "test_updater_ap_mode.py", "test_updater_default_mode.py",
+    "test_updater_main.py", "test_updater_mesh_mode.py", "test_updater_repeater_mode.py",
+})
+
+# Already run without a Home Assistant runtime by validate.yml.
+STANDALONE_TEST_FILES = frozenset({
+    "test_issue_regressions.py", "test_security_exports.py", "test_self_counted_clients.py",
+})
+
+
+def pytest_addoption(parser):
+    parser.addoption("--ha-suite", choices=("maintained", "legacy"), default=None)
+
+
+def pytest_ignore_collect(collection_path, config):
+    """Select files before import so legacy collection errors cannot break the gate."""
+    suite = config.getoption("--ha-suite")
+    if suite is None or not collection_path.name.startswith("test_"):
+        return None
+    if collection_path.name in STANDALONE_TEST_FILES:
+        return True
+    legacy = collection_path.name in LEGACY_TEST_FILES
+    return legacy if suite == "maintained" else not legacy
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    yield

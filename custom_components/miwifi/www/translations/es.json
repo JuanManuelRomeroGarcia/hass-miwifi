@@ -250,7 +250,22 @@
   "dump_qos": "QoS",
   "dump_wifi_config": "Configuración Wi-Fi",
   "dump_hide_sensitive": "Ocultar datos sensibles",
-  "guest_password_hint": "La actual se muestra si eres administrador."
-
-
+  "guest_password_hint": "La actual se muestra si eres administrador.",
+  "mac_duplicate_names": "Cada nombre del router debe aparecer una sola vez.",
+  "mac_reload": "Actualizar lista",
+  "mac_choose_placeholder": "Selecciona un dispositivo",
+  "mac_description": "Conserva un solo cliente cuando cambia su MAC privada. Actívalo únicamente para nombres del router que identifiquen a un mismo aparato de forma única.",
+  "mac_empty_names": "Escribe al menos un nombre del router para cada aparato.",
+  "mac_new_client": "Nuevo dispositivo",
+  "mac_disabled": "La sustitución automática está desactivada. Añade un dispositivo para activarla.",
+  "mac_admin_only": "Necesitas una cuenta de administrador para gestionar la sustitución automática de MAC.",
+  "mac_add_manual": "Añadir manualmente",
+  "mac_choose": "Añadir un cliente conocido",
+  "mac_remove": "Quitar regla",
+  "mac_title": "Sustitución automática de MAC",
+  "mac_saved": "Configuración guardada. No hace falta reiniciar.",
+  "mac_aliases": "Nombres del router para este aparato (uno por línea)",
+  "mac_saving": "Guardando…",
+  "mac_hint": "Incluye el nombre anterior y el actual si lo has renombrado. La sustitución espera datos recientes de todos los nodos y una sola MAC conectada. Quitar una regla detiene las sustituciones futuras de ese aparato.",
+  "mac_load_error": "No se pudo cargar la configuración guardada"
 }

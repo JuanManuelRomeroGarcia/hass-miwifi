@@ -15,17 +15,18 @@ from .unsupported import get_combined_unsupported
 from datetime import datetime, timedelta
 from functools import cached_property
 from typing import Any, Final, Optional
+from time import monotonic
 
 from homeassistant.util import dt as dt_util
 
 import homeassistant.components.persistent_notification as pn
 from homeassistant.const import CONF_IP_ADDRESS
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import event
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.httpx_client import get_async_client
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -121,6 +122,9 @@ from .enum import (
 from .exceptions import LuciConnectionError, LuciError, LuciRequestError
 from .luci import LuciClient
 from .self_check import async_self_check
+from .mesh_diagnostics import MeshTrace
+from .purged_clients import get_purged_clients
+from .mac_replacement import get_mac_replacement, async_retire_macs
 
 PREPARE_METHODS: Final = (
     "init",
@@ -245,6 +249,7 @@ class LuciUpdater(DataUpdateCoordinator):
         is_only_login: bool = False,
         entry_id: str | None = None,
         protocol: str = DEFAULT_PROTOCOL,
+        config_entry: ConfigEntry | None = None,
     ) -> None:
         """Initialize updater.
 
@@ -261,6 +266,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param is_only_login: bool: Only config flow
         :param entry_id: str | None: Entry ID
         :param protocol: str: Connection protocol (auto, http, https)
+        :param config_entry: ConfigEntry | None: Entry owning this coordinator
         """
 
         client_factory = lambda: get_async_client(hass, False)
@@ -292,6 +298,8 @@ class LuciUpdater(DataUpdateCoordinator):
         self._filter_macs: dict[str, int] = {}
         self._counters_reset_this_cycle = False
         self._parent_push_pending = False
+        self._parent_census_at: float | None = None
+        self._parent_census_source: LuciUpdater | None = None
         
         # --- CB0401V2 / 5G CPE throttling ---
         self._is_cb0401v2: bool = False
@@ -314,10 +322,12 @@ class LuciUpdater(DataUpdateCoordinator):
                 name=f"{NAME} updater",
                 update_interval=self._update_interval,
                 update_method=self.update,
+                **({"config_entry": config_entry} if config_entry is not None else {}),
             )
 
         self.data: dict[str, Any] = {}
         self.devices: dict[str, dict[str, Any]] = {}
+        self._mesh_trace = MeshTrace()
         self._signals: dict[str, int] = {}
         self._moved_devices: list = []
         self._is_first_update: bool = True
@@ -445,15 +455,12 @@ class LuciUpdater(DataUpdateCoordinator):
         if isinstance(getattr(self, "capabilities", None), dict) and self.capabilities.get("portforward", False):
             await self._async_prepare_nat_rules()
         
-        # Frontend updates are delivered with the integration through HACS.
-        from .frontend import read_local_version
-        panel_version = await read_local_version(self.hass)
-        self.data["panel_local_version"] = panel_version
-        self.data["panel_remote_version"] = panel_version
-
         if self._is_only_login:
             await self.hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Finalizó login (is_only_login), código=%s, data[ATTR_STATE]=%s", self.code, self.data.get(ATTR_STATE))
 
+        self._mesh_trace.event("update_complete", self.data,
+                               parent_push_pending=self._parent_push_pending,
+                               counters_reset=self._counters_reset_this_cycle)
         return self.data
 
     @property
@@ -1411,6 +1418,9 @@ class LuciUpdater(DataUpdateCoordinator):
             self.reset_counter()
 
         response: dict = await self.luci.wifi_connect_devices()
+        trace = getattr(self, "_mesh_trace", None)
+        if trace is not None:
+            trace.census(response, {}, source="xqnetwork/wifi_connect_devices")
 
         now = dt_util.utcnow()
         macfilter_info: Optional[dict] = None
@@ -1538,6 +1548,9 @@ class LuciUpdater(DataUpdateCoordinator):
 
         integrations = async_get_integrations(self.hass)
 
+        # Capture the complete list before routing mutates individual records.
+        replacement_clients = [dict(row) for row in response.get("list", []) if isinstance(row, dict)]
+
         # Register both the entry MAC and the backhaul MAC used in `parent`.
         ap_macs = _ap_macs_by_ip(response)
         mac_to_ip: dict[str, str] = {}
@@ -1549,6 +1562,10 @@ class LuciUpdater(DataUpdateCoordinator):
                     mac_to_ip[mac.strip().upper()] = ip
                 if (backhaul := ap_macs.get(ip)) and backhaul not in mac_to_ip:
                     mac_to_ip[backhaul] = ip
+
+        trace = getattr(self, "_mesh_trace", None)
+        if trace is not None:
+            trace.census(response, mac_to_ip)
 
         # Collect devices that should be pushed to a leaf updater (key = integration IP)
         add_to: dict[str, list[dict]] = {}
@@ -1671,6 +1688,19 @@ class LuciUpdater(DataUpdateCoordinator):
                     is_from_parent=True,
                     action=DeviceAction.ADD,
                 )
+            updater._parent_census_at = monotonic()
+            updater._parent_census_source = self
+            trace = getattr(updater, "_mesh_trace", None)
+            if trace is not None:
+                trace.event("parent_push_complete", updater.data,
+                            source_ip=self.ip, pushed_clients=len(devices))
+
+        if isinstance(response.get("list"), list) and response.get("code", 0) == 0:
+            updaters = [row[UPDATER] for row in integrations.values() if row.get(UPDATER)]
+            if self not in updaters:
+                updaters.append(self)
+            retired = await get_mac_replacement(self.hass).async_candidates(self.ip, replacement_clients, updaters)
+            await async_retire_macs(self.hass, retired, updaters)
 
     async def _async_prepare_device_restore(self, data: dict) -> None:
         """Restore devices
@@ -1689,6 +1719,8 @@ class LuciUpdater(DataUpdateCoordinator):
         integrations: dict = async_get_integrations(self.hass)
 
         for mac, device in devices.items():
+            if await get_purged_clients(self.hass).async_blocked(mac):
+                continue
             if mac in self.devices:
                 continue
 
@@ -1774,8 +1806,17 @@ class LuciUpdater(DataUpdateCoordinator):
         :param integrations: dict[str, Any]: Integrations list
         """
 
+        if await get_purged_clients(self.hass).async_blocked(device[ATTR_TRACKER_MAC], device):
+            return
         is_new: bool = device[ATTR_TRACKER_MAC] not in self.devices
         _device: dict[str, Any] = self._build_device(device, integrations)
+
+        # A completed parent census routes active clients to their current node.
+        # A restore/previous move marker must not suppress a client that returned.
+        if is_from_parent:
+            mac = device[ATTR_TRACKER_MAC]
+            while mac in self._moved_devices:
+                self._moved_devices.remove(mac)
 
         if (
             self.is_repeater
@@ -2114,6 +2155,10 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_SENSOR_DEVICES_LAN] = max(_other_devices, 0)
             #await self.hass.async_add_executor_job(_LOGGER.warning, "📶 Calculated LAN devices: %s", data[ATTR_SENSOR_DEVICES_LAN])
 
+        trace = getattr(self, "_mesh_trace", None)
+        if trace is not None:
+            trace.event("new_status_applied", data)
+
 
     def _clean_devices(self) -> None:
         """Clean devices."""
@@ -2174,6 +2219,10 @@ class LuciUpdater(DataUpdateCoordinator):
         if self._counters_pushed_by_parent and not is_force:
             return
 
+        self._parent_census_at = None
+        trace = getattr(self, "_mesh_trace", None)
+        if trace is not None:
+            trace.event("before_reset", self.data, force=is_force, remove=is_remove)
         self._counters_reset_this_cycle = True
         for attr in [
             ATTR_SENSOR_DEVICES,
@@ -2205,6 +2254,21 @@ class LuciUpdater(DataUpdateCoordinator):
                     return leaf
         return None
 
+    def _has_recent_parent_census(self) -> bool:
+        """Prefer a recent completed census from a still-loaded parent."""
+
+        observed_at = getattr(self, "_parent_census_at", None)
+        source = getattr(self, "_parent_census_source", None)
+        if observed_at is None or source is None:
+            return False
+        integration = async_get_integrations(self.hass).get(source.ip)
+        if not integration or integration.get(UPDATER) is not source:
+            return False
+        # Allow several parent refreshes and one request timeout before falling
+        # back. A monotonic clock avoids wall-clock adjustments changing freshness.
+        ttl = max(60, 3 * source._scan_interval + source.timeout)
+        return monotonic() - observed_at <= ttl
+
     async def _async_apply_leaf_client_count(self) -> None:
         """Use the main node's topology count when this leaf has no census."""
 
@@ -2212,7 +2276,7 @@ class LuciUpdater(DataUpdateCoordinator):
             return
         handed_by_parent = self._parent_push_pending
         self._parent_push_pending = False
-        if self._counters_reset_this_cycle and not handed_by_parent:
+        if self._counters_reset_this_cycle or self._has_recent_parent_census():
             return
 
         leaf = self._leaf_entry_from_other_nodes()
@@ -2225,12 +2289,29 @@ class LuciUpdater(DataUpdateCoordinator):
         if count < 0:
             return
         current = self.data.get(ATTR_SENSOR_DEVICES)
-        if handed_by_parent:
-            if not isinstance(current, int) or count <= current:
-                return
-        elif current == count:
+        if current == count:
             return
         self.data[ATTR_SENSOR_DEVICES] = count
+        trace = getattr(self, "_mesh_trace", None)
+        if trace is not None:
+            trace.event("topology_count_applied", self.data,
+                        handed_by_parent=handed_by_parent)
+
+    async def async_purge_clients(self, macs: set[str]) -> None:
+        """Forget purged clients in this node, including dormant stored copies."""
+        for mac in list(self.devices):
+            if mac.strip().upper() in macs:
+                self.devices.pop(mac, None)
+        self._moved_devices[:] = [mac for mac in self._moved_devices if mac.strip().upper() not in macs]
+        cache = self.hass.data.get(DOMAIN, {}).get("devices_cache", {})
+        for mac in list(cache):
+            if mac.strip().upper() in macs:
+                cache.pop(mac, None)
+        if self._store is not None:
+            stored = await self._store.async_load()
+            if isinstance(stored, dict):
+                remaining = {mac: row for mac, row in stored.items() if mac.strip().upper() not in macs}
+                await self._store.async_save(remaining)
 
     async def _async_load_devices(self) -> dict | None:
         """Async load devices from Store"""
@@ -2728,31 +2809,3 @@ def async_get_updater(hass: HomeAssistant, identifier: str) -> LuciUpdater:
         return integrations[0]
 
     raise ValueError(_error)
-
-
-async def async_update_panel_entity(hass: HomeAssistant, updater: LuciUpdater, async_add_entities=None):
-    from .update import MiWifiPanelUpdate
-    """Handle dynamic creation/removal of panel update entity."""
-
-    entity_registry = er.async_get(hass)
-    mac = updater.data.get(ATTR_DEVICE_MAC_ADDRESS)
-    entity_id = f"update.miwifi_{mac.replace(':','_')}_miwifi_panel_frontend"
-
-    topo_graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
-    is_main = topo_graph.get("is_main")
-    is_auto = topo_graph.get("is_main_auto", False)
-
-    entry = entity_registry.async_get(entity_id)
-
-    if is_main:
-        source = "auto" if is_auto else "manual"
-        if not entry and async_add_entities:
-            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 🟢 Creating update panel (%s main selection)", source)
-            panel_entity = MiWifiPanelUpdate(f"{updater.entry_id}_miwifi_panel", updater)
-            async_add_entities([panel_entity])
-        elif not entry:
-            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] ⚠ Cannot create update panel (%s main) because async_add_entities is not available", source)
-    else:
-        if entry:
-            await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] 🔴 Removing update panel because it is no longer main")
-            entity_registry.async_remove(entity_id)

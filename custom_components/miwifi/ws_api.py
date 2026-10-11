@@ -5,6 +5,36 @@ import re
 from homeassistant.core import HomeAssistant
 from homeassistant.components import websocket_api
 from .const import DOMAIN, UPDATER
+from .mac_replacement import get_mac_replacement
+
+
+@websocket_api.websocket_command({"type": "miwifi/get_mac_replacement"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_get_mac_replacement(hass: HomeAssistant, connection, msg) -> None:
+    """Read replacement rules and router client names across all loaded nodes."""
+    from .updater import async_get_integrations
+
+    names = {}
+    for integration in async_get_integrations(hass).values():
+        updater = integration.get(UPDATER)
+        if updater is None:
+            continue
+        rows = list(updater.devices.values())
+        stored = await updater._async_load_devices()
+        if isinstance(stored, dict):
+            rows.extend(stored.values())
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = str(row.get("name") or "").strip()
+            if name:
+                names.setdefault(name.casefold(), name)
+    clients = await get_mac_replacement(hass).async_configuration()
+    connection.send_result(msg["id"], {
+        "clients": {key: [names.get(name.casefold(), name) for name in aliases] for key, aliases in clients.items()},
+        "available_names": sorted(names.values(), key=str.casefold),
+    })
 
 
 def _pick_updater(hass: HomeAssistant):

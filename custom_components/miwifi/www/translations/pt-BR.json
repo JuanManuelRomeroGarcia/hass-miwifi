@@ -251,5 +251,22 @@
   "dump_hide_sensitive": "Ocultar dados sensíveis",
 
   "wifi_password": "Senha",
-  "guest_password_hint": "A atual é exibida se você for o administrador."
+  "guest_password_hint": "A atual é exibida se você for o administrador.",
+  "mac_duplicate_names": "Cada nome do roteador deve aparecer apenas uma vez.",
+  "mac_reload": "Atualizar lista",
+  "mac_choose_placeholder": "Selecionar um dispositivo",
+  "mac_description": "Mantém um único cliente quando seu endereço MAC privado muda. Ative apenas para nomes do roteador que identifiquem o mesmo aparelho físico de forma única.",
+  "mac_empty_names": "Informe pelo menos um nome do roteador para cada aparelho.",
+  "mac_new_client": "Novo dispositivo",
+  "mac_disabled": "A substituição automática está desativada. Adicione um dispositivo para ativá-la.",
+  "mac_admin_only": "É necessária uma conta de administrador para gerenciar a substituição automática de MAC.",
+  "mac_add_manual": "Adicionar manualmente",
+  "mac_choose": "Adicionar um cliente conhecido",
+  "mac_remove": "Remover regra",
+  "mac_title": "Substituição automática de MAC",
+  "mac_saved": "Configuração salva. Não é necessário reiniciar.",
+  "mac_aliases": "Nomes do roteador para este aparelho (um por linha)",
+  "mac_saving": "Salvando…",
+  "mac_hint": "Inclua o nome anterior e o atual após uma alteração de nome. A substituição aguarda dados recentes de todos os nós e exatamente um MAC conectado. Remover uma regra interrompe as substituições futuras desse aparelho.",
+  "mac_load_error": "Não foi possível carregar a configuração salva"
 }

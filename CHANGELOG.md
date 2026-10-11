@@ -1,5 +1,43 @@
 # Changelog
 
+## 3.9.0 — 2026-10-11
+
+Private MAC management, persistent client cleanup, mesh diagnostics and compatibility with current Home Assistant.
+
+### Private MAC addresses and cleanup
+
+- Add opt-in automatic replacement for individually configured clients with unique router names. Support previous/current aliases and learning a rename on a known connected MAC. Require fresh complete client lists from every loaded node and exactly one associated online MAC; protect ambiguous, unknown or stale observations.
+- Remove older associated MiWiFi trackers and client sensors across nodes without waiting for the inactivity age limit. Preserve current clients and unrelated integration entities. Do not migrate entity/device IDs, custom labels, areas, persons or automation references.
+- Match unavailable historical clients retained only in HA's registries when saving a rule. Use integration-provided names and MiWiFi tracker/MAC identifiers, not user display-name overrides.
+- Add a compact client list in the main router's panel settings, with known-client selection, expandable aliases, removal, refresh and save. Read and write rules only as an administrator; preserve other saved rules and block saving after a failed load. Use device names in configuration notifications. Saving rules requires no reload or restart.
+- Persist rules and suppression of retired/purged MACs across reloads and restarts. Clear client copies from all loaded nodes and stores, including empty and non-force-load leaf stores. Stale restored/offline records do not recreate removed clients; a genuinely connected old MAC can return.
+- Add an optional explicit MAC allowlist to inactivity purging. Preserve activity seen on any loaded node. Clean matching client sensors, including disabled sensors, when explicitly selected with orphan cleanup; preserve unrelated/recent entities and recently changed states without known activity dates.
+- Make purge previews include all selected entities and resulting empty devices. Count devices removed by signal handlers as well as the service and return the device count in the action response. Simulation does not change suppression state.
+
+### Mesh counters and diagnostics
+
+- Keep a recent completed parent census authoritative across later leaf refreshes instead of replacing its count with a different topology total after one cycle. Fall back when the source is unloaded/replaced or expires after three scan intervals plus the request timeout (minimum 60 seconds). Use the updater's supported timeout property.
+- Clear stale moved-client markers when the parent census assigns a returning client to a node again, so it contributes to the counters once.
+- Add bounded, in-memory mesh support capture to integration diagnostics for #329. Include all loaded nodes, startup/recent censuses, parent/client ownership, moved markers, counter transitions and topology address-whitespace flags without extra router requests.
+- Anonymize MAC/IP/entry relationships consistently within one HA runtime and exclude names, SSIDs, credentials and raw payloads from mesh_support. Earlier diagnostic sections retain their original format and may contain private data; publish only mesh_support.
+
+### Compatibility, bundled frontend and documentation
+
+- Adapt the CI and coordinator/device-trigger compatibility work from #325, with thanks to @brembygit. Pass the owning config entry explicitly while preserving login/ambient fallbacks. Import TriggerActionType and TriggerInfo from the supported HA helper.
+- Validate classic device-trigger discovery, event filtering, execution and unsubscribe. Manual YAML automation testing confirmed a simulated miwifi_luci response creates its notification; this does not add classic triggers to the newer target-based picker or verify a real router response.
+- Add maintained CI rows for HA Core 2026.10.0 and 2026.9.3 with their exact frontend dependency. Separate inherited legacy tests into a non-blocking reported job and select suites before importing incompatible modules. Keep HACS/hassfest and standalone/frontend checks.
+- Remove the obsolete separate panel frontend update entity and clean existing integration-owned entries on setup, including renamed/disabled entries. Router firmware update entities remain. Remove unused legacy panel-version fields/state constants while retaining the bundled version helper.
+- Translate the MAC settings into all eight panel languages: English, Spanish, German, French, Brazilian Portuguese, Russian, Turkish and Simplified Chinese. Check full key coverage.
+- Document configuration, aliases, safeguards, deletion effects, persistence, diagnostics and troubleshooting in README and English/Spanish project wiki guides. Distinguish automatic replacement from ordinary inactivity purging and DHCP reservations.
+
+### Validation and remaining limits
+
+- HA Core 2026.10.0: 135 maintained pytest tests and 65 standalone tests pass (200 total), plus frontend packaging and panel behavior checks.
+- HA Core 2026.9.3: 134 maintained tests pass; one test for the newer device-registry API is skipped.
+- Real-router testing confirmed stable leaf counts across refresh/reload, returning clients counted again, obsolete panel update removal, selective purge removing 24 entities and 2 old devices, and removed clients staying absent after node reloads. Automatic replacement removed an older Redmi MAC and a registry-only old watch after a router rename.
+- The maintainer confirmed the final full HA restart is correct; removed clients and saved rules remain as expected. #329 remains open until its reporter verifies their own router setup. #333's remaining router-sensor setup race and #334's potential force-load wireless-backhaul case are not claimed fixed.
+- The inherited legacy suite is not repaired: the previous HA 2026.10.0 run reported 185 failures, 7 passes and 40 errors. Remote CI is checked before publishing this release.
+
 ## 3.8.4
 
 - Recognize RN12 (Xiaomi Range Extender AX1500) during setup and add its bundled image to the panel and README gallery (#343). The reporter confirmed setup over HTTPS with firmware 1.0.63; individual features remain subject to the router's API capabilities.

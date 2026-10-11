@@ -251,7 +251,22 @@
   "dump_hide_sensitive": "Masquer les données sensibles",
 
   "wifi_password": "Mot de passe",
-  "guest_password_hint": "Le mot de passe actuel est affiché si vous êtes administrateur."
-
-
+  "guest_password_hint": "Le mot de passe actuel est affiché si vous êtes administrateur.",
+  "mac_duplicate_names": "Chaque nom de routeur ne doit apparaître qu’une seule fois.",
+  "mac_reload": "Actualiser la liste",
+  "mac_choose_placeholder": "Sélectionner un appareil",
+  "mac_description": "Conserve un seul client lorsque son adresse MAC privée change. À activer uniquement pour les noms du routeur qui identifient un même appareil physique de manière unique.",
+  "mac_empty_names": "Saisissez au moins un nom du routeur pour chaque appareil.",
+  "mac_new_client": "Nouvel appareil",
+  "mac_disabled": "Le remplacement automatique est désactivé. Ajoutez un appareil pour l’activer.",
+  "mac_admin_only": "Un compte administrateur est nécessaire pour gérer le remplacement automatique des adresses MAC.",
+  "mac_add_manual": "Ajouter manuellement",
+  "mac_choose": "Ajouter un client connu",
+  "mac_remove": "Supprimer la règle",
+  "mac_title": "Remplacement automatique des adresses MAC",
+  "mac_saved": "Configuration enregistrée. Aucun redémarrage nécessaire.",
+  "mac_aliases": "Noms du routeur pour cet appareil (un par ligne)",
+  "mac_saving": "Enregistrement…",
+  "mac_hint": "Après un changement de nom, indiquez l’ancien et le nouveau nom. Le remplacement attend des données récentes de tous les nœuds et une seule adresse MAC connectée. Supprimer une règle arrête les remplacements futurs pour cet appareil.",
+  "mac_load_error": "Impossible de charger la configuration enregistrée"
 }

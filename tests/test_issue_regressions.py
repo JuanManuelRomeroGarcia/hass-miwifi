@@ -141,6 +141,71 @@ class DeviceOwnershipApiTests(unittest.TestCase):
 
 
 class PurgeTests(unittest.IsolatedAsyncioTestCase):
+    async def test_selected_macs_never_purge_other_orphans(self):
+        selected = '02:11:22:33:44:55'
+        other = '02:11:22:33:44:66'
+        for apply in (False, True):
+            service, registry, _ = self.make_service([
+                self.device('selected', {('miwifi', selected)}),
+                self.device('other', {('miwifi', other)}),
+            ])
+            result = await service.async_call_service(SimpleNamespace(data={
+                'macs': [selected.lower()], 'apply': apply, 'verbose': False,
+            }))
+            self.assertEqual(result['selected_macs'], [selected])
+            if apply:
+                registry.async_remove_device.assert_called_once_with('selected')
+            else:
+                registry.async_remove_device.assert_not_called()
+
+    async def test_selected_macs_limit_tracker_preview(self):
+        service, _, _ = self.make_service([])
+        env = service.async_call_service.__globals__
+        registry = env['er'].async_get(service.hass)
+        selected, other = '02:11:22:33:44:55', '02:11:22:33:44:66'
+        registry.entities = {mac: SimpleNamespace(
+            platform='miwifi', domain='device_tracker', entity_id=mac,
+            device_id=None, unique_id='miwifi-' + mac.lower(), config_entry_id='main',
+        ) for mac in (selected, other)}
+        service.hass.states.get = lambda mac: SimpleNamespace(attributes={
+            'mac': mac, 'last_activity': str(int(time.time()) - 40 * 86400),
+        })
+        result = await service.async_call_service(SimpleNamespace(data={
+            'macs': [selected], 'apply': False, 'include_orphans': False,
+            'verbose': False,
+        }))
+        self.assertEqual(result['entities'], 1)
+        registry.async_remove.assert_not_called()
+
+    async def test_recent_activity_on_any_node_preserves_old_tracker_and_orphan(self):
+        mac = '02:11:22:33:44:55'
+        now = int(time.time())
+        old = str(now - 40 * 86400)
+        fresh = str(now - 60)
+        for ages in ((old, fresh), (fresh, old)):
+            for with_tracker in (False, True):
+                device = self.device('client', {('miwifi', mac)})
+                service, registry, _ = self.make_service([device])
+                env = service.async_call_service.__globals__
+                env['async_get_integrations'] = lambda hass: {
+                    str(i): {'updater': SimpleNamespace(devices={mac: {'last_activity': age}}),
+                             'entry_id': str(i)} for i, age in enumerate(ages)
+                }
+                ent_reg = env['er'].async_get(service.hass)
+                if with_tracker:
+                    entity = SimpleNamespace(platform='miwifi', domain='device_tracker',
+                        entity_id='device_tracker.client', device_id='client',
+                        unique_id='miwifi-' + mac.lower(), config_entry_id='main')
+                    ent_reg.entities = {entity.entity_id: entity}
+                    service.hass.states.get = lambda entity_id: SimpleNamespace(
+                        attributes={'mac': mac, 'last_activity': old})
+                await service.async_call_service(SimpleNamespace(data={
+                    'apply': True, 'days': 30, 'verbose': False,
+                }))
+                registry.async_remove_device.assert_not_called()
+                ent_reg.async_remove.assert_not_called()
+                env['async_dispatcher_send'].assert_not_called()
+
     def make_service(self, entries, modern=True, entities=None):
         devices = {entry.id: entry for entry in entries}
         dev_reg = SimpleNamespace(devices=EntryCollection(entries) if modern else devices, async_get=Mock(side_effect=devices.get), async_remove_device=Mock())
@@ -148,6 +213,7 @@ class PurgeTests(unittest.IsolatedAsyncioTestCase):
         notifier = SimpleNamespace(get_translations=AsyncMock(return_value={}), notify=AsyncMock())
         env = {'time': time, 're': re, 'DOMAIN': 'miwifi', 'UPDATER': 'updater', 'ATTR_TRACKER_ENTRY_ID': 'entry_id', 'ATTR_TRACKER_LAST_ACTIVITY': 'last_activity', 'ATTR_TRACKER_MAC': 'mac', 'SIGNAL_PURGE_DEVICE': 'purge', 'async_get_integrations': lambda hass: {}, 'MiWiFiNotifier': lambda hass: notifier, 'async_dispatcher_send': Mock(), 'parse_last_activity': lambda value: int(value), 'dr': SimpleNamespace(async_get=lambda hass: dev_reg), 'er': SimpleNamespace(async_get=lambda hass: ent_reg, async_entries_for_device=lambda registry, device_id, **kwargs: (entities or {}).get(device_id, []))}
         load_function('services.py', '_all_device_entries', env)
+        env['get_purged_clients'] = lambda hass: SimpleNamespace(async_mark=AsyncMock())
         load_function('helper.py', 'device_config_entry_ids', env)
         load_function('services.py', '_has_domain_identifier', env)
         cls = load_class('services.py', 'MiWifiPurgeInactiveDevicesServiceCall', env, drop_schema=True)

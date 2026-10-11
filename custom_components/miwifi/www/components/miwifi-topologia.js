@@ -1,7 +1,7 @@
-import { getRouterImage } from "../pages/utils.js?v=3.8.4";
-import { LitElement, html, css } from "../vendor/lit.js?v=3.8.4";
-import { localize } from "../translations/localize.js?v=3.8.4";
-import { navigate } from "../router.js?v=3.8.4";
+import { getRouterImage } from "../pages/utils.js?v=3.9.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.9.0";
+import { localize } from "../translations/localize.js?v=3.9.0";
+import { navigate } from "../router.js?v=3.9.0";
 
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 

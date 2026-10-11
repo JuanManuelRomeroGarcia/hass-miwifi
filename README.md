@@ -36,7 +36,10 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Device blocking](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Example-automation#device-blocking)
   - [Lighting automation](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Example-automation#lighting-automation)
 - [Diagnostics](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Diagnostics)
+  - [Mesh support capture](tests/MESH_SUPPORT.md)
 - [FAQ](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/FAQ)
+- [Private MAC addresses and automatic replacement](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) (v3.9.0)
+  - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses-es)
 
 
 ## Supported routers
@@ -161,6 +164,29 @@ the APIs available on each router during setup.
 
 
 ❗ If at the time of adding the integration only `Router {ip} not supported` message is displayed, please create an issue with the message that the router is not supported, indicating the model of the router.
+
+## Automatic replacement of private MAC addresses
+
+Available from **v3.9.0**. Read the [project wiki guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) or its [repository copy](docs/Random-MAC-addresses.md) before enabling it. The guide covers aliases, deletion effects, troubleshooting and persistence.
+
+Automatic replacement is opt-in. Configure only router names that uniquely identify one physical client in your network; aliases can include its previous and current router names:
+
+Administrators can manage the saved client list in the MiWiFi panel under the main router's settings, in **Automatic MAC replacement**. Select a known client or add one manually, enter one router-name alias per line, and save. Existing rules are loaded before editing; removing a rule disables future replacements for that client. Saving does not reload the integration. The action below remains available for YAML configurations.
+
+```yaml
+action: miwifi.configure_mac_replacement
+data:
+  clients:
+    watch:
+      - SM-L315F
+      - Reloj JuanMa
+```
+
+The configuration and known MACs persist across restarts. A verified rename on a known, connected MAC is learned as another alias. When every loaded node provides a fresh complete client list and exactly one associated MAC is online, MiWiFi removes the previous inactive MACs and their MiWiFi entities without waiting for the normal purge age limit. The currently connected MAC remains. Simultaneous online MACs, unknown activity flags, missing client names for a new MAC, and incomplete/stale node observations prevent replacement. Only integration-owned entities are removed; unrelated entities preserve their device row. A router rename and a MAC change at the same time need an explicitly configured alias, because there is no reliable identity linking the new name to the old MAC.
+
+Set `clients: {}` through the same action to disable automatic replacement. Previously purged MACs remain suppressed until a real connection is reported. Standard inactivity purging remains available for other clients.
+
+Replacement deletes the old MAC's MiWiFi client entities; it does **not** migrate entity/device IDs, areas, custom labels, person assignments or automation references to the new MAC. Review references to the deleted tracker. When saving a rule, unavailable MiWiFi clients retained only in HA's registries are also matched using integration-provided names and MAC identifiers. User display-name overrides do not establish identity.
 
 ## Integrated frontend panel
 
