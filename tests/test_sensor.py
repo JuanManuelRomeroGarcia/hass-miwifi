@@ -87,7 +87,7 @@ async def test_init(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -185,7 +185,7 @@ async def test_init_with_game(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -286,7 +286,7 @@ async def test_init_without_zero(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -384,7 +384,7 @@ async def test_init_without_wan(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -494,7 +494,7 @@ async def test_update_uptime(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -510,15 +510,15 @@ async def test_update_uptime(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -532,14 +532,14 @@ async def test_update_uptime(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0:19:46"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -587,7 +587,7 @@ async def test_update_vpn_uptime(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -603,15 +603,15 @@ async def test_update_vpn_uptime(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -625,14 +625,14 @@ async def test_update_vpn_uptime(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0:00:00"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -680,7 +680,7 @@ async def test_update_memory_usage(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -696,15 +696,15 @@ async def test_update_memory_usage(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -718,14 +718,14 @@ async def test_update_memory_usage(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "153"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -773,7 +773,7 @@ async def test_update_memory_total(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -789,15 +789,15 @@ async def test_update_memory_total(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -811,14 +811,14 @@ async def test_update_memory_total(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "512"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -866,7 +866,7 @@ async def test_update_temperature(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -882,15 +882,15 @@ async def test_update_temperature(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -904,14 +904,14 @@ async def test_update_temperature(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "60.0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -959,7 +959,7 @@ async def test_update_mode(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -979,14 +979,14 @@ async def test_update_mode(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "repeater"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1038,7 +1038,7 @@ async def test_update_ap_signal(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1058,14 +1058,14 @@ async def test_update_ap_signal(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "98"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1113,7 +1113,7 @@ async def test_update_download_speed(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1133,14 +1133,14 @@ async def test_update_download_speed(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0.04"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1188,7 +1188,7 @@ async def test_update_upload_speed(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1208,14 +1208,14 @@ async def test_update_upload_speed(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0.95"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1263,7 +1263,7 @@ async def test_update_devices(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1283,21 +1283,21 @@ async def test_update_devices(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1347,7 +1347,7 @@ async def test_update_devices_lan(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1363,15 +1363,15 @@ async def test_update_devices_lan(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -1385,21 +1385,21 @@ async def test_update_devices_lan(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1449,7 +1449,7 @@ async def test_update_devices_2_4(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1465,15 +1465,15 @@ async def test_update_devices_2_4(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -1487,21 +1487,21 @@ async def test_update_devices_2_4(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1551,7 +1551,7 @@ async def test_update_devices_5_0(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1567,15 +1567,15 @@ async def test_update_devices_5_0(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -1589,21 +1589,21 @@ async def test_update_devices_5_0(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1653,7 +1653,7 @@ async def test_update_devices_guest(hass: HomeAssistant, legacy_clock) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1669,15 +1669,15 @@ async def test_update_devices_guest(hass: HomeAssistant, legacy_clock) -> None:
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -1691,21 +1691,21 @@ async def test_update_devices_guest(hass: HomeAssistant, legacy_clock) -> None:
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "1"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
@@ -1759,7 +1759,7 @@ async def test_update_devices_5_0_game(hass: HomeAssistant, legacy_clock) -> Non
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1775,15 +1775,15 @@ async def test_update_devices_5_0_game(hass: HomeAssistant, legacy_clock) -> Non
         assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -1797,21 +1797,21 @@ async def test_update_devices_5_0_game(hass: HomeAssistant, legacy_clock) -> Non
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "1"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE

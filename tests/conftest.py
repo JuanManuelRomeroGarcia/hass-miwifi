@@ -48,15 +48,12 @@ async def legacy_clock(configure_event_loop, hass):
 
         clock.move_to = move_to
         with patch.object(loop, "time", lambda: freezegun.api.real_monotonic() + offset[0]):
-            # Time-based templates register shutdown cleanup after HA starts.
-            # Leaving HA NOT_RUNNING means async_stop cannot clean these timers.
-            await hass.async_start()
             try:
                 yield clock
             finally:
                 # Stop HA while its timer deadlines still use the same clock.
                 # Restoring real time first leaves shutdown timers in the future.
-                await hass.async_stop()
+                await hass.async_stop(force=True)
 
 
 def pytest_ignore_collect(collection_path, config):

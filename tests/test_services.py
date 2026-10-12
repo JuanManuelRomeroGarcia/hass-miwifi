@@ -113,7 +113,7 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
@@ -156,7 +156,7 @@ async def test_calc_passwd_not_found_device(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         with pytest.raises(vol.Invalid) as error:
             await hass.services.async_call(
@@ -192,7 +192,7 @@ async def test_calc_passwd_unsupported_device(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         device_identifier: str = "00:00:00:00:00:01"
         registry: dr.DeviceRegistry = dr.async_get(hass)
@@ -243,7 +243,7 @@ async def test_calc_passwd_unsupported_device_with_integration(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
@@ -405,7 +405,7 @@ async def test_request(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
@@ -417,7 +417,7 @@ async def test_request(
         # Automations attach their triggers when HA starts, not just when the
         # automation component has finished loading.
         await hass.async_start()
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         await hass.services.async_call(
             DOMAIN,
@@ -429,7 +429,7 @@ async def test_request(
             target={CONF_DEVICE_ID: [device.id]},
             blocking=True,
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert len(calls) == 1
 
