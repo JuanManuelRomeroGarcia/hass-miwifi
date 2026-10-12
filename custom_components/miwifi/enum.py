@@ -46,6 +46,13 @@ class Mode(IntEnum):
     MESH = 9, "mesh"
 
 
+#: Positive topology roles that can replace the gateway mode probe. REPEATER
+#: keeps its endpoint-based classification and upstream signal handling.
+MESH_ROLE_MODES: frozenset[Mode] = frozenset(
+    {Mode.ACCESS_POINT, Mode.MESH_NODE, Mode.MESH_LEAF, Mode.MESH}
+)
+
+
 class Connection(IntEnum):
     """Connection enum"""
 
