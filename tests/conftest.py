@@ -48,6 +48,9 @@ async def legacy_clock(configure_event_loop, hass):
 
         clock.move_to = move_to
         with patch.object(loop, "time", lambda: freezegun.api.real_monotonic() + offset[0]):
+            # Time-based templates register shutdown cleanup after HA starts.
+            # Leaving HA NOT_RUNNING means async_stop cannot clean these timers.
+            await hass.async_start()
             try:
                 yield clock
             finally:

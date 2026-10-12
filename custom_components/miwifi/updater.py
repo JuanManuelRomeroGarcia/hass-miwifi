@@ -443,10 +443,6 @@ class LuciUpdater(DataUpdateCoordinator):
         if not self._is_only_login:
             self._clean_devices()
 
-        if not (self.is_force_load and self._has_dedicated_iot_wifi()):
-            if "new_status" not in self.data:
-                await self._async_prepare_new_status(self.data)
-            
         await self._async_prepare_topo()
         await self._async_apply_leaf_client_count()
 

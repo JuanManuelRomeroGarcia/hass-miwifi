@@ -1424,7 +1424,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant, legacy_clock) -> No
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
-        assert state.attributes["mac"] == "CC:50:E3:96:29:78"
+        assert state.attributes["mac"] == "cc:50:e3:96:29:78"
         assert state.attributes["scanner"] == DOMAIN
         assert state.attributes["online"] == "8:05:01"
         assert state.attributes["connection"] == Connection.WIFI_2_4.phrase  # type: ignore
@@ -1483,7 +1483,7 @@ async def test_init_detect_url(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
-        assert state.attributes["mac"] == "CC:50:E3:96:29:78"
+        assert state.attributes["mac"] == "cc:50:e3:96:29:78"
         assert state.attributes["scanner"] == DOMAIN
         assert state.attributes["online"] == "8:05:01"
         assert state.attributes["connection"] == Connection.WIFI_2_4.phrase  # type: ignore

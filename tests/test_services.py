@@ -414,6 +414,9 @@ async def test_request(
         assert device is not None
 
         assert await setup_automation(hass, device.id, EVENT_TYPE_RESPONSE)
+        # Automations attach their triggers when HA starts, not just when the
+        # automation component has finished loading.
+        await hass.async_start()
         await hass.async_block_till_done()
 
         await hass.services.async_call(
