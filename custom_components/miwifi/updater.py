@@ -487,6 +487,23 @@ class LuciUpdater(DataUpdateCoordinator):
         return self.is_repeater and not self.is_force_load
 
     @property
+    def _counts_own_clients(self) -> bool:
+        """Does this leaf keep client counters the parent's push cannot rebuild?
+
+        A force-load repeater counts its clients itself (new_status), and
+        add_device(is_from_parent=True) only counts for it on firmwares with
+        dedicated IoT Wi-Fi.
+
+        :return bool: the parent must not reset this node's counters
+        """
+
+        return (
+            self.is_repeater
+            and self.is_force_load
+            and not self._has_dedicated_iot_wifi()
+        )
+
+    @property
     def supports_wan(self) -> bool:
         """Is supports wan
 
@@ -1669,9 +1686,12 @@ class LuciUpdater(DataUpdateCoordinator):
             if not isinstance(updater, LuciUpdater):
                 continue
 
-            # ✅ Reset counters ONCE per parent refresh before recounting
-            updater._parent_push_pending = True
-            updater.reset_counter(is_force=True)
+            # ✅ Reset counters ONCE per parent refresh before recounting -
+            # unless the leaf counts its own clients: add_device() does not
+            # recount for it, so a reset would leave zero until its next refresh.
+            if not updater._counts_own_clients:
+                updater._parent_push_pending = True
+                updater.reset_counter(is_force=True)
 
             leaf_entry_id = getattr(updater, "_entry_id", None) or self._entry_id
 
