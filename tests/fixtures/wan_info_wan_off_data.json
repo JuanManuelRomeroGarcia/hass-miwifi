@@ -13,17 +13,17 @@
         "8.8.8.8"
       ]
     },
-    "gateWay": "**REDACTED**",
-    "dnsAddrs1": "8.8.8.8",
-    "status": 1,
+    "gateWay": "",
+    "dnsAddrs1": "",
+    "status": 0,
     "uptime": 0,
-    "dnsAddrs": "192.168.15.1",
+    "dnsAddrs": "",
     "ipv6_info": {
       "wanType": "off"
     },
     "ipv6_show": 1,
-    "link": 1,
-    "ipv4": "**REDACTED**"
+    "link": 0,
+    "ipv4": []
   },
   "code": 0
 }

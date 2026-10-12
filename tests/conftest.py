@@ -66,6 +66,8 @@ def isolate_legacy_entity_capability_probes(request):
         "test_binary_sensors.py", "test_button.py", "test_device_tracker.py",
         "test_light.py", "test_select.py", "test_sensor.py", "test_switch.py",
         "test_update.py",
+        "test_updater_ap_mode.py", "test_updater_default_mode.py",
+        "test_updater_mesh_mode.py", "test_updater_repeater_mode.py",
     }:
         yield
         return

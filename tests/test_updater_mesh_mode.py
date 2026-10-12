@@ -111,6 +111,7 @@ async def test_updater_mesh_mode(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
+        mock_luci_client.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -268,6 +269,7 @@ async def test_updater_mesh_mode_force_load(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
+        mock_luci_client.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -465,6 +467,7 @@ async def test_updater_mesh_mode_move(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client_first)
+        mock_luci_client_first.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client_first.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -648,6 +651,7 @@ async def test_updater_mesh_mode_revert_move(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client_first)
+        mock_luci_client_first.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client_first.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -953,6 +957,7 @@ async def test_updater_mesh_mode_revert_move_force_mode(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client_first)
+        mock_luci_client_first.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client_first.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -1255,6 +1260,7 @@ async def test_updater_mesh_mode_move_force_mode(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client_first)
+        mock_luci_client_first.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client_first.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -1427,6 +1433,7 @@ async def test_updater_mesh_mode_restore(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client_first)
+        mock_luci_client_first.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client_first.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -1649,6 +1656,7 @@ async def test_updater_mesh_mode_restore_force_mode(hass: HomeAssistant) -> None
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client_first)
+        mock_luci_client_first.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client_first.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
@@ -1828,6 +1836,7 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
+        mock_luci_client.return_value.mode = AsyncMock(return_value={"mode": Mode.MESH.value, "code": 0})
 
         mock_luci_client.return_value.device_list = AsyncMock(
             return_value=json.loads(load_fixture("device_list_mesh_data.json"))
