@@ -65,7 +65,7 @@ async def test_user(hass: HomeAssistant) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "discovery_confirm"
 
@@ -128,8 +128,9 @@ async def test_user_ip_error(hass: HomeAssistant) -> None:
         )
         await hass.async_block_till_done()
 
-    assert result_configure["errors"] == {"base": "ip_address.not_matched"}
-    assert len(mock_luci_client.mock_calls) == 4
+    assert result_configure["errors"] == {"base": "router.error_with_reason"}
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -159,7 +160,8 @@ async def test_token_error(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
 
     assert result_configure["errors"] == {"base": "password.not_matched"}
-    assert len(mock_luci_client.mock_calls) == 4
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -198,7 +200,8 @@ async def test_undefined_router(hass: HomeAssistant) -> None:
         await hass.async_block_till_done()
 
     assert result_configure["errors"] == {"base": "router.not.supported"}
-    assert len(mock_luci_client.mock_calls) == 5
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()
     assert len(mock_async_self_check.mock_calls) == 1
 
 
@@ -238,7 +241,8 @@ async def test_undefined_router_without_hardware_info(hass: HomeAssistant) -> No
         await hass.async_block_till_done()
 
     assert result_configure["errors"] == {"base": "router.not.supported"}
-    assert len(mock_luci_client.mock_calls) == 5
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()
     assert len(mock_async_create_pm.mock_calls) == 1
 
 
@@ -260,7 +264,7 @@ async def test_ssdp(hass: HomeAssistant) -> None:
             DOMAIN, context={"source": config_entries.SOURCE_SSDP}
         )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_ABORT
+    assert result_init["type"] == data_entry_flow.FlowResultType.ABORT
     assert result_init["handler"] == DOMAIN
     assert result_init["reason"] == "discovery_started"
     assert len(mock_async_start_discovery.mock_calls) == 1
@@ -284,7 +288,7 @@ async def test_dhcp(hass: HomeAssistant) -> None:
             DOMAIN, context={"source": config_entries.SOURCE_DHCP}
         )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_ABORT
+    assert result_init["type"] == data_entry_flow.FlowResultType.ABORT
     assert result_init["handler"] == DOMAIN
     assert result_init["reason"] == "discovery_started"
     assert len(mock_async_start_discovery.mock_calls) == 1
@@ -305,7 +309,7 @@ async def test_integration_discovery(hass: HomeAssistant) -> None:
         data={CONF_IP_ADDRESS: MOCK_IP_ADDRESS},
     )
 
-    assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+    assert result_init["type"] == data_entry_flow.FlowResultType.FORM
     assert result_init["handler"] == DOMAIN
     assert result_init["step_id"] == "discovery_confirm"
 
@@ -349,7 +353,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        assert result_init["type"] == data_entry_flow.RESULT_TYPE_FORM
+        assert result_init["type"] == data_entry_flow.FlowResultType.FORM
         assert result_init["step_id"] == "init"
 
         result_save = await hass.config_entries.options.async_configure(
@@ -357,7 +361,7 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
-    assert result_save["type"] == data_entry_flow.RESULT_TYPE_CREATE_ENTRY
+    assert result_save["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
     assert (
         config_entry.options[CONF_IP_ADDRESS] == OPTIONS_FLOW_EDIT_DATA[CONF_IP_ADDRESS]
     )
@@ -409,9 +413,10 @@ async def test_options_flow_ip_error(hass: HomeAssistant) -> None:
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
-    assert result_save["errors"] == {"base": "ip_address.not_matched"}
+    assert result_save["errors"] == {"base": "router.error_with_reason"}
     assert len(mock_async_setup_entry.mock_calls) == 1
-    assert len(mock_luci_client.mock_calls) == 4
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -455,7 +460,8 @@ async def test_options_flow_token_error(hass: HomeAssistant) -> None:
 
     assert result_save["errors"] == {"base": "password.not_matched"}
     assert len(mock_async_setup_entry.mock_calls) == 1
-    assert len(mock_luci_client.mock_calls) == 4
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -509,4 +515,5 @@ async def test_options_flow_undefined_router(hass: HomeAssistant) -> None:
     assert result_save["errors"] == {"base": "router.not.supported"}
     assert len(mock_async_setup_entry.mock_calls) == 1
     assert len(mock_async_self_check.mock_calls) == 1
-    assert len(mock_luci_client.mock_calls) == 5
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited_once()

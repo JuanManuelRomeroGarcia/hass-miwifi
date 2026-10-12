@@ -78,7 +78,7 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.enum import Connection, Mode, Model
 from custom_components.miwifi.updater import LuciUpdater
-from tests.setup import async_mock_luci_client, async_setup
+from tests.setup import async_first_refresh, async_mock_luci_client, async_setup
 
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
 MOCK_PASSWORD: Final = "**REDACTED**"
@@ -116,7 +116,7 @@ async def test_updater_default_mode(
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -327,7 +327,7 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -444,7 +444,7 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -556,7 +556,7 @@ async def test_updater_incorrect_mac_default_mode(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -651,7 +651,7 @@ async def test_updater_default_mode_auto_remove(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -743,7 +743,7 @@ async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -
         updater: LuciUpdater = setup_data[0]
         config_entry: MockConfigEntry = setup_data[1]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()

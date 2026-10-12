@@ -13,7 +13,7 @@ import pytest
 from homeassistant.components.device_tracker import (
     ENTITY_ID_FORMAT as DEVICE_TRACKER_ENTITY_ID_FORMAT,
 )
-from homeassistant.components.device_tracker import SOURCE_TYPE_ROUTER
+from homeassistant.components.device_tracker import SourceType
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     STATE_HOME,
@@ -62,10 +62,8 @@ async def test_init(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -89,7 +87,7 @@ async def test_init(hass: HomeAssistant) -> None:
         assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "00:00:00:00:00:01"
         assert state.attributes["scanner"] == DOMAIN
@@ -106,7 +104,7 @@ async def test_init(hass: HomeAssistant) -> None:
         assert state.name == "Device 2"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.3"
         assert state.attributes["mac"] == "00:00:00:00:00:02"
         assert state.attributes["scanner"] == DOMAIN
@@ -123,7 +121,7 @@ async def test_init(hass: HomeAssistant) -> None:
         assert state.name == "Device 3"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.4"
         assert state.attributes["mac"] == "00:00:00:00:00:03"
         assert state.attributes["scanner"] == DOMAIN
@@ -148,11 +146,9 @@ async def test_init_with_restore(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.helper.Store"
     ) as mock_store:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -181,7 +177,7 @@ async def test_init_with_restore(hass: HomeAssistant) -> None:
         assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "00:00:00:00:00:01"
         assert state.attributes["scanner"] == DOMAIN
@@ -198,7 +194,7 @@ async def test_init_with_restore(hass: HomeAssistant) -> None:
         assert state.name == "Device 2"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.3"
         assert state.attributes["mac"] == "00:00:00:00:00:02"
         assert state.attributes["scanner"] == DOMAIN
@@ -215,7 +211,7 @@ async def test_init_with_restore(hass: HomeAssistant) -> None:
         assert state.name == "Device 3"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.4"
         assert state.attributes["mac"] == "00:00:00:00:00:03"
         assert state.attributes["scanner"] == DOMAIN
@@ -232,7 +228,7 @@ async def test_init_with_restore(hass: HomeAssistant) -> None:
         assert state.name == "Device 5"
         assert state.attributes["icon"] == "mdi:lan-disconnect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.55"
         assert state.attributes["mac"] == "00:00:00:00:00:05"
         assert state.attributes["scanner"] == DOMAIN
@@ -256,10 +252,8 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_first, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_first:
-        mock_socket_first.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_first)
 
@@ -287,7 +281,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -304,7 +298,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -321,7 +315,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -338,7 +332,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -354,10 +348,8 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_second, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_second:
-        mock_socket_second.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_second)
 
@@ -397,7 +389,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -414,7 +406,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -431,7 +423,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -448,7 +440,7 @@ async def test_init_with_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -472,10 +464,8 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_first, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_first:
-        mock_socket_first.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_first)
 
@@ -511,7 +501,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -528,7 +518,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -545,7 +535,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -562,7 +552,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -578,10 +568,8 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_second, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_second:
-        mock_socket_second.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_second)
 
@@ -621,7 +609,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -638,7 +626,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -655,7 +643,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -672,7 +660,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -694,7 +682,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -711,7 +699,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -728,7 +716,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -745,7 +733,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -769,10 +757,8 @@ async def test_init_in_force_mode(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -800,7 +786,7 @@ async def test_init_in_force_mode(hass: HomeAssistant) -> None:
         assert state.name == "00:00:00:00:00:01"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] is None
         assert state.attributes["mac"] == "00:00:00:00:00:01"
         assert state.attributes["scanner"] == DOMAIN
@@ -817,7 +803,7 @@ async def test_init_in_force_mode(hass: HomeAssistant) -> None:
         assert state.name == "00:00:00:00:00:02"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] is None
         assert state.attributes["mac"] == "00:00:00:00:00:02"
         assert state.attributes["scanner"] == DOMAIN
@@ -844,10 +830,8 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_first, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_first:
-        mock_socket_first.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_first)
 
@@ -875,7 +859,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -892,7 +876,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -909,7 +893,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -926,7 +910,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -942,10 +926,8 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_second, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_second:
-        mock_socket_second.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_second)
 
@@ -985,7 +967,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -1002,7 +984,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -1019,7 +1001,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -1036,7 +1018,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -1061,11 +1043,9 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant) -> None
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.helper.Store"
     ) as mock_store:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -1096,7 +1076,7 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant) -> None
         assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "00:00:00:00:00:01"
         assert state.attributes["scanner"] == DOMAIN
@@ -1113,7 +1093,7 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant) -> None
         assert state.name == "Device 2"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.3"
         assert state.attributes["mac"] == "00:00:00:00:00:02"
         assert state.attributes["scanner"] == DOMAIN
@@ -1130,7 +1110,7 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant) -> None
         assert state.name == "Device 3"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.4"
         assert state.attributes["mac"] == "00:00:00:00:00:03"
         assert state.attributes["scanner"] == DOMAIN
@@ -1147,7 +1127,7 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant) -> None
         assert state.name == "Device 5"
         assert state.attributes["icon"] == "mdi:lan-disconnect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.55"
         assert state.attributes["mac"] == "00:00:00:00:00:05"
         assert state.attributes["scanner"] == DOMAIN
@@ -1171,10 +1151,8 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_second, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_second:
-        mock_socket_second.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_second)
 
@@ -1205,10 +1183,8 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client_first, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket_first:
-        mock_socket_first.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client_first)
 
@@ -1240,7 +1216,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 1"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.2"
     assert state.attributes["mac"] == "00:00:00:00:00:01"
     assert state.attributes["scanner"] == DOMAIN
@@ -1257,7 +1233,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 2"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.3"
     assert state.attributes["mac"] == "00:00:00:00:00:02"
     assert state.attributes["scanner"] == DOMAIN
@@ -1274,7 +1250,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 3"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.4"
     assert state.attributes["mac"] == "00:00:00:00:00:03"
     assert state.attributes["scanner"] == DOMAIN
@@ -1291,7 +1267,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
     assert state.name == "Device 4 (Repeater)"
     assert state.attributes["icon"] == "mdi:lan-connect"
     assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
     assert state.attributes["scanner"] == DOMAIN
@@ -1327,11 +1303,9 @@ async def test_init_with_restore_and_remove(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.helper.Store"
     ) as mock_store:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -1366,7 +1340,7 @@ async def test_init_with_restore_and_remove(hass: HomeAssistant) -> None:
         assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "00:00:00:00:00:01"
         assert state.attributes["scanner"] == DOMAIN
@@ -1383,7 +1357,7 @@ async def test_init_with_restore_and_remove(hass: HomeAssistant) -> None:
         assert state.name == "Device 2"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.3"
         assert state.attributes["mac"] == "00:00:00:00:00:02"
         assert state.attributes["scanner"] == DOMAIN
@@ -1400,7 +1374,7 @@ async def test_init_with_restore_and_remove(hass: HomeAssistant) -> None:
         assert state.name == "Device 3"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.4"
         assert state.attributes["mac"] == "00:00:00:00:00:03"
         assert state.attributes["scanner"] == DOMAIN
@@ -1427,10 +1401,8 @@ async def test_init_detect_manufacturer(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -1472,7 +1444,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant) -> None:
         assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "CC:50:E3:96:29:78"
         assert state.attributes["scanner"] == DOMAIN
@@ -1502,10 +1474,8 @@ async def test_init_detect_url(hass: HomeAssistant) -> None:
         "custom_components.miwifi.updater.LuciClient"
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
-    ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket:
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+    ):
+
         mock_socket.return_value.connect_ex = Mock(return_value=0)
 
         await async_mock_luci_client(mock_luci_client)
@@ -1538,7 +1508,7 @@ async def test_init_detect_url(hass: HomeAssistant) -> None:
         assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
-        assert state.attributes["source_type"] == SOURCE_TYPE_ROUTER
+        assert state.attributes["source_type"] == SourceType.ROUTER
         assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "CC:50:E3:96:29:78"
         assert state.attributes["scanner"] == DOMAIN

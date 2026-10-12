@@ -11,6 +11,7 @@ from typing import Final
 from unittest.mock import AsyncMock
 
 from homeassistant import setup
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
@@ -91,6 +92,7 @@ async def async_setup(
         activity_days,
         None if without_store else get_store(hass, _ip),
         entry_id=config_entry.entry_id,
+        config_entry=config_entry,
     )
 
     @callback
@@ -118,6 +120,10 @@ async def async_setup(
 async def async_mock_luci_client(mock_luci_client) -> None:
     """Mock"""
 
+    mock_luci_client.return_value.diagnostics = {}
+    mock_luci_client.return_value.netmode = AsyncMock(return_value={"netmode": 0, "code": 0})
+    mock_luci_client.return_value.mac_filter_info = AsyncMock(return_value={"code": 0, "list": []})
+    mock_luci_client.return_value.portforward = AsyncMock(return_value={"code": 0, "list": []})
     mock_luci_client.return_value.logout = AsyncMock(return_value=None)
     mock_luci_client.return_value.login = AsyncMock(
         return_value=json.loads(load_fixture("login_data.json"))
@@ -215,3 +221,14 @@ class MultipleSideEffect:  # pylint: disable=too-few-public-methods
 
         func = next(self.funcs)
         return func(*args, **kwargs)
+
+
+async def async_first_refresh(updater):
+    """Run the first-refresh API within the HA config-entry setup lifecycle."""
+    entry = updater.config_entry
+    state = entry.state
+    entry.mock_state(updater.hass, ConfigEntryState.SETUP_IN_PROGRESS)
+    try:
+        await updater.async_config_entry_first_refresh()
+    finally:
+        entry.mock_state(updater.hass, state)

@@ -620,7 +620,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         self._unsub_refresh = event.async_track_point_in_utc_time(
             self.hass,
-            self._job,
+            self._handle_refresh_interval,
             utcnow().replace(microsecond=0) + offset,
         )
 
