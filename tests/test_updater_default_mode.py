@@ -297,7 +297,10 @@ async def test_updater_default_mode(
     })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 3
-    assert len(mock_luci_client.mock_calls) == 17
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.status.assert_awaited_once()
+    mock_luci_client.return_value.device_list.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -412,7 +415,10 @@ async def test_updater_restore_data(hass: HomeAssistant) -> None:
 
     assert len(mock_async_dispatcher_send.mock_calls) == 4
     assert len(mock_store.mock_calls) == 3
-    assert len(mock_luci_client.mock_calls) == 17
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.status.assert_awaited_once()
+    mock_luci_client.return_value.device_list.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -529,7 +535,10 @@ async def test_updater_incorrect_connection_restore_data(hass: HomeAssistant) ->
 
     assert len(mock_async_dispatcher_send.mock_calls) == 4
     assert len(mock_store.mock_calls) == 3
-    assert len(mock_luci_client.mock_calls) == 17
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.status.assert_awaited_once()
+    mock_luci_client.return_value.device_list.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -621,7 +630,10 @@ async def test_updater_incorrect_mac_default_mode(hass: HomeAssistant) -> None:
     })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 2
-    assert len(mock_luci_client.mock_calls) == 17
+    mock_luci_client.return_value.login.assert_awaited_once()
+    mock_luci_client.return_value.status.assert_awaited_once()
+    mock_luci_client.return_value.device_list.assert_awaited_once()
+    mock_luci_client.return_value.logout.assert_awaited()
 
 
 @pytest.mark.asyncio

@@ -30,12 +30,24 @@ def pytest_addoption(parser):
 
 @pytest.fixture
 async def legacy_clock(configure_event_loop):
-    """Advance wall-clock time without freezing asyncio's monotonic clock."""
+    """Advance wall time and timer deadlines while asyncio keeps ticking."""
     loop = asyncio.get_running_loop()
     with freezegun.freeze_time(real_asyncio=True) as clock:
         # HA binds loop.time directly on the instance. Freezegun's real_asyncio
         # option only restores the loop class method, leaving this binding frozen.
-        with patch.object(loop, "time", freezegun.api.real_monotonic):
+        # Time-change callbacks fire scheduled timers, but HA debouncers also
+        # compare loop.time() with their cooldown deadlines. Advancing only wall
+        # time leaves those callbacks waiting on a real-time cooldown.
+        offset = [0.0]
+        original_move_to = clock.move_to
+
+        def move_to(when):
+            before = clock()
+            original_move_to(when)
+            offset[0] += (clock() - before).total_seconds()
+
+        clock.move_to = move_to
+        with patch.object(loop, "time", lambda: freezegun.api.real_monotonic() + offset[0]):
             yield clock
 
 

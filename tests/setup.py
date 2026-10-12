@@ -246,12 +246,12 @@ def async_advance_time(hass, freezer, when):
     freezer.move_to(when)
 
 
-def assert_snapshot_contains(actual, expected):
+def assert_snapshot_contains(actual, expected, path="snapshot"):
     """Check fixture fields without rejecting newly added diagnostic metadata."""
     if isinstance(expected, dict):
-        assert isinstance(actual, dict)
+        assert isinstance(actual, dict), f"{path}: expected dict, got {actual!r}"
         for key, value in expected.items():
-            assert key in actual, f"Missing fixture field: {key}"
-            assert_snapshot_contains(actual[key], value)
+            assert key in actual, f"Missing fixture field: {path}.{key}"
+            assert_snapshot_contains(actual[key], value, f"{path}.{key}")
     else:
-        assert actual == expected
+        assert actual == expected, f"{path}: {actual!r} != {expected!r}"
