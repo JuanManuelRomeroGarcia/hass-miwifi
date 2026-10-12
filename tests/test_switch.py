@@ -322,21 +322,21 @@ async def test_init_bsd(
         entry = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_2_4_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_2_4_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_2_4_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_GAME_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_GAME_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_GAME_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
@@ -347,21 +347,21 @@ async def test_init_bsd(
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_2_4_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_2_4_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_2_4_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_GAME_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_GAME_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_GAME_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
 
 

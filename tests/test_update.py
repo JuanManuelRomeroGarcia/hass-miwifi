@@ -258,7 +258,7 @@ async def test_need_update(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["title"] == "Xiaomi RA67 (XIAOMI RA67)"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["device_class"] == UpdateDeviceClass.FIRMWARE
-        assert state.attributes["friendly_name"] == ATTR_UPDATE_FIRMWARE_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_UPDATE_FIRMWARE_NAME}"
         assert entry is not None
         assert entry.entity_category == EntityCategory.CONFIG
 

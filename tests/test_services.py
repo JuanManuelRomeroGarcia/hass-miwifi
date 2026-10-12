@@ -128,7 +128,7 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
             blocking=True,
         )
 
-        assert passwords == ["🔐 Your passwd: <b>0f2d9073</b>"]
+        assert passwords == ["🔐 Your password is: <b>0f2d9073</b>"]
 
 
 @pytest.mark.asyncio
