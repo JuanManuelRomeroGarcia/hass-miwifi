@@ -27,10 +27,10 @@ async def test_scan_checks_endpoints_and_respects_router_mode(hass, raw_mode, sk
         result = await checker.run()
 
     assert checker.mode == Mode(raw_mode)
-    assert result["device_list"] is True
+    assert result["device_list"] is (None if skips_firmware else True)
     assert result["wifi_config"] is True
-    assert result["topo_graph"] is True
-    client.device_list.assert_awaited_once_with()
+    assert result["topo_graph"] is (None if skips_firmware else True)
+    assert client.device_list.await_count == (0 if skips_firmware else 1)
     assert client.rom_update.await_count == (0 if skips_firmware else 1)
     assert result["rom_update"] is (None if skips_firmware else True)
 

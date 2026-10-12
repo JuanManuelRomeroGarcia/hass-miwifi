@@ -44,8 +44,10 @@ jobs:
       - name: Compile integration
         run: python -m compileall -q custom_components/miwifi
       - name: Run tests
+        timeout-minutes: 10
         run: >-
-          python -m pytest -q --ha-suite=${{ matrix.suite }}
+          python -m pytest -v --ha-suite=${{ matrix.suite }}
+          -o faulthandler_timeout=60
           --continue-on-collection-errors
           --junitxml=pytest-${{ matrix.version }}-${{ matrix.suite }}.xml
           --cov=custom_components/miwifi --cov-report=term-missing

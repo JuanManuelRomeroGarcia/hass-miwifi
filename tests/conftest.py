@@ -25,6 +25,13 @@ def pytest_addoption(parser):
     parser.addoption("--ha-suite", choices=("maintained", "legacy"), default=None)
 
 
+def pytest_collection_modifyitems(items):
+    """Keep asyncio timers running while legacy tests advance wall-clock time."""
+    for item in items:
+        if item.path.name in LEGACY_TEST_FILES and "freezer" in item.fixturenames:
+            item.add_marker(pytest.mark.freeze_time(real_asyncio=True))
+
+
 def pytest_ignore_collect(collection_path, config):
     """Select files before import so legacy collection errors cannot break the gate."""
     suite = config.getoption("--ha-suite")
