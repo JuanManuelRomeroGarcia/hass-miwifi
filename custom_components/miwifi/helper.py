@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
@@ -300,3 +301,42 @@ def device_registry_rows(
     )
 
     return [device] if device is not None else []
+
+
+def async_remove_empty_client_device(hass: HomeAssistant, device_id: str | None) -> None:
+    """Drop a client's device row once no entity is left on it.
+
+    Tracker and client sensors share one row, and each platform removes only
+    its own entities, so whichever runs last finds the row empty. A row that
+    still holds any entity - the router's own, or another integration's - is
+    kept. Only MiWiFi's link is dropped: a row that another integration also
+    owns (older cores share rows between entries) loses the MiWiFi entry and
+    stays.
+
+    :param hass: HomeAssistant
+    :param device_id: str | None: the row the removed entities were on
+    """
+
+    if not device_id:
+        return
+
+    dev_reg = dr.async_get(hass)
+    if (device := dev_reg.async_get(device_id)) is None:
+        return
+
+    if er.async_entries_for_device(
+        er.async_get(hass), device_id, include_disabled_entities=True
+    ):
+        return
+
+    ours = {entry.entry_id for entry in hass.config_entries.async_entries(DOMAIN)}
+    owners = device_config_entry_ids(device)
+    if not owners & ours:
+        return
+
+    if owners <= ours:
+        dev_reg.async_remove_device(device_id)
+        return
+
+    for entry_id in owners & ours:
+        dev_reg.async_update_device(device_id, remove_config_entry_id=entry_id)
