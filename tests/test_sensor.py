@@ -527,7 +527,7 @@ async def test_update_uptime(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "8:06:26"
-        assert state.name == ATTR_SENSOR_UPTIME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_UPTIME_NAME}"
         assert state.attributes["icon"] == "mdi:timer-sand"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
@@ -624,7 +624,7 @@ async def test_update_vpn_uptime(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "3 days, 23:29:17"
-        assert state.name == ATTR_SENSOR_VPN_UPTIME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_VPN_UPTIME_NAME}"
         assert state.attributes["icon"] == "mdi:timer-sand"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
@@ -721,7 +721,7 @@ async def test_update_memory_usage(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "53"
-        assert state.name == ATTR_SENSOR_MEMORY_USAGE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_MEMORY_USAGE_NAME}"
         assert state.attributes["icon"] == "mdi:memory"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
@@ -818,7 +818,7 @@ async def test_update_memory_total(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "256"
-        assert state.name == ATTR_SENSOR_MEMORY_TOTAL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_MEMORY_TOTAL_NAME}"
         assert state.attributes["icon"] == "mdi:memory"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
@@ -915,7 +915,7 @@ async def test_update_temperature(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "10.0"
-        assert state.name == ATTR_SENSOR_TEMPERATURE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_TEMPERATURE_NAME}"
         assert state.attributes["icon"] == "mdi:temperature-celsius"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
@@ -991,7 +991,7 @@ async def test_update_mode(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "default"
-        assert state.name == ATTR_SENSOR_MODE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_MODE_NAME}"
         assert state.attributes["icon"] == "mdi:transit-connection-variant"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -1072,7 +1072,7 @@ async def test_update_ap_signal(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "27"
-        assert state.name == ATTR_SENSOR_AP_SIGNAL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_AP_SIGNAL_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-arrow-left-right"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -1149,7 +1149,7 @@ async def test_update_download_speed(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "225064.0"
-        assert state.name == ATTR_SENSOR_WAN_DOWNLOAD_SPEED_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_WAN_DOWNLOAD_SPEED_NAME}"
         assert state.attributes["icon"] == "mdi:speedometer"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -1226,7 +1226,7 @@ async def test_update_upload_speed(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "19276.0"
-        assert state.name == ATTR_SENSOR_WAN_UPLOAD_SPEED_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_WAN_UPLOAD_SPEED_NAME}"
         assert state.attributes["icon"] == "mdi:speedometer"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -1303,7 +1303,7 @@ async def test_update_devices(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "3"
-        assert state.name == ATTR_SENSOR_DEVICES_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -1411,7 +1411,7 @@ async def test_update_devices_lan(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "1"
-        assert state.name == ATTR_SENSOR_DEVICES_LAN_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_LAN_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
@@ -1518,7 +1518,7 @@ async def test_update_devices_2_4(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "1"
-        assert state.name == ATTR_SENSOR_DEVICES_2_4_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_2_4_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
@@ -1625,7 +1625,7 @@ async def test_update_devices_5_0(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "1"
-        assert state.name == ATTR_SENSOR_DEVICES_5_0_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_5_0_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
@@ -1732,7 +1732,7 @@ async def test_update_devices_guest(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "0"
-        assert state.name == ATTR_SENSOR_DEVICES_GUEST_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_GUEST_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
@@ -1843,7 +1843,7 @@ async def test_update_devices_5_0_game(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "0"
-        assert state.name == ATTR_SENSOR_DEVICES_5_0_GAME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_5_0_GAME_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None

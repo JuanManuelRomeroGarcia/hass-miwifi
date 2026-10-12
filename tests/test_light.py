@@ -84,7 +84,7 @@ async def test_init(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.name == ATTR_LIGHT_LED_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_LIGHT_LED_NAME}"
         assert state.attributes["icon"] == "mdi:led-on"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -161,7 +161,6 @@ async def test_update_led(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -174,7 +173,6 @@ async def test_update_led(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -187,7 +185,6 @@ async def test_update_led(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -200,7 +197,6 @@ async def test_update_led(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)

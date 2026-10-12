@@ -246,7 +246,7 @@ async def test_update_channel_2_4(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "2"
-        assert state.name == ATTR_SELECT_WIFI_2_4_CHANNEL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SELECT_WIFI_2_4_CHANNEL_NAME}"
         assert state.attributes["icon"] == "mdi:format-list-numbered"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == ATTR_SELECT_WIFI_2_4_CHANNEL_OPTIONS
@@ -505,7 +505,6 @@ async def test_update_channel_2_4_change_channel(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "10"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -517,7 +516,6 @@ async def test_update_channel_2_4_change_channel(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "10"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -590,7 +588,7 @@ async def test_update_channel_5_0(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "149"
-        assert state.name == ATTR_SELECT_WIFI_5_0_CHANNEL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SELECT_WIFI_5_0_CHANNEL_NAME}"
         assert state.attributes["icon"] == "mdi:format-list-numbered"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == [
@@ -925,7 +923,6 @@ async def test_update_channel_5_0_change_channel(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "48"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -937,7 +934,6 @@ async def test_update_channel_5_0_change_channel(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "44"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1014,7 +1010,7 @@ async def test_update_channel_5_0_game(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "48"
-        assert state.name == ATTR_SELECT_WIFI_5_0_GAME_CHANNEL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SELECT_WIFI_5_0_GAME_CHANNEL_NAME}"
         assert state.attributes["icon"] == "mdi:format-list-numbered"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == ["36", "40", "44", "48"]
@@ -1283,7 +1279,6 @@ async def test_update_channel_5_0_game_change_channel(hass: HomeAssistant) -> No
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "36"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1295,7 +1290,6 @@ async def test_update_channel_5_0_game_change_channel(hass: HomeAssistant) -> No
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "40"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1370,7 +1364,7 @@ async def test_update_strength_2_4(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "max"
-        assert state.name == ATTR_SELECT_WIFI_2_4_SIGNAL_STRENGTH_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SELECT_WIFI_2_4_SIGNAL_STRENGTH_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-strength-4"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == ATTR_SELECT_SIGNAL_STRENGTH_OPTIONS
@@ -1576,7 +1570,6 @@ async def test_update_strength_2_4_change_strength(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "min"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1589,7 +1582,6 @@ async def test_update_strength_2_4_change_strength(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1665,7 +1657,7 @@ async def test_update_strength_5_0(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "max"
-        assert state.name == ATTR_SELECT_WIFI_5_0_SIGNAL_STRENGTH_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SELECT_WIFI_5_0_SIGNAL_STRENGTH_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-strength-4"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == ATTR_SELECT_SIGNAL_STRENGTH_OPTIONS
@@ -1870,7 +1862,6 @@ async def test_update_strength_5_0_change_channel(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "min"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1883,7 +1874,6 @@ async def test_update_strength_5_0_change_channel(hass: HomeAssistant) -> None:
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1963,7 +1953,7 @@ async def test_update_strength_5_0_game(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == "max"
-        assert state.name == ATTR_SELECT_WIFI_5_0_GAME_SIGNAL_STRENGTH_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SELECT_WIFI_5_0_GAME_SIGNAL_STRENGTH_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-strength-4"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["options"] == ATTR_SELECT_SIGNAL_STRENGTH_OPTIONS
@@ -2174,7 +2164,6 @@ async def test_update_strength_5_0_game_change_strength(hass: HomeAssistant) -> 
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "min"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -2187,7 +2176,6 @@ async def test_update_strength_5_0_game_change_strength(hass: HomeAssistant) -> 
             SERVICE_SELECT_OPTION,
             {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)

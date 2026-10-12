@@ -1280,9 +1280,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant) -> None:
     assert state.attributes["attribution"] == ATTRIBUTION
 
     device_registry = dr.async_get(hass)
-    device = device_registry.async_get_device(
-        set(), {(dr.CONNECTION_NETWORK_MAC, "00:00:00:00:00:04")}
-    )
+    device = device_registry.async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, "00:00:00:00:00:04"), config_entry.entry_id)
 
     assert device.connections == {
         (CONF_IP_ADDRESS, "192.168.31.100"),
@@ -1428,9 +1426,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant) -> None:
         assert updater.last_update_success
 
         device_registry = dr.async_get(hass)
-        device = device_registry.async_get_device(
-            set(), {(dr.CONNECTION_NETWORK_MAC, "CC:50:E3:96:29:78")}
-        )
+        device = device_registry.async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, "CC:50:E3:96:29:78"), config_entry.entry_id)
 
         device_registry.async_update_device(device.id, manufacturer=None)
 
@@ -1456,9 +1452,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant) -> None:
         assert state.attributes["up_speed"] == "0 B/s"
         assert state.attributes["attribution"] == ATTRIBUTION
 
-        device = device_registry.async_get_device(
-            set(), {(dr.CONNECTION_NETWORK_MAC, "CC:50:E3:96:29:78")}
-        )
+        device = device_registry.async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, "CC:50:E3:96:29:78"), config_entry.entry_id)
 
         assert device.manufacturer == MANUFACTURERS["CC50E3"]
 
@@ -1475,8 +1469,6 @@ async def test_init_detect_url(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ):
-
-        mock_socket.return_value.connect_ex = Mock(return_value=0)
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -1520,9 +1512,7 @@ async def test_init_detect_url(hass: HomeAssistant) -> None:
         assert state.attributes["up_speed"] == "0 B/s"
         assert state.attributes["attribution"] == ATTRIBUTION
 
-        device = device_registry.async_get_device(
-            set(), {(dr.CONNECTION_NETWORK_MAC, "CC:50:E3:96:29:78")}
-        )
+        device = device_registry.async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, "CC:50:E3:96:29:78"), config_entry.entry_id)
 
         assert device.configuration_url == "http://192.168.31.2"
 

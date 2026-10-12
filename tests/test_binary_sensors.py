@@ -83,7 +83,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(_generate_id(ATTR_STATE_NAME, updater))
         assert state.state == STATE_ON
-        assert state.name == ATTR_STATE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_STATE_NAME}"
         assert state.attributes["icon"] == "mdi:router-wireless"
         assert state.attributes["attribution"] == ATTRIBUTION
 
@@ -91,7 +91,7 @@ async def test_init(hass: HomeAssistant) -> None:
             _generate_id(ATTR_BINARY_SENSOR_WAN_STATE_NAME, updater)
         )
         assert wan_state.state == STATE_ON
-        assert wan_state.name == ATTR_BINARY_SENSOR_WAN_STATE_NAME
+        assert wan_state.name == f"{updater.data['model']} {ATTR_BINARY_SENSOR_WAN_STATE_NAME}"
         assert wan_state.attributes["icon"] == "mdi:wan"
         assert wan_state.attributes["attribution"] == ATTRIBUTION
 
@@ -150,7 +150,7 @@ async def test_update_state(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.name == ATTR_STATE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_STATE_NAME}"
         assert state.attributes["icon"] == "mdi:router-wireless"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -229,7 +229,7 @@ async def test_update_wan_state(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.name == ATTR_BINARY_SENSOR_WAN_STATE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_BINARY_SENSOR_WAN_STATE_NAME}"
         assert state.attributes["icon"] == "mdi:wan"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -327,7 +327,7 @@ async def test_update_dual_band(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_OFF
-        assert state.name == ATTR_BINARY_SENSOR_DUAL_BAND_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_BINARY_SENSOR_DUAL_BAND_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-plus"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
@@ -424,7 +424,7 @@ async def test_update_vpn_state(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_OFF
-        assert state.name == ATTR_BINARY_SENSOR_VPN_STATE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_BINARY_SENSOR_VPN_STATE_NAME}"
         assert state.attributes["icon"] == "mdi:security-network"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC

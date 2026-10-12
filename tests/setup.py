@@ -26,6 +26,7 @@ from custom_components.miwifi.const import (
     CONF_ACTIVITY_DAYS,
     CONF_ENCRYPTION_ALGORITHM,
     CONF_IS_FORCE_LOAD,
+    CONF_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
@@ -40,6 +41,7 @@ from custom_components.miwifi.updater import LuciUpdater
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
 MOCK_PASSWORD: Final = "**REDACTED**"
 OPTIONS_FLOW_DATA: Final = {
+    CONF_PROTOCOL: "http",
     CONF_IP_ADDRESS: MOCK_IP_ADDRESS,
     CONF_PASSWORD: MOCK_PASSWORD,
     CONF_TIMEOUT: DEFAULT_TIMEOUT,
@@ -93,6 +95,7 @@ async def async_setup(
         None if without_store else get_store(hass, _ip),
         entry_id=config_entry.entry_id,
         config_entry=config_entry,
+        protocol="http",
     )
 
     @callback

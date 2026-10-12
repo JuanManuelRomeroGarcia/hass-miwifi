@@ -414,7 +414,7 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_ON
-        assert state.name == ATTR_SWITCH_WIFI_2_4_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_2_4_NAME}"
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
@@ -564,7 +564,6 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -577,7 +576,6 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -590,7 +588,6 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -603,7 +600,6 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -663,7 +659,7 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_ON
-        assert state.name == ATTR_SWITCH_WIFI_5_0_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_NAME}"
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
@@ -813,7 +809,6 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -826,7 +821,6 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -839,7 +833,6 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -852,7 +845,6 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -921,7 +913,7 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_ON
-        assert state.name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_GAME_NAME}"
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
@@ -1088,7 +1080,6 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1101,7 +1092,6 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1114,7 +1104,6 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1127,7 +1116,6 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1203,7 +1191,7 @@ async def test_update_guest(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_OFF
-        assert state.name == ATTR_SWITCH_WIFI_GUEST_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_GUEST_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
@@ -1395,7 +1383,6 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1408,7 +1395,6 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1421,7 +1407,6 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1434,7 +1419,6 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)

@@ -80,7 +80,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
         state: State = hass.states.get(_generate_id(ATTR_BUTTON_REBOOT_NAME, updater))
         assert state.state == STATE_UNKNOWN
-        assert state.name == ATTR_BUTTON_REBOOT_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_BUTTON_REBOOT_NAME}"
         assert state.attributes["attribution"] == ATTRIBUTION
 
 
@@ -138,7 +138,7 @@ async def test_update_reboot(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_UNKNOWN
-        assert state.name == ATTR_BUTTON_REBOOT_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_BUTTON_REBOOT_NAME}"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
         assert entry.entity_category == EntityCategory.CONFIG
@@ -156,7 +156,6 @@ async def test_update_reboot(hass: HomeAssistant) -> None:
             SERVICE_PRESS,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
@@ -166,7 +165,6 @@ async def test_update_reboot(hass: HomeAssistant) -> None:
             SERVICE_PRESS,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2

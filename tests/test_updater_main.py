@@ -123,6 +123,9 @@ async def test_updater(hass: HomeAssistant) -> None:
     assert updater.device_info["sw_version"] is None
     assert updater.device_info["configuration_url"] == f"http://{MOCK_IP_ADDRESS}/"
 
+    await updater.async_shutdown()
+    assert updater._unsub_refresh is None
+
 
 @pytest.mark.asyncio
 async def test_updater_login_fail(hass: HomeAssistant) -> None:

@@ -130,7 +130,7 @@ async def test_user_ip_error(hass: HomeAssistant) -> None:
 
     assert result_configure["errors"] == {"base": "router.error_with_reason"}
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -161,7 +161,7 @@ async def test_token_error(hass: HomeAssistant) -> None:
 
     assert result_configure["errors"] == {"base": "password.not_matched"}
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -201,7 +201,7 @@ async def test_undefined_router(hass: HomeAssistant) -> None:
 
     assert result_configure["errors"] == {"base": "router.not.supported"}
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2
     assert len(mock_async_self_check.mock_calls) == 1
 
 
@@ -242,7 +242,7 @@ async def test_undefined_router_without_hardware_info(hass: HomeAssistant) -> No
 
     assert result_configure["errors"] == {"base": "router.not.supported"}
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2
     assert len(mock_async_create_pm.mock_calls) == 1
 
 
@@ -416,7 +416,7 @@ async def test_options_flow_ip_error(hass: HomeAssistant) -> None:
     assert result_save["errors"] == {"base": "router.error_with_reason"}
     assert len(mock_async_setup_entry.mock_calls) == 1
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -461,7 +461,7 @@ async def test_options_flow_token_error(hass: HomeAssistant) -> None:
     assert result_save["errors"] == {"base": "password.not_matched"}
     assert len(mock_async_setup_entry.mock_calls) == 1
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2
 
 
 @pytest.mark.asyncio
@@ -516,4 +516,4 @@ async def test_options_flow_undefined_router(hass: HomeAssistant) -> None:
     assert len(mock_async_setup_entry.mock_calls) == 1
     assert len(mock_async_self_check.mock_calls) == 1
     mock_luci_client.return_value.login.assert_awaited_once()
-    mock_luci_client.return_value.logout.assert_awaited_once()
+    assert mock_luci_client.return_value.logout.await_count == 2

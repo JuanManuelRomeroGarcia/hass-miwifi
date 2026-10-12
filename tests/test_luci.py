@@ -131,7 +131,7 @@ async def test_logout_error(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     await client.login()
     await client.logout()
 
-    assert client.diagnostics["logout"]["message"] == "Logout error"
+    assert client.diagnostics["web/logout"]["message"] == "Logout error"
 
 
 @pytest.mark.asyncio
@@ -357,7 +357,7 @@ async def test_mode(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
 
     await client.login()
 
-    assert await client.mode() == {"mode": 0}
+    assert await client.mode() == json.loads(load_fixture("mode_data.json"))
 
     request: Request | None = httpx_mock.get_request(method="GET")
     assert request is not None

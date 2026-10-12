@@ -87,7 +87,7 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
     :param hass: HomeAssistant
     """
 
-    def pn_check(hass: HomeAssistant, message: str, title: str) -> None:
+    def pn_check(hass: HomeAssistant, message: str, title: str, notification_id=None) -> None:
         assert title == NAME
         assert message == "Your passwd: 0f2d9073"
 
@@ -115,10 +115,7 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
-        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
@@ -127,7 +124,6 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
             SERVICE_CALC_PASSWD,
             target={CONF_DEVICE_ID: [device.id]},
             blocking=True,
-            limit=None,
         )
 
 
@@ -164,7 +160,6 @@ async def test_calc_passwd_not_found_device(hass: HomeAssistant) -> None:
                 SERVICE_CALC_PASSWD,
                 target={CONF_DEVICE_ID: ["test"]},
                 blocking=True,
-                limit=None,
             )
 
         assert str(error.value) == "Device test not found."
@@ -197,10 +192,7 @@ async def test_calc_passwd_unsupported_device(hass: HomeAssistant) -> None:
 
         device_identifier: str = "00:00:00:00:00:01"
         registry: dr.DeviceRegistry = dr.async_get(hass)
-        device: dr.DeviceEntry | None = registry.async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = registry.async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
@@ -210,7 +202,6 @@ async def test_calc_passwd_unsupported_device(hass: HomeAssistant) -> None:
                 SERVICE_CALC_PASSWD,
                 target={CONF_DEVICE_ID: [device.id]},
                 blocking=True,
-                limit=None,
             )
 
         assert (
@@ -252,10 +243,7 @@ async def test_calc_passwd_unsupported_device_with_integration(
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
-        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
@@ -265,7 +253,6 @@ async def test_calc_passwd_unsupported_device_with_integration(
                 SERVICE_CALC_PASSWD,
                 target={CONF_DEVICE_ID: [device.id]},
                 blocking=True,
-                limit=None,
             )
 
         assert (
@@ -289,9 +276,27 @@ async def test_request(
 
     httpx_mock.add_response(text=load_fixture("login_data.json"), method="POST")
     httpx_mock.add_response(
+        json={"code": 0, "list": []}, method="GET",
+        url=get_url("xqnetwork/wifi_macfilter_info"), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        text=load_fixture("topo_graph_data.json"), method="GET",
+        url=get_url("misystem/topo_graph", use_stok=False), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        json={"code": 0, "netmode": 0}, method="GET",
+        url=get_url("xqnetwork/get_netmode"), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        json={"code": 0}, method="GET",
+        url=f"http://192.168.31.1/cgi-bin/luci/;stok=**REDACTED**/web/logout",
+        is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
         text=load_fixture("init_info_data.json"),
         method="GET",
         url=get_url("xqsystem/init_info"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("status_data.json"),
@@ -302,6 +307,7 @@ async def test_request(
         text=load_fixture("mode_data.json"),
         method="GET",
         url=get_url("xqnetwork/mode"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_detail_all_data.json"),
@@ -375,10 +381,7 @@ async def test_request(
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
-        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
@@ -394,7 +397,6 @@ async def test_request(
             },
             target={CONF_DEVICE_ID: [device.id]},
             blocking=True,
-            limit=None,
         )
         await hass.async_block_till_done()
 

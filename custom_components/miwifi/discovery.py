@@ -69,7 +69,9 @@ def async_start_discovery(hass: HomeAssistant) -> None:
 
     # usa el loop de HA, no asyncio.create_task “pelado”
     hass.async_create_task(_async_discovery())
-    async_track_time_interval(hass, _async_discovery, DISCOVERY_INTERVAL)
+    async_track_time_interval(
+        hass, _async_discovery, DISCOVERY_INTERVAL, cancel_on_shutdown=True
+    )
 
 
 async def async_discover_devices(hass: HomeAssistant, client: AsyncClient) -> list[str]:

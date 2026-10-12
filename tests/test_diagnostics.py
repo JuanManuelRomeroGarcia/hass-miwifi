@@ -40,9 +40,27 @@ async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
 
     httpx_mock.add_response(text=load_fixture("login_data.json"), method="POST")
     httpx_mock.add_response(
+        json={"code": 0, "list": []}, method="GET",
+        url=get_url("xqnetwork/wifi_macfilter_info"), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        text=load_fixture("topo_graph_data.json"), method="GET",
+        url=get_url("misystem/topo_graph", use_stok=False), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        json={"code": 0, "netmode": 0}, method="GET",
+        url=get_url("xqnetwork/get_netmode"), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        json={"code": 0}, method="GET",
+        url=f"http://192.168.31.1/cgi-bin/luci/;stok=**REDACTED**/web/logout",
+        is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
         text=load_fixture("init_info_data.json"),
         method="GET",
         url=get_url("xqsystem/init_info"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("status_data.json"),
@@ -53,6 +71,7 @@ async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
         text=load_fixture("mode_data.json"),
         method="GET",
         url=get_url("xqnetwork/mode"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_detail_all_data.json"),
