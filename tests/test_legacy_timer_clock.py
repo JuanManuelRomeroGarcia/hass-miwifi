@@ -21,3 +21,24 @@ async def test_time_travel_runs_due_timer_and_advances_its_deadline(hass, legacy
         assert callbacks == ["due"]
     finally:
         handle.cancel()
+
+
+async def test_time_travel_rearms_poll_for_next_interval(hass, legacy_clock):
+    """A polling callback must not immediately run its newly scheduled timer."""
+    loop = asyncio.get_running_loop()
+    callbacks = []
+    handles = []
+
+    def poll():
+        callbacks.append(loop.time())
+        handles.append(loop.call_later(60, poll))
+
+    handles.append(loop.call_later(60, poll))
+    try:
+        for expected in range(1, 4):
+            async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=61))
+            await hass.async_block_till_done()
+            assert len(callbacks) == expected
+    finally:
+        for handle in handles:
+            handle.cancel()

@@ -242,8 +242,11 @@ async def async_first_refresh(updater):
 
 def async_advance_time(hass, freezer, when):
     """Advance the clock as well as firing timers, including deferred reloads."""
-    async_fire_time_changed(hass, when)
     freezer.move_to(when)
+    # Both wall time and loop deadlines must advance before callbacks run.
+    # Otherwise a callback rearms against the old loop time and fires again
+    # immediately after move_to, consuming an extra scripted polling response.
+    async_fire_time_changed(hass, when)
 
 
 def assert_snapshot_contains(actual, expected, path="snapshot"):

@@ -29,7 +29,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture
-async def legacy_clock(configure_event_loop):
+async def legacy_clock(configure_event_loop, hass):
     """Advance wall time and timer deadlines while asyncio keeps ticking."""
     loop = asyncio.get_running_loop()
     with freezegun.freeze_time(real_asyncio=True) as clock:
@@ -48,7 +48,12 @@ async def legacy_clock(configure_event_loop):
 
         clock.move_to = move_to
         with patch.object(loop, "time", lambda: freezegun.api.real_monotonic() + offset[0]):
-            yield clock
+            try:
+                yield clock
+            finally:
+                # Stop HA while its timer deadlines still use the same clock.
+                # Restoring real time first leaves shutdown timers in the future.
+                await hass.async_stop()
 
 
 def pytest_ignore_collect(collection_path, config):
