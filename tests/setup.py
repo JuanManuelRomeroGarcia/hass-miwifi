@@ -193,6 +193,18 @@ async def async_mock_luci_client(mock_luci_client) -> None:
     )
 
 
+def load_leaf_status() -> dict:
+    """Report the node MAC referenced by clients in the parent census.
+
+    The original fixture declares 01:00:00:00:00:00, while the client parent
+    and node row declare 00:00:00:00:00:04. These polling scenarios use one
+    node MAC; hardware/backhaul alias resolution is tested separately.
+    """
+    status = json.loads(load_fixture("status_parent_data.json"))
+    status["hardware"]["mac"] = "00:00:00:00:00:04"
+    return status
+
+
 def get_url(
     path: str,
     query_params: dict | None = None,

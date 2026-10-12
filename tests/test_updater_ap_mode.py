@@ -78,7 +78,7 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.enum import Connection, Mode, Model
 from custom_components.miwifi.updater import LuciUpdater
-from tests.setup import assert_snapshot_contains
+from tests.setup import assert_snapshot_contains, load_leaf_status
 from tests.setup import async_first_refresh, MultipleSideEffect, async_mock_luci_client, async_setup
 
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
@@ -113,6 +113,7 @@ async def test_updater_ap_mode(hass: HomeAssistant) -> None:
         mock_luci_client.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
 
         setup_data: list = await async_setup(hass)
 
@@ -264,6 +265,7 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
         mock_luci_client.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
 
         setup_data: list = await async_setup(hass)
 
@@ -408,9 +410,9 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
             ATTR_TRACKER_NAME: "00:00:00:00:00:01",
             ATTR_TRACKER_IP: None,
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "0:00:00",
+            ATTR_TRACKER_DOWN_SPEED: None,
+            ATTR_TRACKER_UP_SPEED: None,
+            ATTR_TRACKER_ONLINE: "",
             ATTR_TRACKER_LAST_ACTIVITY: updater.devices["00:00:00:00:00:01"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
@@ -425,9 +427,9 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
             ATTR_TRACKER_NAME: "00:00:00:00:00:02",
             ATTR_TRACKER_IP: None,
             ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "0:00:00",
+            ATTR_TRACKER_DOWN_SPEED: None,
+            ATTR_TRACKER_UP_SPEED: None,
+            ATTR_TRACKER_ONLINE: "",
             ATTR_TRACKER_LAST_ACTIVITY: updater.devices["00:00:00:00:00:02"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
@@ -458,13 +460,14 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
         mock_luci_client_first.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client_first.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client_first.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_parent_data.json")
             )
         )
         mock_luci_client_first.return_value.status = AsyncMock(
-            return_value=json.loads(load_fixture("status_parent_data.json"))
+            return_value=load_leaf_status()
         )
 
         setup_data: list = await async_setup(hass, "192.168.31.100")
@@ -533,7 +536,7 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -615,7 +618,7 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -639,13 +642,14 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
         mock_luci_client_first.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client_first.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client_first.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_parent_data.json")
             )
         )
         mock_luci_client_first.return_value.status = AsyncMock(
-            return_value=json.loads(load_fixture("status_parent_data.json"))
+            return_value=load_leaf_status()
         )
 
         setup_data: list = await async_setup(hass, "192.168.31.100")
@@ -715,7 +719,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -797,7 +801,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -918,7 +922,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -942,13 +946,14 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
         mock_luci_client_first.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client_first.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client_first.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_parent_data.json")
             )
         )
         mock_luci_client_first.return_value.status = AsyncMock(
-            return_value=json.loads(load_fixture("status_parent_data.json"))
+            return_value=load_leaf_status()
         )
         mock_luci_client_first.return_value.new_status = AsyncMock(
             return_value=json.loads(load_fixture("new_status_parent_data.json"))
@@ -1011,7 +1016,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -1093,7 +1098,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -1136,7 +1141,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -1156,7 +1161,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -1218,7 +1223,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -1242,13 +1247,14 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
         mock_luci_client_first.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client_first.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client_first.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_parent_data.json")
             )
         )
         mock_luci_client_first.return_value.status = AsyncMock(
-            return_value=json.loads(load_fixture("status_parent_data.json"))
+            return_value=load_leaf_status()
         )
         mock_luci_client_first.return_value.new_status = AsyncMock(
             return_value=json.loads(load_fixture("new_status_parent_data.json"))
@@ -1325,7 +1331,7 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -1390,7 +1396,7 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -1414,13 +1420,14 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
         mock_luci_client_first.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client_first.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client_first.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_parent_data.json")
             )
         )
         mock_luci_client_first.return_value.status = AsyncMock(
-            return_value=json.loads(load_fixture("status_parent_data.json"))
+            return_value=load_leaf_status()
         )
 
         setup_data: list = await async_setup(hass, "192.168.31.100")
@@ -1500,7 +1507,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -1517,7 +1524,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:05",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 5 (Restored)",
             ATTR_TRACKER_IP: "192.168.31.101",
@@ -1597,13 +1604,13 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
         "00:00:00:00:00:05": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:05",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: None,
             ATTR_TRACKER_NAME: "Device 5 (Restored)",
             ATTR_TRACKER_IP: "192.168.31.101",
@@ -1636,13 +1643,14 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
         mock_luci_client_first.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client_first.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client_first.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_parent_data.json")
             )
         )
         mock_luci_client_first.return_value.status = AsyncMock(
-            return_value=json.loads(load_fixture("status_parent_data.json"))
+            return_value=load_leaf_status()
         )
         mock_luci_client_first.return_value.new_status = AsyncMock(
             return_value=json.loads(load_fixture("new_status_parent_data.json"))
@@ -1726,7 +1734,7 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "01:00:00:00:00:00",
+            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
             ATTR_TRACKER_NAME: "Device 1",
             ATTR_TRACKER_IP: "192.168.31.2",
@@ -1791,7 +1799,7 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
+            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
         },
     })
 
@@ -1815,6 +1823,7 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
         mock_luci_client.return_value.mode = AsyncMock(
             return_value=json.loads(load_fixture("mode_ap_data.json"))
         )
+        mock_luci_client.return_value.device_list = AsyncMock(return_value={"code": 0, "list": []})
         mock_luci_client.return_value.wifi_connect_devices = AsyncMock(
             return_value=json.loads(
                 load_fixture("wifi_connect_devices_incorrect_type_data.json")
@@ -1859,9 +1868,9 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
             ATTR_TRACKER_NAME: "00:00:00:00:00:01",
             ATTR_TRACKER_IP: None,
             ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "0:00:00",
+            ATTR_TRACKER_DOWN_SPEED: None,
+            ATTR_TRACKER_UP_SPEED: None,
+            ATTR_TRACKER_ONLINE: "",
             ATTR_TRACKER_LAST_ACTIVITY: updater.devices["00:00:00:00:00:01"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
@@ -1876,9 +1885,9 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
             ATTR_TRACKER_NAME: "00:00:00:00:00:02",
             ATTR_TRACKER_IP: None,
             ATTR_TRACKER_CONNECTION: None,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "0:00:00",
+            ATTR_TRACKER_DOWN_SPEED: None,
+            ATTR_TRACKER_UP_SPEED: None,
+            ATTR_TRACKER_ONLINE: "",
             ATTR_TRACKER_LAST_ACTIVITY: updater.devices["00:00:00:00:00:02"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
