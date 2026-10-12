@@ -59,7 +59,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant, freezer) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -108,7 +108,7 @@ async def test_init(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_game(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_game(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -166,7 +166,7 @@ async def test_init_with_game(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_without_guest(hass: HomeAssistant, freezer) -> None:
+async def test_init_without_guest(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -220,7 +220,7 @@ async def test_init_without_guest(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_error(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_error(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -270,7 +270,7 @@ async def test_init_with_error(hass: HomeAssistant, freezer) -> None:
 
 @pytest.mark.asyncio
 async def test_init_bsd(
-    hass: HomeAssistant, freezer) -> None:
+    hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -339,7 +339,7 @@ async def test_init_bsd(
         assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_GAME_NAME
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -366,7 +366,7 @@ async def test_init_bsd(
 
 
 @pytest.mark.asyncio
-async def test_update_2_4(hass: HomeAssistant, freezer) -> None:
+async def test_update_2_4(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -404,7 +404,7 @@ async def test_update_2_4(hass: HomeAssistant, freezer) -> None:
 
         assert updater.last_update_success
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -420,7 +420,7 @@ async def test_update_2_4(hass: HomeAssistant, freezer) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -429,7 +429,7 @@ async def test_update_2_4(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_2_4_wifi_data(hass: HomeAssistant, freezer) -> None:
+async def test_update_2_4_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -490,7 +490,7 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant, freezer) -> None:
             "txbf": "3",
         })
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -509,7 +509,7 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_2_4_turn(hass: HomeAssistant, freezer) -> None:
+async def test_update_2_4_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -608,7 +608,7 @@ async def test_update_2_4_turn(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0(hass: HomeAssistant, freezer) -> None:
+async def test_update_5_0(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -646,7 +646,7 @@ async def test_update_5_0(hass: HomeAssistant, freezer) -> None:
 
         assert updater.last_update_success
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -662,7 +662,7 @@ async def test_update_5_0(hass: HomeAssistant, freezer) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -671,7 +671,7 @@ async def test_update_5_0(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_wifi_data(hass: HomeAssistant, freezer) -> None:
+async def test_update_5_0_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -732,7 +732,7 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant, freezer) -> None:
             "txpwr": "max",
         })
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -751,7 +751,7 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_turn(hass: HomeAssistant, freezer) -> None:
+async def test_update_5_0_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -850,7 +850,7 @@ async def test_update_5_0_turn(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game(hass: HomeAssistant, freezer) -> None:
+async def test_update_5_0_game(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0 game.
 
     :param hass: HomeAssistant
@@ -897,7 +897,7 @@ async def test_update_5_0_game(hass: HomeAssistant, freezer) -> None:
 
         assert updater.last_update_success
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -913,7 +913,7 @@ async def test_update_5_0_game(hass: HomeAssistant, freezer) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -922,7 +922,7 @@ async def test_update_5_0_game(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game_wifi_data(hass: HomeAssistant, freezer) -> None:
+async def test_update_5_0_game_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -991,7 +991,7 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant, freezer) -> None:
             "txpwr": "max",
         })
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1010,7 +1010,7 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game_turn(hass: HomeAssistant, freezer) -> None:
+async def test_update_5_0_game_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0 game.
 
     :param hass: HomeAssistant
@@ -1118,7 +1118,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_guest(hass: HomeAssistant, freezer) -> None:
+async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1167,11 +1167,11 @@ async def test_update_guest(hass: HomeAssistant, freezer) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1187,14 +1187,14 @@ async def test_update_guest(hass: HomeAssistant, freezer) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1203,7 +1203,7 @@ async def test_update_guest(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_guest_wifi_data(hass: HomeAssistant, freezer) -> None:
+async def test_update_guest_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1263,15 +1263,15 @@ async def test_update_guest_wifi_data(hass: HomeAssistant, freezer) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1291,7 +1291,7 @@ async def test_update_guest_wifi_data(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_guest_turn(hass: HomeAssistant, freezer) -> None:
+async def test_update_guest_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1345,11 +1345,11 @@ async def test_update_guest_turn(hass: HomeAssistant, freezer) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

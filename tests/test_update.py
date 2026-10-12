@@ -60,7 +60,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant, freezer) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -97,7 +97,7 @@ async def test_init(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_partial_firmware_information(hass: HomeAssistant, freezer) -> None:
+async def test_init_partial_firmware_information(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -142,7 +142,7 @@ async def test_init_partial_firmware_information(hass: HomeAssistant, freezer) -
 
 
 @pytest.mark.asyncio
-async def test_update(hass: HomeAssistant, freezer) -> None:
+async def test_update(hass: HomeAssistant, legacy_clock) -> None:
     """Test update.
 
     :param hass: HomeAssistant
@@ -197,7 +197,7 @@ async def test_update(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_need_update(hass: HomeAssistant, freezer) -> None:
+async def test_need_update(hass: HomeAssistant, legacy_clock) -> None:
     """Test need update.
 
     :param hass: HomeAssistant
@@ -243,7 +243,7 @@ async def test_need_update(hass: HomeAssistant, freezer) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -270,7 +270,7 @@ async def test_need_update(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_release_notes(hass: HomeAssistant, freezer) -> None:
+async def test_release_notes(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -310,7 +310,7 @@ async def test_release_notes(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_install(hass: HomeAssistant, freezer) -> None:
+async def test_install(hass: HomeAssistant, legacy_clock) -> None:
     """Test install.
 
     :param hass: HomeAssistant
@@ -351,7 +351,7 @@ async def test_install(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -364,7 +364,7 @@ async def test_install(hass: HomeAssistant, freezer) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -385,7 +385,7 @@ async def test_install(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_flash_error(hass: HomeAssistant, freezer) -> None:
+async def test_install_flash_error(hass: HomeAssistant, legacy_clock) -> None:
     """Test install.
 
     :param hass: HomeAssistant
@@ -436,7 +436,7 @@ async def test_install_flash_error(hass: HomeAssistant, freezer) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -452,7 +452,7 @@ async def test_install_flash_error(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_error(hass: HomeAssistant, freezer) -> None:
+async def test_install_error(hass: HomeAssistant, legacy_clock) -> None:
     """Test install error.
 
     :param hass: HomeAssistant
@@ -501,7 +501,7 @@ async def test_install_error(hass: HomeAssistant, freezer) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

@@ -242,8 +242,8 @@ async def async_first_refresh(updater):
 
 def async_advance_time(hass, freezer, when):
     """Advance the clock as well as firing timers, including deferred reloads."""
-    freezer.move_to(when)
     async_fire_time_changed(hass, when)
+    freezer.move_to(when)
 
 
 def assert_snapshot_contains(actual, expected):

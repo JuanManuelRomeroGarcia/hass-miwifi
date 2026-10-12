@@ -1,6 +1,7 @@
 """Separate maintained HA tests from the pre-existing legacy suite (#325)."""
 
 import pytest
+from freezegun import freeze_time
 from unittest.mock import patch
 
 # These modules assert old entity names, service signatures or removed HA APIs.
@@ -25,11 +26,11 @@ def pytest_addoption(parser):
     parser.addoption("--ha-suite", choices=("maintained", "legacy"), default=None)
 
 
-def pytest_collection_modifyitems(items):
-    """Keep asyncio timers running while legacy tests advance wall-clock time."""
-    for item in items:
-        if item.path.name in LEGACY_TEST_FILES and "freezer" in item.fixturenames:
-            item.add_marker(pytest.mark.freeze_time(real_asyncio=True))
+@pytest.fixture
+def legacy_clock():
+    """Advance wall-clock time without freezing asyncio's monotonic clock."""
+    with freeze_time(real_asyncio=True) as clock:
+        yield clock
 
 
 def pytest_ignore_collect(collection_path, config):

@@ -39,6 +39,18 @@ async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
     """
 
     httpx_mock.add_response(text=load_fixture("login_data.json"), method="POST")
+    # Capability detection repeats read-only polling endpoints and probes these.
+    for endpoint in ("misystem/qos_info", "xqsystem/flash_permission"):
+        httpx_mock.add_response(
+            json={"code": 0}, method="GET", url=get_url(endpoint),
+            is_reusable=True,
+        )
+    for endpoint in ("xqnetwork/portforward", "xqsystem/portforward"):
+        httpx_mock.add_response(
+            status_code=404, text="not found", method="GET",
+            url=get_url(endpoint, {"ftype": 1}), is_reusable=True,
+        )
+
     httpx_mock.add_response(
         json={"code": 0, "list": []}, method="GET",
         url=get_url("xqnetwork/wifi_macfilter_info"), is_optional=True, is_reusable=True,
@@ -66,6 +78,7 @@ async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
         text=load_fixture("status_data.json"),
         method="GET",
         url=get_url("misystem/status"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("mode_data.json"),
@@ -77,51 +90,61 @@ async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
         text=load_fixture("wifi_detail_all_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_detail_all"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_diag_detail_all_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_diag_detail_all"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("vpn_status_data.json"),
         method="GET",
         url=get_url("xqsystem/vpn_status"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("avaliable_channels_2g_data.json"),
         method="GET",
         url=get_url("xqnetwork/avaliable_channels", {"wifiIndex": 1}),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("avaliable_channels_5g_data.json"),
         method="GET",
         url=get_url("xqnetwork/avaliable_channels", {"wifiIndex": 2}),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wan_info_data.json"),
         method="GET",
         url=get_url("xqnetwork/wan_info"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("led_data.json"),
         method="GET",
         url=get_url("misystem/led", {}),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("device_list_data.json"),
         method="GET",
         url=get_url("misystem/devicelist"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_connect_devices_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_connect_devices"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("rom_update_data.json"),
         method="GET",
         url=get_url("xqsystem/check_rom_update"),
+        is_reusable=True,
     )
 
     with patch(

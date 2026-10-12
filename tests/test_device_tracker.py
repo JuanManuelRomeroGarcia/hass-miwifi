@@ -55,7 +55,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant, freezer) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -76,7 +76,7 @@ async def test_init(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -137,7 +137,7 @@ async def test_init(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_restore(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_restore(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -165,7 +165,7 @@ async def test_init_with_restore(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -243,7 +243,7 @@ async def test_init_with_restore(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_parent(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_parent(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -268,7 +268,7 @@ async def test_init_with_parent(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -371,10 +371,10 @@ async def test_init_with_parent(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -452,7 +452,7 @@ async def test_init_with_parent(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_parent_revert(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_parent_revert(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -485,7 +485,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -588,10 +588,10 @@ async def test_init_with_parent_revert(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -667,7 +667,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant, freezer) -> None:
     assert state.attributes["up_speed"] == "0 B/s"
     assert state.attributes["attribution"] == ATTRIBUTION
 
-    async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+    async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
     )
     await hass.async_block_till_done()
 
@@ -741,7 +741,7 @@ async def test_init_with_parent_revert(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_in_force_mode(hass: HomeAssistant, freezer) -> None:
+async def test_init_in_force_mode(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -766,7 +766,7 @@ async def test_init_in_force_mode(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -813,7 +813,7 @@ async def test_init_in_force_mode(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_force_and_parent(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_force_and_parent(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -838,7 +838,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -941,10 +941,10 @@ async def test_init_with_force_and_parent(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1022,7 +1022,7 @@ async def test_init_with_force_and_parent(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_restore_without_connection(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_restore_without_connection(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -1052,7 +1052,7 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant, freezer
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1130,7 +1130,7 @@ async def test_init_with_restore_without_connection(hass: HomeAssistant, freezer
 
 
 @pytest.mark.asyncio
-async def test_init_with_optional_parent(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_optional_parent(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -1163,7 +1163,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1186,10 +1186,10 @@ async def test_init_with_optional_parent(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1276,7 +1276,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_restore_and_remove(hass: HomeAssistant, freezer) -> None:
+async def test_init_with_restore_and_remove(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -1304,14 +1304,14 @@ async def test_init_with_restore_and_remove(hass: HomeAssistant, freezer) -> Non
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         updater._activity_days = 1
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1373,7 +1373,7 @@ async def test_init_with_restore_and_remove(hass: HomeAssistant, freezer) -> Non
 
 
 @pytest.mark.asyncio
-async def test_init_detect_manufacturer(hass: HomeAssistant, freezer) -> None:
+async def test_init_detect_manufacturer(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -1400,7 +1400,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1413,7 +1413,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant, freezer) -> None:
 
         device_registry.async_update_device(device.id, manufacturer=None)
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1440,7 +1440,7 @@ async def test_init_detect_manufacturer(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_detect_url(hass: HomeAssistant, freezer) -> None:
+async def test_init_detect_url(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -1466,7 +1466,7 @@ async def test_init_detect_url(hass: HomeAssistant, freezer) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

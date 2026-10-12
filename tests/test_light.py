@@ -51,7 +51,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant, freezer) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -95,7 +95,7 @@ async def test_init(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_led(hass: HomeAssistant, freezer) -> None:
+async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
     """Test update led.
 
     :param hass: HomeAssistant
@@ -152,7 +152,7 @@ async def test_update_led(hass: HomeAssistant, freezer) -> None:
 
         unique_id: str = _generate_id(ATTR_LIGHT_LED_NAME, updater)
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -206,7 +206,7 @@ async def test_update_led(hass: HomeAssistant, freezer) -> None:
         assert state.attributes["icon"] == "mdi:led-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 4
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

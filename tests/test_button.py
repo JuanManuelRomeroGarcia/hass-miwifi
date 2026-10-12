@@ -51,7 +51,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant, freezer) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -88,7 +88,7 @@ async def test_init(hass: HomeAssistant, freezer) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_reboot(hass: HomeAssistant, freezer) -> None:
+async def test_update_reboot(hass: HomeAssistant, legacy_clock) -> None:
     """Test update reboot.
 
     :param hass: HomeAssistant
@@ -147,7 +147,7 @@ async def test_update_reboot(hass: HomeAssistant, freezer) -> None:
         assert entry.entity_category == EntityCategory.CONFIG
         assert entry.original_device_class == ButtonDeviceClass.RESTART
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -171,7 +171,7 @@ async def test_update_reboot(hass: HomeAssistant, freezer) -> None:
 
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
