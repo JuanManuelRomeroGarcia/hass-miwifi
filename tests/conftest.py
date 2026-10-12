@@ -1,7 +1,9 @@
 """Separate maintained HA tests from the pre-existing legacy suite (#325)."""
 
+import asyncio
+
+import freezegun
 import pytest
-from freezegun import freeze_time
 from unittest.mock import patch
 
 # These modules assert old entity names, service signatures or removed HA APIs.
@@ -27,10 +29,14 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture
-def legacy_clock():
+async def legacy_clock(configure_event_loop):
     """Advance wall-clock time without freezing asyncio's monotonic clock."""
-    with freeze_time(real_asyncio=True) as clock:
-        yield clock
+    loop = asyncio.get_running_loop()
+    with freezegun.freeze_time(real_asyncio=True) as clock:
+        # HA binds loop.time directly on the instance. Freezegun's real_asyncio
+        # option only restores the loop class method, leaving this binding frozen.
+        with patch.object(loop, "time", freezegun.api.real_monotonic):
+            yield clock
 
 
 def pytest_ignore_collect(collection_path, config):
