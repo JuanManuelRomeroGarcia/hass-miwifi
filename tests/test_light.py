@@ -2,7 +2,10 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -48,7 +51,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -92,7 +95,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_led(hass: HomeAssistant) -> None:
+async def test_update_led(hass: HomeAssistant, freezer) -> None:
     """Test update led.
 
     :param hass: HomeAssistant
@@ -149,14 +152,13 @@ async def test_update_led(hass: HomeAssistant) -> None:
 
         unique_id: str = _generate_id(ATTR_LIGHT_LED_NAME, updater)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -168,7 +170,7 @@ async def test_update_led(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:led-on"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -180,7 +182,7 @@ async def test_update_led(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:led-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -192,7 +194,7 @@ async def test_update_led(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:led-on"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -204,8 +206,7 @@ async def test_update_led(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:led-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 4
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

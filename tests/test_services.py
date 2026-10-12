@@ -87,9 +87,11 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
     :param hass: HomeAssistant
     """
 
+    passwords = []
+
     def pn_check(hass: HomeAssistant, message: str, title: str, notification_id=None) -> None:
-        assert title == NAME
-        assert message == "Your passwd: 0f2d9073"
+        if title == NAME:
+            passwords.append(message)
 
     with patch(
         "custom_components.miwifi.updater.LuciClient"
@@ -119,12 +121,14 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
 
         assert device is not None
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             DOMAIN,
             SERVICE_CALC_PASSWD,
             target={CONF_DEVICE_ID: [device.id]},
             blocking=True,
         )
+
+        assert passwords == ["🔐 Your passwd: <b>0f2d9073</b>"]
 
 
 @pytest.mark.asyncio
@@ -388,7 +392,7 @@ async def test_request(
         assert await setup_automation(hass, device.id, EVENT_TYPE_RESPONSE)
         await hass.async_block_till_done()
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             DOMAIN,
             SERVICE_REQUEST,
             {

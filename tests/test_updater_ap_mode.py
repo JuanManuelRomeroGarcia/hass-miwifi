@@ -78,6 +78,7 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.enum import Connection, Mode, Model
 from custom_components.miwifi.updater import LuciUpdater
+from tests.setup import assert_snapshot_contains
 from tests.setup import async_first_refresh, MultipleSideEffect, async_mock_luci_client, async_setup
 
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
@@ -172,7 +173,7 @@ async def test_updater_ap_mode(hass: HomeAssistant) -> None:
     assert updater.data[ATTR_SWITCH_WIFI_2_4]
     assert updater.data[ATTR_SELECT_WIFI_2_4_CHANNEL] == "2"
     assert updater.data[ATTR_SELECT_WIFI_2_4_SIGNAL_STRENGTH] == "max"
-    assert updater.data[ATTR_WIFI_2_4_DATA] == {
+    assert_snapshot_contains(updater.data[ATTR_WIFI_2_4_DATA], {
         "ssid": "**REDACTED**",
         "pwd": "**REDACTED**",
         "bandwidth": "20",
@@ -182,11 +183,11 @@ async def test_updater_ap_mode(hass: HomeAssistant) -> None:
         "hidden": "0",
         "on": "1",
         "txbf": "3",
-    }
+    })
     assert updater.data[ATTR_SWITCH_WIFI_5_0]
     assert updater.data[ATTR_SELECT_WIFI_5_0_CHANNEL] == "149"
     assert updater.data[ATTR_SELECT_WIFI_5_0_SIGNAL_STRENGTH] == "max"
-    assert updater.data[ATTR_WIFI_5_0_DATA] == {
+    assert_snapshot_contains(updater.data[ATTR_WIFI_5_0_DATA], {
         "ssid": "**REDACTED**",
         "pwd": "**REDACTED**",
         "bandwidth": "0",
@@ -196,14 +197,14 @@ async def test_updater_ap_mode(hass: HomeAssistant) -> None:
         "hidden": "0",
         "on": "1",
         "txbf": "3",
-    }
+    })
     assert not updater.data[ATTR_SWITCH_WIFI_GUEST]
-    assert updater.data[ATTR_WIFI_GUEST_DATA] == {
+    assert_snapshot_contains(updater.data[ATTR_WIFI_GUEST_DATA], {
         "ssid": "**REDACTED**",
         "pwd": "**REDACTED**",
         "encryption": "none",
         "on": 0,
-    }
+    })
     assert updater.data[ATTR_WIFI_ADAPTER_LENGTH] == 2
     assert updater.data[ATTR_SELECT_WIFI_2_4_CHANNELS] == [
         "1",
@@ -238,7 +239,7 @@ async def test_updater_ap_mode(hass: HomeAssistant) -> None:
     assert ATTR_SENSOR_DEVICES_5_0_GAME not in updater.data
     assert updater.data[ATTR_STATE]
 
-    assert updater._signals == {"00:00:00:00:00:01": 100, "00:00:00:00:00:02": 100}
+    assert_snapshot_contains(updater._signals, {"00:00:00:00:00:01": 100, "00:00:00:00:00:02": 100})
 
     assert len(mock_async_dispatcher_send.mock_calls) == 0
     assert len(mock_luci_client.mock_calls) == 16
@@ -329,7 +330,7 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
     assert updater.data[ATTR_SWITCH_WIFI_2_4]
     assert updater.data[ATTR_SELECT_WIFI_2_4_CHANNEL] == "2"
     assert updater.data[ATTR_SELECT_WIFI_2_4_SIGNAL_STRENGTH] == "max"
-    assert updater.data[ATTR_WIFI_2_4_DATA] == {
+    assert_snapshot_contains(updater.data[ATTR_WIFI_2_4_DATA], {
         "ssid": "**REDACTED**",
         "pwd": "**REDACTED**",
         "bandwidth": "20",
@@ -339,11 +340,11 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
         "hidden": "0",
         "on": "1",
         "txbf": "3",
-    }
+    })
     assert updater.data[ATTR_SWITCH_WIFI_5_0]
     assert updater.data[ATTR_SELECT_WIFI_5_0_CHANNEL] == "149"
     assert updater.data[ATTR_SELECT_WIFI_5_0_SIGNAL_STRENGTH] == "max"
-    assert updater.data[ATTR_WIFI_5_0_DATA] == {
+    assert_snapshot_contains(updater.data[ATTR_WIFI_5_0_DATA], {
         "ssid": "**REDACTED**",
         "pwd": "**REDACTED**",
         "bandwidth": "0",
@@ -353,14 +354,14 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
         "hidden": "0",
         "on": "1",
         "txbf": "3",
-    }
+    })
     assert not updater.data[ATTR_SWITCH_WIFI_GUEST]
-    assert updater.data[ATTR_WIFI_GUEST_DATA] == {
+    assert_snapshot_contains(updater.data[ATTR_WIFI_GUEST_DATA], {
         "ssid": "**REDACTED**",
         "pwd": "**REDACTED**",
         "encryption": "none",
         "on": 0,
-    }
+    })
     assert updater.data[ATTR_WIFI_ADAPTER_LENGTH] == 2
     assert updater.data[ATTR_SELECT_WIFI_2_4_CHANNELS] == [
         "1",
@@ -395,9 +396,9 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
     assert updater.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
     assert updater.data[ATTR_STATE]
 
-    assert updater._signals == {"00:00:00:00:00:01": 100, "00:00:00:00:00:02": 100}
+    assert_snapshot_contains(updater._signals, {"00:00:00:00:00:01": 100, "00:00:00:00:00:02": 100})
 
-    assert updater.devices == {
+    assert_snapshot_contains(updater.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry.entry_id,
@@ -432,7 +433,7 @@ async def test_updater_ap_mode_force_load(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         },
-    }
+    })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 2
     assert len(mock_luci_client.mock_calls) == 27
@@ -527,7 +528,7 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
     assert len(mock_async_dispatcher_send_second.mock_calls) == 4
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -545,9 +546,9 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -616,7 +617,7 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
 
 @pytest.mark.asyncio
@@ -709,7 +710,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
     assert len(mock_async_dispatcher_send_second.mock_calls) == 4
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -727,9 +728,9 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -798,7 +799,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
     await updater_second.update()
     await updater_second.async_stop()
@@ -830,7 +831,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
     assert len(mock_async_dispatcher_send_second.mock_calls) == 4
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -848,9 +849,9 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -919,7 +920,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
 
 @pytest.mark.asyncio
@@ -1005,7 +1006,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
     assert len(mock_async_dispatcher_send_second.mock_calls) == 4
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1023,9 +1024,9 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1094,7 +1095,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
     updater_first.is_force_load = True
     await updater_first.update()
@@ -1130,7 +1131,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
     assert len(mock_async_dispatcher_send_second.mock_calls) == 4
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
@@ -1148,9 +1149,9 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
@@ -1219,7 +1220,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
 
 @pytest.mark.asyncio
@@ -1319,7 +1320,7 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
     assert len(mock_async_dispatcher_send_first.mock_calls) == 1
     assert len(mock_async_dispatcher_send_second.mock_calls) == 3
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
@@ -1337,9 +1338,9 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1391,7 +1392,7 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
 
 @pytest.mark.asyncio
@@ -1494,7 +1495,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
     assert len(mock_async_dispatcher_send_second.mock_calls) == 5
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1527,9 +1528,9 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: "2022-04-25T22:28:39",
             ATTR_TRACKER_OPTIONAL_MAC: None,
         },
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1613,7 +1614,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: "2022-04-25T22:28:39",
             ATTR_TRACKER_OPTIONAL_MAC: None,
         },
-    }
+    })
 
 
 @pytest.mark.asyncio
@@ -1720,7 +1721,7 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
     assert len(mock_async_dispatcher_send_first.mock_calls) == 1
     assert len(mock_async_dispatcher_send_second.mock_calls) == 3
 
-    assert updater_first.devices == {
+    assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
@@ -1738,9 +1739,9 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         }
-    }
+    })
 
-    assert updater_second.devices == {
+    assert_snapshot_contains(updater_second.devices, {
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1792,7 +1793,7 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: "01:00:00:00:00:00",
         },
-    }
+    })
 
 
 @pytest.mark.asyncio
@@ -1846,9 +1847,9 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
     assert updater.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
     assert updater.data[ATTR_STATE]
 
-    assert updater._signals == {"00:00:00:00:00:01": 100, "00:00:00:00:00:02": 100}
+    assert_snapshot_contains(updater._signals, {"00:00:00:00:00:01": 100, "00:00:00:00:00:02": 100})
 
-    assert updater.devices == {
+    assert_snapshot_contains(updater.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry.entry_id,
@@ -1883,7 +1884,7 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         },
-    }
+    })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 2
     assert len(mock_luci_client.mock_calls) == 27

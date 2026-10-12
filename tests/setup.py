@@ -20,7 +20,9 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from pytest_homeassistant_custom_component.common import MockConfigEntry, load_fixture
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry, load_fixture, async_fire_time_changed,
+)
 
 from custom_components.miwifi.const import (
     CONF_ACTIVITY_DAYS,
@@ -126,6 +128,7 @@ async def async_mock_luci_client(mock_luci_client) -> None:
     mock_luci_client.return_value.diagnostics = {}
     mock_luci_client.return_value.netmode = AsyncMock(return_value={"netmode": 0, "code": 0})
     mock_luci_client.return_value.mac_filter_info = AsyncMock(return_value={"code": 0, "list": []})
+    mock_luci_client.return_value.macfilter_info = AsyncMock(return_value={"code": 0, "list": []})
     mock_luci_client.return_value.portforward = AsyncMock(return_value={"code": 0, "list": []})
     mock_luci_client.return_value.logout = AsyncMock(return_value=None)
     mock_luci_client.return_value.login = AsyncMock(
@@ -235,3 +238,20 @@ async def async_first_refresh(updater):
         await updater.async_config_entry_first_refresh()
     finally:
         entry.mock_state(updater.hass, state)
+
+
+def async_advance_time(hass, freezer, when):
+    """Advance the clock as well as firing timers, including deferred reloads."""
+    freezer.move_to(when)
+    async_fire_time_changed(hass, when)
+
+
+def assert_snapshot_contains(actual, expected):
+    """Check fixture fields without rejecting newly added diagnostic metadata."""
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict)
+        for key, value in expected.items():
+            assert key in actual, f"Missing fixture field: {key}"
+            assert_snapshot_contains(actual[key], value)
+    else:
+        assert actual == expected

@@ -1574,6 +1574,11 @@ class LuciUpdater(DataUpdateCoordinator):
             if not isinstance(device, dict):
                 continue
 
+            mac = device.get(ATTR_TRACKER_MAC)
+            if not isinstance(mac, str) or not mac.strip():
+                continue
+            device[ATTR_TRACKER_MAC] = mac.strip().upper()
+
             # Skip mesh/AP nodes from client counters and trackers
             try:
                 if int(device.get("isap", 0) or 0) > 0:

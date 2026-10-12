@@ -2,7 +2,10 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -48,7 +51,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -85,7 +88,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_reboot(hass: HomeAssistant) -> None:
+async def test_update_reboot(hass: HomeAssistant, freezer) -> None:
     """Test update reboot.
 
     :param hass: HomeAssistant
@@ -144,14 +147,13 @@ async def test_update_reboot(hass: HomeAssistant) -> None:
         assert entry.entity_category == EntityCategory.CONFIG
         assert entry.original_device_class == ButtonDeviceClass.RESTART
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -160,7 +162,7 @@ async def test_update_reboot(hass: HomeAssistant) -> None:
 
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             BUTTON_DOMAIN,
             SERVICE_PRESS,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -169,8 +171,7 @@ async def test_update_reboot(hass: HomeAssistant) -> None:
 
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

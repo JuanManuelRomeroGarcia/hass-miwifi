@@ -456,7 +456,11 @@ async def test_updater_key_error_rom_update(hass: HomeAssistant) -> None:
 
         await hass.async_block_till_done()
 
-    assert ATTR_UPDATE_FIRMWARE not in updater.data
+    firmware = updater.data[ATTR_UPDATE_FIRMWARE]
+    assert firmware[ATTR_UPDATE_CURRENT_VERSION] == "3.0.34"
+    assert firmware[ATTR_UPDATE_LATEST_VERSION] == "3.0.35"
+    assert ATTR_UPDATE_DOWNLOAD_URL not in firmware
+    assert ATTR_UPDATE_FILE_HASH not in firmware
 
 
 @pytest.mark.asyncio

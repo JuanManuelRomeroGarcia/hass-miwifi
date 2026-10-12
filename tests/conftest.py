@@ -1,6 +1,7 @@
 """Separate maintained HA tests from the pre-existing legacy suite (#325)."""
 
 import pytest
+from unittest.mock import patch
 
 # These modules assert old entity names, service signatures or removed HA APIs.
 # Their failures are reported by a separate CI job, never silently skipped.
@@ -38,3 +39,24 @@ def pytest_ignore_collect(collection_path, config):
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_legacy_entity_capability_probes(request):
+    """Entity refresh scripts describe polling, not the separate capability scan.
+
+    Keep their endpoint side effects deterministic. The real probe is exercised
+    by test_capability_detection.py rather than consuming these scripted polls.
+    """
+    if request.node.path.name not in {
+        "test_binary_sensors.py", "test_button.py", "test_device_tracker.py",
+        "test_light.py", "test_select.py", "test_sensor.py", "test_switch.py",
+        "test_update.py",
+    }:
+        yield
+        return
+    with patch(
+        "custom_components.miwifi.compatibility.CompatibilityChecker.run",
+        return_value={"device_list": True, "wifi_config": True, "portforward": False},
+    ):
+        yield

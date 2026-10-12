@@ -2,7 +2,11 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import assert_snapshot_contains
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -55,7 +59,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -104,7 +108,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_game(hass: HomeAssistant) -> None:
+async def test_init_with_game(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -162,7 +166,7 @@ async def test_init_with_game(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_without_guest(hass: HomeAssistant) -> None:
+async def test_init_without_guest(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -216,7 +220,7 @@ async def test_init_without_guest(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_error(hass: HomeAssistant) -> None:
+async def test_init_with_error(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -266,8 +270,7 @@ async def test_init_with_error(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_init_bsd(
-    hass: HomeAssistant,
-) -> None:
+    hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -336,8 +339,7 @@ async def test_init_bsd(
         assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_GAME_NAME
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -364,7 +366,7 @@ async def test_init_bsd(
 
 
 @pytest.mark.asyncio
-async def test_update_2_4(hass: HomeAssistant) -> None:
+async def test_update_2_4(hass: HomeAssistant, freezer) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -402,8 +404,7 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
 
         assert updater.last_update_success
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -419,8 +420,7 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -429,7 +429,7 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_2_4_wifi_data(hass: HomeAssistant, freezer) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -478,7 +478,7 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_2_4_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_2_4_DATA), {
             "ssid": "**REDACTED**",
             "pwd": "**REDACTED**",
             "encryption": "psk2",
@@ -488,15 +488,14 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
             "hidden": "0",
             "on": "1",
             "txbf": "3",
-        }
+        })
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_2_4_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_2_4_DATA), {
             "ssid": "**REDACTED**",
             "pwd": "**REDACTED**",
             "encryption": "psk2",
@@ -506,11 +505,11 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
             "hidden": "0",
             "on": "1",
             "txbf": "3",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_2_4_turn(hass: HomeAssistant) -> None:
+async def test_update_2_4_turn(hass: HomeAssistant, freezer) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -559,7 +558,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -571,7 +570,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -583,7 +582,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -595,7 +594,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -609,7 +608,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0(hass: HomeAssistant) -> None:
+async def test_update_5_0(hass: HomeAssistant, freezer) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -647,8 +646,7 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
 
         assert updater.last_update_success
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -664,8 +662,7 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -674,7 +671,7 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_5_0_wifi_data(hass: HomeAssistant, freezer) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -723,7 +720,7 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_DATA), {
             "bandwidth": "0",
             "channel": 149,
             "encryption": "psk2",
@@ -733,15 +730,14 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "max",
-        }
+        })
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_DATA), {
             "bandwidth": "0",
             "channel": 149,
             "encryption": "psk2",
@@ -751,11 +747,11 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "min",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_turn(hass: HomeAssistant) -> None:
+async def test_update_5_0_turn(hass: HomeAssistant, freezer) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -804,7 +800,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -816,7 +812,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -828,7 +824,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -840,7 +836,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -854,7 +850,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game(hass: HomeAssistant) -> None:
+async def test_update_5_0_game(hass: HomeAssistant, freezer) -> None:
     """Test update 5.0 game.
 
     :param hass: HomeAssistant
@@ -901,8 +897,7 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
 
         assert updater.last_update_success
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -918,8 +913,7 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -928,7 +922,7 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_5_0_game_wifi_data(hass: HomeAssistant, freezer) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -985,7 +979,7 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_GAME_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_GAME_DATA), {
             "bandwidth": "0",
             "channel": 48,
             "encryption": "psk2",
@@ -995,15 +989,14 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "max",
-        }
+        })
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_GAME_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_GAME_DATA), {
             "bandwidth": "0",
             "channel": 48,
             "encryption": "psk2",
@@ -1013,11 +1006,11 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "min",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
+async def test_update_5_0_game_turn(hass: HomeAssistant, freezer) -> None:
     """Test update 5.0 game.
 
     :param hass: HomeAssistant
@@ -1075,7 +1068,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1087,7 +1080,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1099,7 +1092,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1111,7 +1104,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1125,7 +1118,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_guest(hass: HomeAssistant) -> None:
+async def test_update_guest(hass: HomeAssistant, freezer) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1174,13 +1167,11 @@ async def test_update_guest(hass: HomeAssistant) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1196,16 +1187,14 @@ async def test_update_guest(hass: HomeAssistant) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1214,7 +1203,7 @@ async def test_update_guest(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_guest_wifi_data(hass: HomeAssistant, freezer) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1256,12 +1245,12 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
         registry = er.async_get(hass)
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_GUEST_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_GUEST_DATA), {
             "encryption": "none",
             "on": 0,
             "pwd": "**REDACTED**",
             "ssid": "**REDACTED**",
-        }
+        })
 
         unique_id: str = _generate_id(ATTR_SWITCH_WIFI_GUEST_NAME, updater)
 
@@ -1274,18 +1263,15 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1296,16 +1282,16 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
         updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_GUEST_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_GUEST_DATA), {
             "encryption": "none",
             "on": 0,
             "pwd": "**NEW_REDACTED**",
             "ssid": "**REDACTED**",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_guest_turn(hass: HomeAssistant) -> None:
+async def test_update_guest_turn(hass: HomeAssistant, freezer) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1359,13 +1345,11 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -1378,7 +1362,7 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1390,7 +1374,7 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-lock-open"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1402,7 +1386,7 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -1414,7 +1398,7 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-lock-open"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},

@@ -2,7 +2,10 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -51,7 +54,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -107,7 +110,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_state(hass: HomeAssistant) -> None:
+async def test_update_state(hass: HomeAssistant, freezer) -> None:
     """Test update state.
 
     :param hass: HomeAssistant
@@ -156,8 +159,7 @@ async def test_update_state(hass: HomeAssistant) -> None:
         assert entry is not None
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -165,8 +167,7 @@ async def test_update_state(hass: HomeAssistant) -> None:
         assert state.state == STATE_ON
         assert state.attributes["icon"] == "mdi:router-wireless"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -176,7 +177,7 @@ async def test_update_state(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_wan_state(hass: HomeAssistant) -> None:
+async def test_update_wan_state(hass: HomeAssistant, freezer) -> None:
     """Test update wan state.
 
     :param hass: HomeAssistant
@@ -235,16 +236,14 @@ async def test_update_wan_state(hass: HomeAssistant) -> None:
         assert entry is not None
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -253,7 +252,7 @@ async def test_update_wan_state(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_dual_band(hass: HomeAssistant) -> None:
+async def test_update_dual_band(hass: HomeAssistant, freezer) -> None:
     """Test update dual_band.
 
     :param hass: HomeAssistant
@@ -312,13 +311,11 @@ async def test_update_dual_band(hass: HomeAssistant) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -332,16 +329,14 @@ async def test_update_dual_band(hass: HomeAssistant) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -350,7 +345,7 @@ async def test_update_dual_band(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_vpn_state(hass: HomeAssistant) -> None:
+async def test_update_vpn_state(hass: HomeAssistant, freezer) -> None:
     """Test update vpn_state.
 
     :param hass: HomeAssistant
@@ -409,13 +404,11 @@ async def test_update_vpn_state(hass: HomeAssistant) -> None:
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -429,16 +422,14 @@ async def test_update_vpn_state(hass: HomeAssistant) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 

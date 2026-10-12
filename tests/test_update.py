@@ -2,7 +2,10 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -57,7 +60,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -94,7 +97,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_unsupported(hass: HomeAssistant) -> None:
+async def test_init_partial_firmware_information(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -130,12 +133,16 @@ async def test_init_unsupported(hass: HomeAssistant) -> None:
         assert updater.last_update_success
 
         unique_id: str = _generate_id(ATTR_UPDATE_FIRMWARE_NAME, updater)
-        assert hass.states.get(unique_id) is None
-        assert registry.async_get(unique_id) is None
+        state = hass.states.get(unique_id)
+        assert state is not None
+        assert state.state == STATE_ON
+        assert state.attributes["installed_version"] == "3.0.34"
+        assert state.attributes["latest_version"] == "3.0.35"
+        assert registry.async_get(unique_id) is not None
 
 
 @pytest.mark.asyncio
-async def test_update(hass: HomeAssistant) -> None:
+async def test_update(hass: HomeAssistant, freezer) -> None:
     """Test update.
 
     :param hass: HomeAssistant
@@ -178,7 +185,7 @@ async def test_update(hass: HomeAssistant) -> None:
         assert state.attributes["title"] == "Xiaomi RA67 (XIAOMI RA67)"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["device_class"] == UpdateDeviceClass.FIRMWARE
-        assert state.attributes["friendly_name"] == ATTR_UPDATE_FIRMWARE_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_UPDATE_FIRMWARE_NAME}"
         assert entry is not None
         assert entry.entity_category == EntityCategory.CONFIG
 
@@ -190,7 +197,7 @@ async def test_update(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_need_update(hass: HomeAssistant) -> None:
+async def test_need_update(hass: HomeAssistant, freezer) -> None:
     """Test need update.
 
     :param hass: HomeAssistant
@@ -236,8 +243,7 @@ async def test_need_update(hass: HomeAssistant) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -264,7 +270,7 @@ async def test_need_update(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_release_notes(hass: HomeAssistant) -> None:
+async def test_release_notes(hass: HomeAssistant, freezer) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -304,7 +310,7 @@ async def test_release_notes(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_install(hass: HomeAssistant) -> None:
+async def test_install(hass: HomeAssistant, freezer) -> None:
     """Test install.
 
     :param hass: HomeAssistant
@@ -345,8 +351,7 @@ async def test_install(hass: HomeAssistant) -> None:
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
         await hass.async_block_till_done()
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -359,8 +364,7 @@ async def test_install(hass: HomeAssistant) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -372,7 +376,7 @@ async def test_install(hass: HomeAssistant) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             UPDATE_DOMAIN,
             SERVICE_INSTALL,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -381,7 +385,7 @@ async def test_install(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_flash_error(hass: HomeAssistant) -> None:
+async def test_install_flash_error(hass: HomeAssistant, freezer) -> None:
     """Test install.
 
     :param hass: HomeAssistant
@@ -432,15 +436,14 @@ async def test_install_flash_error(hass: HomeAssistant) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             UPDATE_DOMAIN,
             SERVICE_INSTALL,
             {ATTR_ENTITY_ID: [unique_id]},
@@ -449,7 +452,7 @@ async def test_install_flash_error(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_install_error(hass: HomeAssistant) -> None:
+async def test_install_error(hass: HomeAssistant, freezer) -> None:
     """Test install error.
 
     :param hass: HomeAssistant
@@ -498,8 +501,7 @@ async def test_install_error(hass: HomeAssistant) -> None:
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, freezer, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done()
 
@@ -507,7 +509,7 @@ async def test_install_error(hass: HomeAssistant) -> None:
         assert state.state == STATE_ON
 
         with pytest.raises(HomeAssistantError):
-            assert await hass.services.async_call(
+            await hass.services.async_call(
                 UPDATE_DOMAIN,
                 SERVICE_INSTALL,
                 {ATTR_ENTITY_ID: [unique_id]},
