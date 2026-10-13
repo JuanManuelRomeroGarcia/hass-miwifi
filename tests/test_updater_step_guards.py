@@ -109,7 +109,7 @@ async def test_ap_signal_failure_does_not_abort_the_cycle() -> None:
 
 @pytest.mark.asyncio
 async def test_new_status_failure_does_not_abort_the_cycle() -> None:
-    """new_status is the last step, but it still marks the cycle failed."""
+    """An optional counter request must not abort a healthy router's poll."""
 
     updater = _updater(mode=Mode.DEFAULT, is_force_load=True)
     updater.luci.new_status = AsyncMock(side_effect=LuciRequestError("404"))

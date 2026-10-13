@@ -10,7 +10,7 @@ from custom_components.miwifi.const import (
     ATTR_SENSOR_MODE, ATTR_STATE, ATTR_WIFI_ADAPTER_LENGTH, DOMAIN,
 )
 from custom_components.miwifi.enum import Mode
-from custom_components.miwifi.exceptions import LuciRequestError
+from custom_components.miwifi.exceptions import LuciConnectionError, LuciRequestError
 from custom_components.miwifi.updater import LuciUpdater
 
 
@@ -21,7 +21,8 @@ from custom_components.miwifi.updater import LuciUpdater
     ("ap", "wifi_ap_signal"),
     ("new_status", "new_status"),
 ])
-async def test_failed_endpoint_does_not_skip_later_client_restore(hass, step, endpoint):
+@pytest.mark.parametrize("error", [LuciRequestError, LuciConnectionError])
+async def test_failed_endpoint_does_not_skip_later_client_restore(hass, step, endpoint, error):
     entry = MockConfigEntry(domain=DOMAIN)
     entry.add_to_hass(hass)
     with patch("custom_components.miwifi.updater.LuciClient"):
@@ -32,7 +33,7 @@ async def test_failed_endpoint_does_not_skip_later_client_restore(hass, step, en
     updater.data = {ATTR_SENSOR_MODE: Mode.REPEATER, ATTR_WIFI_ADAPTER_LENGTH: 2}
     updater.luci.login = AsyncMock()
     updater.luci.logout = AsyncMock()
-    failing = AsyncMock(side_effect=LuciRequestError("unsupported endpoint"))
+    failing = AsyncMock(side_effect=error("optional endpoint unavailable"))
     setattr(updater.luci, endpoint, failing)
     updater._async_prepare_device_restore = AsyncMock()
     updater._clean_devices = Mock()

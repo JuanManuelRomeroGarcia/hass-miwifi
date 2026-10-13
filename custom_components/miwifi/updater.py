@@ -158,7 +158,8 @@ def _find_leaf(graph: dict, ip: str) -> dict | None:
     for leaf in (graph.get("leafs") if isinstance(graph.get("leafs"), list) else []):
         if not isinstance(leaf, dict):
             continue
-        if leaf.get("ip") == ip:
+        leaf_ip = leaf.get("ip")
+        if isinstance(leaf_ip, str) and leaf_ip.strip() == ip:
             return leaf
         found = _find_leaf(leaf, ip)
         if found is not None:
@@ -2376,7 +2377,8 @@ class LuciUpdater(DataUpdateCoordinator):
             updater = integration.get(UPDATER)
             if not isinstance(updater, LuciUpdater):
                 continue
-            graph = ((updater.data or {}).get("topo_graph") or {}).get("graph")
+            topology = (updater.data or {}).get("topo_graph")
+            graph = topology.get("graph") if isinstance(topology, dict) else None
             if isinstance(graph, dict):
                 leaf = _find_leaf(graph, self.ip)
                 if leaf is not None:

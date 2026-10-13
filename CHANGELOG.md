@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Adapt @brembygit's topology-role and updater resilience contribution (#324) on the v3.9.1 baseline (#346). Use positive mesh/AP topology roles while preserving main-router, CB0401V2 and existing mesh-mode precedence; fall back to the mode endpoint when local or parent topology is malformed.
+- Normalize whitespace in topology leaf addresses before matching configured nodes, preserving both role detection and the parent topology's client-count fallback.
+- Contain optional WAN, channel, client-list, upstream signal and force-load counter endpoint failures so later preparation steps can continue. Retry them on later refreshes; critical login/status failures retain their existing error behavior.
+- Cancel coordinator polling before saving history or logging out, including a failed logout. Access verification uses this stop path once on every exit.
+
 ## 3.9.1 — 2026-10-13
 
 Maintenance release for client counters, private-MAC configuration and current Home Assistant compatibility. Includes #345, #347 and #348.

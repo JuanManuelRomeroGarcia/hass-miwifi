@@ -94,6 +94,14 @@ def test_leafs_are_found_through_nesting_and_past_malformed_entries() -> None:
     assert _find_leaf({}, LEAF_IP) is None
 
 
+def test_leaf_address_whitespace_preserves_role_and_count_mapping() -> None:
+    updater = _updater()
+    main = _main_with_leaf(leaf_ip=f" {LEAF_IP}\n", onlines=4)
+    with _patch_integrations(updater, main):
+        assert updater._topology_role() == Mode.MESH_NODE
+        assert updater._leaf_entry_from_other_nodes()["onlines"] == 4
+
+
 # --------------------------------------------------------------------------
 # Classification
 # --------------------------------------------------------------------------
@@ -193,3 +201,38 @@ async def test_malformed_topology_falls_back_to_the_mode_endpoint(topology):
         await updater._async_prepare_mode(data)
     updater.luci.mode.assert_awaited_once()
     assert data[ATTR_SENSOR_MODE] == Mode.DEFAULT
+
+
+@pytest.mark.parametrize("topology", [None, [], {"graph": []}, {"graph": "invalid"}])
+async def test_malformed_parent_topology_falls_back_to_the_mode_endpoint(topology):
+    updater = _updater()
+    parent = _updater(ip=MAIN_IP)
+    parent.data["topo_graph"] = topology
+    updater.luci.mode = AsyncMock(return_value={"mode": Mode.ACCESS_POINT.value})
+    data = {}
+    with _patch_integrations(updater, parent):
+        await updater._async_prepare_mode(data)
+    updater.luci.mode.assert_awaited_once()
+    assert data[ATTR_SENSOR_MODE] == Mode.ACCESS_POINT
+
+
+@pytest.mark.parametrize("special", ["main", "cpe", "mesh_shortcut"])
+async def test_topology_does_not_override_main_cpe_or_mesh_shortcut(special):
+    updater = _updater()
+    updater.data["topo_graph"] = {"graph": {"mode": Mode.MESH_NODE.value}}
+    updater.luci.mode = AsyncMock(return_value={"mode": Mode.ACCESS_POINT.value})
+    if special == "main":
+        updater.data["topo_graph"]["graph"]["is_main"] = True
+    elif special == "cpe":
+        updater._is_cb0401v2 = True
+    else:
+        updater.data[ATTR_SENSOR_MODE] = Mode.MESH
+    data = dict(updater.data)
+    with _patch_integrations(updater):
+        await updater._async_prepare_mode(data)
+    if special == "main":
+        updater.luci.mode.assert_awaited_once()
+        assert data[ATTR_SENSOR_MODE] == Mode.ACCESS_POINT
+    else:
+        updater.luci.mode.assert_not_awaited()
+        assert data[ATTR_SENSOR_MODE] == (Mode.DEFAULT if special == "cpe" else Mode.MESH)
