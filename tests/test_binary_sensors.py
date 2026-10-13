@@ -275,7 +275,7 @@ async def test_update_dual_band(hass: HomeAssistant, legacy_clock) -> None:
             raise LuciRequestError
 
         mock_luci_client.return_value.device_list = AsyncMock(
-            side_effect=MultipleSideEffect(success, success, success, error, error)
+            side_effect=success
         )
 
         def _off() -> dict:
@@ -285,7 +285,7 @@ async def test_update_dual_band(hass: HomeAssistant, legacy_clock) -> None:
             return json.loads(load_fixture("wifi_detail_all_bsd_on_data.json"))
 
         mock_luci_client.return_value.wifi_detail_all = AsyncMock(
-            side_effect=MultipleSideEffect(_off, _off, _off, _on, _on)
+            side_effect=_off
         )
 
         setup_data: list = await async_setup(hass)
@@ -329,6 +329,9 @@ async def test_update_dual_band(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
+        # Fail after setup/reload, then verify the first and repeated failure.
+        mock_luci_client.return_value.device_list.side_effect = error
+        mock_luci_client.return_value.wifi_detail_all.side_effect = _on
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -368,7 +371,7 @@ async def test_update_vpn_state(hass: HomeAssistant, legacy_clock) -> None:
             raise LuciRequestError
 
         mock_luci_client.return_value.device_list = AsyncMock(
-            side_effect=MultipleSideEffect(success, success, success, error, error)
+            side_effect=success
         )
 
         def _off() -> dict:
@@ -378,7 +381,7 @@ async def test_update_vpn_state(hass: HomeAssistant, legacy_clock) -> None:
             return json.loads(load_fixture("vpn_status_data.json"))
 
         mock_luci_client.return_value.vpn_status = AsyncMock(
-            side_effect=MultipleSideEffect(_off, _off, _off, _on, _on)
+            side_effect=_off
         )
 
         setup_data: list = await async_setup(hass)
@@ -422,6 +425,9 @@ async def test_update_vpn_state(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
+        # Fail after setup/reload, then verify the first and repeated failure.
+        mock_luci_client.return_value.device_list.side_effect = error
+        mock_luci_client.return_value.vpn_status.side_effect = _on
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)

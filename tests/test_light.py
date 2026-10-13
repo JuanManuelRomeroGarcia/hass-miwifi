@@ -128,15 +128,7 @@ async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
             raise LuciRequestError
 
         mock_luci_client.return_value.led = AsyncMock(
-            side_effect=MultipleSideEffect(
-                success_led,
-                success_led,
-                success_led,
-                success_led,
-                error_led,
-                error_led,
-                success_led,
-            )
+            side_effect=success_led
         )
 
         setup_data: list = await async_setup(hass)
@@ -156,7 +148,7 @@ async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
         )
         await hass.async_block_till_done(wait_background_tasks=True)
 
-        _prev_calls: int = len(mock_luci_client.mock_calls)
+        _prev_calls: int = mock_luci_client.return_value.led.await_count
 
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -168,7 +160,8 @@ async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
         assert state.attributes["icon"] == "mdi:led-on"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 1
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 1
+        mock_luci_client.return_value.led.assert_awaited_with(1)
 
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -180,7 +173,11 @@ async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
         assert state.attributes["icon"] == "mdi:led-off"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 2
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 2
+        mock_luci_client.return_value.led.assert_awaited_with(0)
+
+        # A rejected command preserves the last confirmed state.
+        mock_luci_client.return_value.led.side_effect = error_led
 
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -190,9 +187,9 @@ async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
         )
 
         state = hass.states.get(unique_id)
-        assert state.state == STATE_ON
-        assert state.attributes["icon"] == "mdi:led-on"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 3
+        assert state.state == STATE_OFF
+        assert state.attributes["icon"] == "mdi:led-off"
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 3
 
         await hass.services.async_call(
             LIGHT_DOMAIN,
@@ -204,7 +201,17 @@ async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
         assert state.attributes["icon"] == "mdi:led-off"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 4
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 4
+
+        mock_luci_client.return_value.led.side_effect = success_led
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: [unique_id]},
+            blocking=True,
+        )
+        assert hass.states.get(unique_id).state == STATE_ON
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 5
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )

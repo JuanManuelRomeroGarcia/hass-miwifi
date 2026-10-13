@@ -1,10 +1,21 @@
 """Legacy time travel advances coordinator timer deadlines too."""
 import asyncio
 from datetime import timedelta
+from unittest.mock import patch
 
 from homeassistant.util.dt import utcnow
 
 from tests.setup import async_advance_time
+
+
+async def test_skipping_router_delay_keeps_ha_event_loop_yield(hass):
+    real_sleep = asyncio.sleep
+    with patch("custom_components.miwifi.updater.asyncio.sleep", return_value=None):
+        assert asyncio.sleep is real_sleep
+        callbacks = []
+        asyncio.get_running_loop().call_soon(callbacks.append, "yielded")
+        await asyncio.sleep(0)
+        assert callbacks == ["yielded"]
 
 
 async def test_time_travel_runs_due_timer_and_advances_its_deadline(hass, legacy_clock):

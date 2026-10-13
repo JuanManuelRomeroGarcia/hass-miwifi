@@ -235,12 +235,12 @@ async def test_updater_mesh_mode(
         "161",
     ]
 
-    assert ATTR_SENSOR_DEVICES not in updater.data
-    assert ATTR_SENSOR_DEVICES_LAN not in updater.data
-    assert ATTR_SENSOR_DEVICES_GUEST not in updater.data
-    assert ATTR_SENSOR_DEVICES_2_4 not in updater.data
-    assert ATTR_SENSOR_DEVICES_5_0 not in updater.data
-    assert ATTR_SENSOR_DEVICES_5_0_GAME not in updater.data
+    assert updater.data[ATTR_SENSOR_DEVICES] == 0
+    assert updater.data[ATTR_SENSOR_DEVICES_LAN] == 0
+    assert updater.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
+    assert updater.data[ATTR_SENSOR_DEVICES_2_4] == 0
+    assert updater.data[ATTR_SENSOR_DEVICES_5_0] == 0
+    assert updater.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater.data[ATTR_STATE]
 
     assert_snapshot_contains(updater._signals, {
@@ -249,7 +249,9 @@ async def test_updater_mesh_mode(
     })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 0
-    assert len(mock_luci_client.mock_calls) == 17
+    assert mock_luci_client.return_value.status.await_count == 1
+    assert mock_luci_client.return_value.device_list.await_count == 1
+    mock_luci_client.return_value.logout.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -400,10 +402,10 @@ async def test_updater_mesh_mode_force_load(
     ]
     assert updater.data[ATTR_SENSOR_DEVICES] == 3
     assert updater.data[ATTR_SENSOR_DEVICES_LAN] == 1
-    assert updater.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater.data[ATTR_STATE]
 
     assert_snapshot_contains(updater._signals, {
@@ -449,7 +451,9 @@ async def test_updater_mesh_mode_force_load(
     })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 2
-    assert len(mock_luci_client.mock_calls) == 28
+    assert mock_luci_client.return_value.status.await_count == 2
+    assert mock_luci_client.return_value.device_list.await_count == 2
+    mock_luci_client.return_value.logout.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -522,21 +526,22 @@ async def test_updater_mesh_mode_move(hass: HomeAssistant) -> None:
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 4
+    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
@@ -545,7 +550,7 @@ async def test_updater_mesh_mode_move(hass: HomeAssistant) -> None:
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
@@ -563,23 +568,6 @@ async def test_updater_mesh_mode_move(hass: HomeAssistant) -> None:
     })
 
     assert_snapshot_contains(updater_second.devices, {
-        "00:00:00:00:00:01": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: 100,
-            ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
-            ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:01"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -707,21 +695,22 @@ async def test_updater_mesh_mode_revert_move(
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 4
+    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
@@ -730,7 +719,7 @@ async def test_updater_mesh_mode_revert_move(
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
@@ -748,23 +737,6 @@ async def test_updater_mesh_mode_revert_move(
     })
 
     assert_snapshot_contains(updater_second.devices, {
-        "00:00:00:00:00:01": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: 100,
-            ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
-            ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:01"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -828,10 +800,10 @@ async def test_updater_mesh_mode_revert_move(
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
     assert len(updater_second.devices) == 4
@@ -839,10 +811,10 @@ async def test_updater_mesh_mode_revert_move(
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 4
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
@@ -1008,21 +980,22 @@ async def test_updater_mesh_mode_revert_move_force_mode(
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 4
+    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
@@ -1031,7 +1004,7 @@ async def test_updater_mesh_mode_revert_move_force_mode(
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
@@ -1049,23 +1022,6 @@ async def test_updater_mesh_mode_revert_move_force_mode(
     })
 
     assert_snapshot_contains(updater_second.devices, {
-        "00:00:00:00:00:01": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: 100,
-            ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
-            ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:01"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1133,21 +1089,22 @@ async def test_updater_mesh_mode_revert_move_force_mode(
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 4
+    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
@@ -1323,10 +1280,10 @@ async def test_updater_mesh_mode_move_force_mode(hass: HomeAssistant) -> None:
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
     assert len(updater_second.devices) == 3
@@ -1334,10 +1291,10 @@ async def test_updater_mesh_mode_move_force_mode(hass: HomeAssistant) -> None:
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 1
@@ -1499,21 +1456,22 @@ async def test_updater_mesh_mode_restore(hass: HomeAssistant) -> None:
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 5
+    assert len(updater_second.devices) == 4
+    assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 0
@@ -1522,7 +1480,7 @@ async def test_updater_mesh_mode_restore(hass: HomeAssistant) -> None:
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:01",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: 10,
@@ -1539,7 +1497,7 @@ async def test_updater_mesh_mode_restore(hass: HomeAssistant) -> None:
         },
         "00:00:00:00:00:05": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:05",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: None,
@@ -1555,23 +1513,6 @@ async def test_updater_mesh_mode_restore(hass: HomeAssistant) -> None:
     })
 
     assert_snapshot_contains(updater_second.devices, {
-        "00:00:00:00:00:01": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: 100,
-            ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
-            ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:01"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1625,7 +1566,7 @@ async def test_updater_mesh_mode_restore(hass: HomeAssistant) -> None:
         },
         "00:00:00:00:00:05": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:05",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: None,
@@ -1726,10 +1667,10 @@ async def test_updater_mesh_mode_restore_force_mode(hass: HomeAssistant) -> None
 
     assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
     assert len(updater_second.devices) == 3
@@ -1737,10 +1678,10 @@ async def test_updater_mesh_mode_restore_force_mode(hass: HomeAssistant) -> None
 
     assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
     assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
-    assert updater_second.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater_second.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
     assert len(mock_async_dispatcher_send_first.mock_calls) == 1
@@ -1867,10 +1808,10 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
 
     assert updater.data[ATTR_SENSOR_DEVICES] == 3
     assert updater.data[ATTR_SENSOR_DEVICES_LAN] == 1
-    assert updater.data[ATTR_SENSOR_DEVICES_GUEST] == 0
+    assert updater.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater.data[ATTR_SENSOR_DEVICES_5_0] == 1
-    assert updater.data[ATTR_SENSOR_DEVICES_5_0_GAME] == 0
+    assert updater.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater.data[ATTR_STATE]
 
     assert_snapshot_contains(updater._signals, {
@@ -1916,4 +1857,6 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
     })
 
     assert len(mock_async_dispatcher_send.mock_calls) == 2
-    assert len(mock_luci_client.mock_calls) == 28
+    assert mock_luci_client.return_value.status.await_count == 2
+    assert mock_luci_client.return_value.device_list.await_count == 2
+    mock_luci_client.return_value.logout.assert_awaited()

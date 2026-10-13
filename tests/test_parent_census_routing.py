@@ -48,6 +48,8 @@ async def test_parent_routes_client_to_matching_node_and_keeps_count(hass, mode,
                 await leaf.update()
                 assert client_mac not in main.devices
                 assert leaf.devices[client_mac]["router_mac"] == leaf.data[ATTR_DEVICE_MAC_ADDRESS]
+                assert leaf.devices[client_mac]["entry_id"] == leaf._entry_id
+                assert leaf.devices[client_mac]["updater_entry_id"] == leaf._entry_id
                 assert leaf.devices[client_mac]["ip"] == "192.168.31.2"
                 assert leaf.data["devices"] == 1
         finally:

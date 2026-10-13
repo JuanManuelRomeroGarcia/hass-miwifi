@@ -27,6 +27,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.miwifi.const import (
     CONF_ACTIVITY_DAYS,
     CONF_ENCRYPTION_ALGORITHM,
+    CONF_ENABLE_PORT_PROBE,
     CONF_IS_FORCE_LOAD,
     CONF_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
@@ -59,6 +60,7 @@ async def async_setup(
     without_store: bool = False,
     activity_days: int = 0,
     is_force: bool = False,
+    enable_port_probe: bool = False,
 ) -> list:
     """Setup.
 
@@ -76,6 +78,7 @@ async def async_setup(
             CONF_IP_ADDRESS: _ip,
             CONF_IS_FORCE_LOAD: is_force,
             CONF_ACTIVITY_DAYS: activity_days,
+            CONF_ENABLE_PORT_PROBE: enable_port_probe,
         },
         options={OPTION_IS_FROM_FLOW: True},
     )

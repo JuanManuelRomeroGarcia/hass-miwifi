@@ -1141,7 +1141,7 @@ async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
             raise LuciRequestError
 
         mock_luci_client.return_value.device_list = AsyncMock(
-            side_effect=MultipleSideEffect(success, success, success, error, error)
+            side_effect=success
         )
 
         setup_data: list = await async_setup(hass)
@@ -1187,6 +1187,8 @@ async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
+        # Fail after setup/reload, then verify the first and repeated failure.
+        mock_luci_client.return_value.device_list.side_effect = error
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -1226,12 +1228,7 @@ async def test_update_guest_wifi_data(hass: HomeAssistant, legacy_clock) -> None
             return json.loads(load_fixture("wifi_diag_detail_all_change_data.json"))
 
         mock_luci_client.return_value.wifi_diag_detail_all = AsyncMock(
-            side_effect=MultipleSideEffect(
-                success_wifi_data,
-                success_wifi_data,
-                success_wifi_data,
-                change_wifi_data,
-            )
+            side_effect=success_wifi_data
         )
 
         setup_data: list = await async_setup(hass)
@@ -1260,6 +1257,8 @@ async def test_update_guest_wifi_data(hass: HomeAssistant, legacy_clock) -> None
         assert entry is not None
         assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
 
+        # Change the router response explicitly; reloads can add a poll.
+        mock_luci_client.return_value.wifi_diag_detail_all.side_effect = change_wifi_data
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
         await hass.async_block_till_done(wait_background_tasks=True)
 

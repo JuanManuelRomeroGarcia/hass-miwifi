@@ -4,6 +4,7 @@ import asyncio
 
 import freezegun
 import pytest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 # These modules assert old entity names, service signatures or removed HA APIs.
@@ -70,6 +71,23 @@ def pytest_ignore_collect(collection_path, config):
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_legacy_asyncio_namespace(request):
+    """Skipping router delays must not replace HA's shared asyncio.sleep.
+
+    Patching updater.asyncio.sleep on the real asyncio module also removed
+    HA's sleep(0) yield. Background jobs could then start after assertions,
+    consuming scripted API responses unpredictably during subsequent polls.
+    """
+    if request.node.path.name not in LEGACY_TEST_FILES | {"test_legacy_timer_clock.py"}:
+        yield
+        return
+    from custom_components.miwifi import updater
+
+    with patch.object(updater, "asyncio", SimpleNamespace(**vars(asyncio))):
+        yield
 
 
 @pytest.fixture(autouse=True)
