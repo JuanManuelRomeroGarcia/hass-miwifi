@@ -15,3 +15,21 @@ def get_device(registry, config_entry_id, *, identifier=None, connection=None):
     if device is not None and config_entry_id not in device.config_entries:
         return None
     return device
+
+
+def all_devices(registry):
+    """Every device row, without using the registry as a mapping.
+
+    From core 2026.9 `registry.devices` is a view: iterating it yields the
+    entries, while `.values()`, `.get()` and subscription are deprecated and
+    stop working in 2027.9. Older cores return a mapping, where iterating
+    yields device ids instead. Normalise what comes out, so one call works
+    on both.
+    """
+    devices = []
+    for item in list(registry.devices):
+        if isinstance(item, str):
+            item = registry.async_get(item)
+        if item is not None:
+            devices.append(item)
+    return devices
