@@ -79,7 +79,7 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.enum import Connection, Mode, Model
 from custom_components.miwifi.updater import LuciUpdater
-from tests.setup import assert_snapshot_contains, load_leaf_status
+from tests.setup import assert_snapshot_contains, load_leaf_status, assert_announced_macs
 from tests.setup import async_first_refresh, MultipleSideEffect, async_mock_luci_client, async_setup
 
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
@@ -249,7 +249,7 @@ async def test_updater_repeater_mode(
         "00:00:00:00:00:02": 100,
     })
 
-    assert len(mock_async_dispatcher_send.mock_calls) == 0
+    assert_announced_macs(mock_async_dispatcher_send, set())
     assert mock_luci_client.return_value.status.await_count == 1
     assert mock_luci_client.return_value.device_list.await_count == 1
     mock_luci_client.return_value.logout.assert_awaited()
@@ -451,7 +451,7 @@ async def test_updater_repeater_mode_force_load(
         },
     })
 
-    assert len(mock_async_dispatcher_send.mock_calls) == 2
+    assert_announced_macs(mock_async_dispatcher_send, {"00:00:00:00:00:01", "00:00:00:00:00:02"})
     assert len(mock_luci_client.mock_calls) == 29
 
 
@@ -543,8 +543,8 @@ async def test_updater_repeater_mode_move(hass: HomeAssistant) -> None:
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 0
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 4
+    assert_announced_macs(mock_async_dispatcher_send_first, set())
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -616,7 +616,7 @@ async def test_updater_repeater_mode_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -712,8 +712,8 @@ async def test_updater_repeater_mode_revert_move(
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 0
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 4
+    assert_announced_macs(mock_async_dispatcher_send_first, set())
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -785,7 +785,7 @@ async def test_updater_repeater_mode_revert_move(
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -816,8 +816,8 @@ async def test_updater_repeater_mode_revert_move(
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 0
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 4
+    assert_announced_macs(mock_async_dispatcher_send_first, set())
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -906,7 +906,7 @@ async def test_updater_repeater_mode_revert_move(
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -997,8 +997,8 @@ async def test_updater_repeater_mode_revert_move_force_mode(
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 0
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 4
+    assert_announced_macs(mock_async_dispatcher_send_first, set())
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1070,7 +1070,7 @@ async def test_updater_repeater_mode_revert_move_force_mode(
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -1106,8 +1106,8 @@ async def test_updater_repeater_mode_revert_move_force_mode(
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 0
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 4
+    assert_announced_macs(mock_async_dispatcher_send_first, set())
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1196,7 +1196,7 @@ async def test_updater_repeater_mode_revert_move_force_mode(
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -1296,8 +1296,8 @@ async def test_updater_repeater_mode_move_force_mode(hass: HomeAssistant) -> Non
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 1
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 3
+    assert_announced_macs(mock_async_dispatcher_send_first, {"00:00:00:00:00:01"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1369,7 +1369,7 @@ async def test_updater_repeater_mode_move_force_mode(hass: HomeAssistant) -> Non
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -1473,8 +1473,8 @@ async def test_updater_repeater_mode_restore(hass: HomeAssistant) -> None:
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 0
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 5
+    assert_announced_macs(mock_async_dispatcher_send_first, set())
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04", "00:00:00:00:00:05"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1561,7 +1561,7 @@ async def test_updater_repeater_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
         "00:00:00:00:00:05": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
@@ -1683,8 +1683,8 @@ async def test_updater_repeater_mode_restore_force_mode(hass: HomeAssistant) -> 
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_second.data[ATTR_STATE]
 
-    assert len(mock_async_dispatcher_send_first.mock_calls) == 1
-    assert len(mock_async_dispatcher_send_second.mock_calls) == 3
+    assert_announced_macs(mock_async_dispatcher_send_first, {"00:00:00:00:00:01"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1756,7 +1756,7 @@ async def test_updater_repeater_mode_restore_force_mode(hass: HomeAssistant) -> 
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
-            ATTR_TRACKER_OPTIONAL_MAC: "00:00:00:00:00:04",
+            ATTR_TRACKER_OPTIONAL_MAC: None,
         },
     })
 
@@ -1855,5 +1855,5 @@ async def test_updater_ap_mode_force_load_incorrect_type(hass: HomeAssistant) ->
         },
     })
 
-    assert len(mock_async_dispatcher_send.mock_calls) == 2
+    assert_announced_macs(mock_async_dispatcher_send, {"00:00:00:00:00:01", "00:00:00:00:00:02"})
     assert len(mock_luci_client.mock_calls) == 29

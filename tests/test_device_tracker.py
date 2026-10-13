@@ -814,7 +814,9 @@ async def test_init_in_force_mode(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
 
         state = hass.states.get(_generate_id("00:00:00:00:00:03"))
-        assert state is None
+        assert state.state == STATE_HOME
+        assert state.attributes["ip"] == "192.168.31.4"
+        assert state.attributes["connection"] == Connection.LAN.phrase
 
 
 @pytest.mark.asyncio
@@ -1164,7 +1166,7 @@ async def test_init_with_optional_parent(hass: HomeAssistant, legacy_clock) -> N
     # This node is already known under both MACs. The main census identifies
     # its backhaul by isap, while its own status reports the hardware MAC.
     devices.async_update_device(
-        node.id, connections=node.connections | {(dr.CONNECTION_NETWORK_MAC, "00:00:00:00:00:04")}
+        node.id, new_connections=node.connections | {(dr.CONNECTION_NETWORK_MAC, "00:00:00:00:00:04")}
     )
 
     def parent_census():

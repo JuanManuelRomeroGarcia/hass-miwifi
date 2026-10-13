@@ -273,3 +273,16 @@ def assert_snapshot_contains(actual, expected, path="snapshot"):
             assert_snapshot_contains(actual[key], value, f"{path}.{key}")
     else:
         assert actual == expected, f"{path}: {actual!r} != {expected!r}"
+
+
+def assert_announced_macs(dispatcher, expected: set[str]) -> None:
+    """Check discovered clients while allowing recovery of missing trackers.
+
+    These updater tests do not load entity platforms. A known client's tracker
+    is therefore still missing on subsequent polls and can be announced again.
+    The real-platform recovery tests verify that this creates only one entity.
+    """
+    deliveries = dispatcher.call_args_list
+    assert all(len(call.args) >= 3 and call.args[1] == SIGNAL_NEW_DEVICE for call in deliveries)
+    actual = {call.args[2]["mac"] for call in deliveries}
+    assert actual == expected, f"Announced clients: {actual!r} != {expected!r}"
