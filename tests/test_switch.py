@@ -420,6 +420,18 @@ async def test_update_2_4(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
+        
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -662,6 +674,18 @@ async def test_update_5_0(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
+        
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -913,6 +937,18 @@ async def test_update_5_0_game(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
+        
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -1196,6 +1232,18 @@ async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
+        
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
