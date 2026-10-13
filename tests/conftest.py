@@ -1,4 +1,4 @@
-"""Separate maintained HA tests from the pre-existing legacy suite (#325)."""
+"""Run focused HA regressions and the restored legacy integration suite separately."""
 
 import asyncio
 
@@ -7,9 +7,9 @@ import pytest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-# These modules assert old entity names, service signatures or removed HA APIs.
-# Their failures are reported by a separate CI job, never silently skipped.
-# Remove a module here once its behavior and expectations have been reviewed.
+# These modules form the restored end-to-end integration suite. Both suites
+# are required in CI; selecting files before imports keeps their runtimes
+# isolated without hiding collection errors or skipping legacy failures.
 LEGACY_TEST_FILES = frozenset({
     "test_binary_sensors.py", "test_button.py", "test_config_flow.py",
     "test_device_tracker.py", "test_diagnostics.py", "test_discovery.py",

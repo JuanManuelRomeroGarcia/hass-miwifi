@@ -7,6 +7,7 @@
 - Request force-load client counters once per polling cycle. Handle endpoint failures through the existing update error path instead of repeating the request outside it.
 - Cancel the pending automatic purge deadline before its startup kickoff or scheduled run replaces it, preventing duplicate runs and timers left behind after cancellation.
 - Preserve nested Wi-Fi channel and bandwidth values in write snapshots, with top-level provider fields as fallbacks when nested values are missing.
+- Restore the legacy Home Assistant integration tests and make their CI job required alongside the maintained compatibility suites. Isolate router delay mocks, wait for background jobs and validate current registry, polling and client ownership behavior.
 
 ## 3.9.0 — 2026-10-11
 
