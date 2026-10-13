@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Preserve a force-load leaf's own client counters when the parent router pushes client records to it (#348).
+- Resolve a known router's backhaul connection alias when linking clients to their serving node, requiring the registered router identity and loaded entry to match.
+- Request force-load client counters once per polling cycle. Handle endpoint failures through the existing update error path instead of repeating the request outside it.
+- Cancel the pending automatic purge deadline before its startup kickoff or scheduled run replaces it, preventing duplicate runs and timers left behind after cancellation.
+- Preserve nested Wi-Fi channel and bandwidth values in write snapshots, with top-level provider fields as fallbacks when nested values are missing.
+
 ## 3.9.0 — 2026-10-11
 
 Private MAC management, persistent client cleanup, mesh diagnostics and compatibility with current Home Assistant.

@@ -1115,23 +1115,6 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     })
 
     assert_snapshot_contains(updater_second.devices, {
-        "00:00:00:00:00:01": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:01",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
-            ATTR_TRACKER_SIGNAL: 10,
-            ATTR_TRACKER_NAME: "Device 1",
-            ATTR_TRACKER_IP: "192.168.31.2",
-            ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:01"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
         "00:00:00:00:00:02": {
             ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
@@ -1481,7 +1464,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
         },
         "00:00:00:00:00:05": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:05",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: None,
@@ -1550,7 +1533,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
         },
         "00:00:00:00:00:05": {
             ATTR_TRACKER_ENTRY_ID: config_entry_first.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_first.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
             ATTR_TRACKER_MAC: "00:00:00:00:00:05",
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:04",
             ATTR_TRACKER_SIGNAL: None,
