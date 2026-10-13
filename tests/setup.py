@@ -11,6 +11,7 @@ from typing import Final
 from unittest.mock import AsyncMock
 
 from homeassistant import setup
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
@@ -19,12 +20,16 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from pytest_homeassistant_custom_component.common import MockConfigEntry, load_fixture
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry, load_fixture, async_fire_time_changed,
+)
 
 from custom_components.miwifi.const import (
     CONF_ACTIVITY_DAYS,
     CONF_ENCRYPTION_ALGORITHM,
+    CONF_ENABLE_PORT_PROBE,
     CONF_IS_FORCE_LOAD,
+    CONF_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
@@ -39,6 +44,7 @@ from custom_components.miwifi.updater import LuciUpdater
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
 MOCK_PASSWORD: Final = "**REDACTED**"
 OPTIONS_FLOW_DATA: Final = {
+    CONF_PROTOCOL: "http",
     CONF_IP_ADDRESS: MOCK_IP_ADDRESS,
     CONF_PASSWORD: MOCK_PASSWORD,
     CONF_TIMEOUT: DEFAULT_TIMEOUT,
@@ -54,6 +60,7 @@ async def async_setup(
     without_store: bool = False,
     activity_days: int = 0,
     is_force: bool = False,
+    enable_port_probe: bool = False,
 ) -> list:
     """Setup.
 
@@ -71,6 +78,7 @@ async def async_setup(
             CONF_IP_ADDRESS: _ip,
             CONF_IS_FORCE_LOAD: is_force,
             CONF_ACTIVITY_DAYS: activity_days,
+            CONF_ENABLE_PORT_PROBE: enable_port_probe,
         },
         options={OPTION_IS_FROM_FLOW: True},
     )
@@ -91,6 +99,8 @@ async def async_setup(
         activity_days,
         None if without_store else get_store(hass, _ip),
         entry_id=config_entry.entry_id,
+        config_entry=config_entry,
+        protocol="http",
     )
 
     @callback
@@ -118,6 +128,11 @@ async def async_setup(
 async def async_mock_luci_client(mock_luci_client) -> None:
     """Mock"""
 
+    mock_luci_client.return_value.diagnostics = {}
+    mock_luci_client.return_value.netmode = AsyncMock(return_value={"netmode": 0, "code": 0})
+    mock_luci_client.return_value.mac_filter_info = AsyncMock(return_value={"code": 0, "list": []})
+    mock_luci_client.return_value.macfilter_info = AsyncMock(return_value={"code": 0, "list": []})
+    mock_luci_client.return_value.portforward = AsyncMock(return_value={"code": 0, "list": []})
     mock_luci_client.return_value.logout = AsyncMock(return_value=None)
     mock_luci_client.return_value.login = AsyncMock(
         return_value=json.loads(load_fixture("login_data.json"))
@@ -181,6 +196,18 @@ async def async_mock_luci_client(mock_luci_client) -> None:
     )
 
 
+def load_leaf_status() -> dict:
+    """Report the node MAC referenced by clients in the parent census.
+
+    The original fixture declares 01:00:00:00:00:00, while the client parent
+    and node row declare 00:00:00:00:00:04. These polling scenarios use one
+    node MAC; hardware/backhaul alias resolution is tested separately.
+    """
+    status = json.loads(load_fixture("status_parent_data.json"))
+    status["hardware"]["mac"] = "00:00:00:00:00:04"
+    return status
+
+
 def get_url(
     path: str,
     query_params: dict | None = None,
@@ -215,3 +242,47 @@ class MultipleSideEffect:  # pylint: disable=too-few-public-methods
 
         func = next(self.funcs)
         return func(*args, **kwargs)
+
+
+async def async_first_refresh(updater):
+    """Run the first-refresh API within the HA config-entry setup lifecycle."""
+    entry = updater.config_entry
+    state = entry.state
+    entry.mock_state(updater.hass, ConfigEntryState.SETUP_IN_PROGRESS)
+    try:
+        await updater.async_config_entry_first_refresh()
+    finally:
+        entry.mock_state(updater.hass, state)
+
+
+def async_advance_time(hass, freezer, when):
+    """Advance the clock as well as firing timers, including deferred reloads."""
+    freezer.move_to(when)
+    # Both wall time and loop deadlines must advance before callbacks run.
+    # Otherwise a callback rearms against the old loop time and fires again
+    # immediately after move_to, consuming an extra scripted polling response.
+    async_fire_time_changed(hass, when)
+
+
+def assert_snapshot_contains(actual, expected, path="snapshot"):
+    """Check fixture fields without rejecting newly added diagnostic metadata."""
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict), f"{path}: expected dict, got {actual!r}"
+        for key, value in expected.items():
+            assert key in actual, f"Missing fixture field: {path}.{key}"
+            assert_snapshot_contains(actual[key], value, f"{path}.{key}")
+    else:
+        assert actual == expected, f"{path}: {actual!r} != {expected!r}"
+
+
+def assert_announced_macs(dispatcher, expected: set[str]) -> None:
+    """Check discovered clients while allowing recovery of missing trackers.
+
+    These updater tests do not load entity platforms. A known client's tracker
+    is therefore still missing on subsequent polls and can be announced again.
+    The real-platform recovery tests verify that this creates only one entity.
+    """
+    deliveries = dispatcher.call_args_list
+    assert all(len(call.args) >= 3 and call.args[1] == SIGNAL_NEW_DEVICE for call in deliveries)
+    actual = {call.args[2]["mac"] for call in deliveries}
+    assert actual == expected, f"Announced clients: {actual!r} != {expected!r}"

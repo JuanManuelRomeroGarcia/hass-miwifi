@@ -443,10 +443,6 @@ class LuciUpdater(DataUpdateCoordinator):
         if not self._is_only_login:
             self._clean_devices()
 
-        if not (self.is_force_load and self._has_dedicated_iot_wifi()):
-            if "new_status" not in self.data:
-                await self._async_prepare_new_status(self.data)
-            
         await self._async_prepare_topo()
         await self._async_apply_leaf_client_count()
 
@@ -637,7 +633,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         self._unsub_refresh = event.async_track_point_in_utc_time(
             self.hass,
-            self._job,
+            self._handle_refresh_interval,
             utcnow().replace(microsecond=0) + offset,
         )
 
@@ -1395,12 +1391,14 @@ class LuciUpdater(DataUpdateCoordinator):
         wifi_data: dict = {}
 
         for data_field, field in ATTR_WIFI_DATA_FIELDS.items():
-            if "channelInfo" in data_field and "channelInfo" in data:
-                data_field = data_field.replace("channelInfo.", "")
-
-                if data_field in data["channelInfo"]:
-                    wifi_data[field] = data["channelInfo"][data_field]
-            elif data_field in data:
+            if data_field.startswith("channelInfo."):
+                channel_info = data.get("channelInfo")
+                nested_field = data_field.removeprefix("channelInfo.")
+                if isinstance(channel_info, dict) and nested_field in channel_info:
+                    wifi_data[field] = channel_info[nested_field]
+            elif data_field in data and field not in wifi_data:
+                # Provider firmware may only expose these fields at the top
+                # level. Keep the same nested-value precedence as the read path.
                 wifi_data[field] = data[data_field]
 
         return wifi_data
@@ -1590,6 +1588,11 @@ class LuciUpdater(DataUpdateCoordinator):
         for device in response.get("list", []):
             if not isinstance(device, dict):
                 continue
+
+            mac = device.get(ATTR_TRACKER_MAC)
+            if not isinstance(mac, str) or not mac.strip():
+                continue
+            device[ATTR_TRACKER_MAC] = mac.strip().upper()
 
             # Skip mesh/AP nodes from client counters and trackers
             try:

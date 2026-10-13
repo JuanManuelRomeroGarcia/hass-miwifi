@@ -1109,6 +1109,9 @@ async def _async_add_all_sensors_later(
 
     # Ensure we have data (topo_graph + devices) before deciding is_main and creating sensors
     for _ in range(6):
+        topo = (updater.data or {}).get("topo_graph", {}).get("graph", {})
+        if "is_main" in topo or _is_cb0401v2(updater):
+            break
         try:
             await updater.async_request_refresh()
         except asyncio.CancelledError:

@@ -2,7 +2,10 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -60,7 +63,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -73,11 +76,9 @@ async def test_init(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -86,7 +87,7 @@ async def test_init(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -94,19 +95,19 @@ async def test_init(hass: HomeAssistant) -> None:
         assert updater.last_update_success
 
         unique_id: str = _generate_id(ATTR_SENSOR_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_VPN_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_USAGE_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_TOTAL_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_TEMPERATURE_NAME, updater)
@@ -134,19 +135,19 @@ async def test_init(hass: HomeAssistant) -> None:
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_LAN_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_2_4_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_GUEST_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_GAME_NAME, updater)
@@ -156,8 +157,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_init_with_game(
-    hass: HomeAssistant,
-) -> None:
+    hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -170,11 +170,9 @@ async def test_init_with_game(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -187,7 +185,7 @@ async def test_init_with_game(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -195,19 +193,19 @@ async def test_init_with_game(
         assert updater.last_update_success
 
         unique_id: str = _generate_id(ATTR_SENSOR_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_VPN_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_USAGE_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_TOTAL_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_TEMPERATURE_NAME, updater)
@@ -235,30 +233,29 @@ async def test_init_with_game(
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_LAN_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_2_4_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_GUEST_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_GAME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
 
 @pytest.mark.asyncio
 async def test_init_without_zero(
-    hass: HomeAssistant,
-) -> None:
+    hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -271,11 +268,9 @@ async def test_init_without_zero(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -291,7 +286,7 @@ async def test_init_without_zero(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -299,23 +294,23 @@ async def test_init_without_zero(
         assert updater.last_update_success
 
         unique_id: str = _generate_id(ATTR_SENSOR_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_VPN_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_USAGE_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_TOTAL_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_TEMPERATURE_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MODE_NAME, updater)
@@ -339,19 +334,19 @@ async def test_init_without_zero(
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_LAN_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_2_4_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_GUEST_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_GAME_NAME, updater)
@@ -361,8 +356,7 @@ async def test_init_without_zero(
 
 @pytest.mark.asyncio
 async def test_init_without_wan(
-    hass: HomeAssistant,
-) -> None:
+    hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -375,11 +369,9 @@ async def test_init_without_wan(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -392,7 +384,7 @@ async def test_init_without_wan(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -400,19 +392,19 @@ async def test_init_without_wan(
         assert updater.last_update_success
 
         unique_id: str = _generate_id(ATTR_SENSOR_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_VPN_UPTIME_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_USAGE_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_MEMORY_TOTAL_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_TEMPERATURE_NAME, updater)
@@ -440,19 +432,19 @@ async def test_init_without_wan(
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_LAN_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_2_4_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_GUEST_NAME, updater)
-        assert hass.states.get(unique_id) is None
+        assert hass.states.get(unique_id) is not None
         assert registry.async_get(unique_id) is not None
 
         unique_id = _generate_id(ATTR_SENSOR_DEVICES_5_0_GAME_NAME, updater)
@@ -461,7 +453,7 @@ async def test_init_without_wan(
 
 
 @pytest.mark.asyncio
-async def test_update_uptime(hass: HomeAssistant) -> None:
+async def test_update_uptime(hass: HomeAssistant, legacy_clock) -> None:
     """Test update uptime.
 
     :param hass: HomeAssistant
@@ -472,13 +464,10 @@ async def test_update_uptime(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -505,7 +494,7 @@ async def test_update_uptime(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -516,52 +505,48 @@ async def test_update_uptime(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "8:06:26"
-        assert state.name == ATTR_SENSOR_UPTIME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_UPTIME_NAME}"
         assert state.attributes["icon"] == "mdi:timer-sand"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0:19:46"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_vpn_uptime(hass: HomeAssistant) -> None:
+async def test_update_vpn_uptime(hass: HomeAssistant, legacy_clock) -> None:
     """Test update vpn uptime.
 
     :param hass: HomeAssistant
@@ -572,13 +557,10 @@ async def test_update_vpn_uptime(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -605,7 +587,7 @@ async def test_update_vpn_uptime(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -616,52 +598,48 @@ async def test_update_vpn_uptime(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "3 days, 23:29:17"
-        assert state.name == ATTR_SENSOR_VPN_UPTIME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_VPN_UPTIME_NAME}"
         assert state.attributes["icon"] == "mdi:timer-sand"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0:00:00"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_memory_usage(hass: HomeAssistant) -> None:
+async def test_update_memory_usage(hass: HomeAssistant, legacy_clock) -> None:
     """Test update memory usage.
 
     :param hass: HomeAssistant
@@ -672,13 +650,10 @@ async def test_update_memory_usage(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -705,7 +680,7 @@ async def test_update_memory_usage(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -716,52 +691,48 @@ async def test_update_memory_usage(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "53"
-        assert state.name == ATTR_SENSOR_MEMORY_USAGE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_MEMORY_USAGE_NAME}"
         assert state.attributes["icon"] == "mdi:memory"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "153"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_memory_total(hass: HomeAssistant) -> None:
+async def test_update_memory_total(hass: HomeAssistant, legacy_clock) -> None:
     """Test update memory total.
 
     :param hass: HomeAssistant
@@ -772,13 +743,10 @@ async def test_update_memory_total(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -805,7 +773,7 @@ async def test_update_memory_total(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -816,52 +784,48 @@ async def test_update_memory_total(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "256"
-        assert state.name == ATTR_SENSOR_MEMORY_TOTAL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_MEMORY_TOTAL_NAME}"
         assert state.attributes["icon"] == "mdi:memory"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "512"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_temperature(hass: HomeAssistant) -> None:
+async def test_update_temperature(hass: HomeAssistant, legacy_clock) -> None:
     """Test update temperature.
 
     :param hass: HomeAssistant
@@ -872,13 +836,10 @@ async def test_update_temperature(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -905,7 +866,7 @@ async def test_update_temperature(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -916,52 +877,48 @@ async def test_update_temperature(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "10.0"
-        assert state.name == ATTR_SENSOR_TEMPERATURE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_TEMPERATURE_NAME}"
         assert state.attributes["icon"] == "mdi:temperature-celsius"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "60.0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_mode(hass: HomeAssistant) -> None:
+async def test_update_mode(hass: HomeAssistant, legacy_clock) -> None:
     """Test update mode.
 
     :param hass: HomeAssistant
@@ -972,13 +929,10 @@ async def test_update_mode(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1005,7 +959,7 @@ async def test_update_mode(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1017,31 +971,29 @@ async def test_update_mode(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "default"
-        assert state.name == ATTR_SENSOR_MODE_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_MODE_NAME}"
         assert state.attributes["icon"] == "mdi:transit-connection-variant"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "repeater"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_ap_signal(hass: HomeAssistant) -> None:
+async def test_update_ap_signal(hass: HomeAssistant, legacy_clock) -> None:
     """Test update ap signal.
 
     :param hass: HomeAssistant
@@ -1052,13 +1004,10 @@ async def test_update_ap_signal(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("new_status_data.json"))
@@ -1089,7 +1038,7 @@ async def test_update_ap_signal(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1101,31 +1050,29 @@ async def test_update_ap_signal(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "27"
-        assert state.name == ATTR_SENSOR_AP_SIGNAL_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_AP_SIGNAL_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-arrow-left-right"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "98"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_download_speed(hass: HomeAssistant) -> None:
+async def test_update_download_speed(hass: HomeAssistant, legacy_clock) -> None:
     """Test update download speed.
 
     :param hass: HomeAssistant
@@ -1136,13 +1083,10 @@ async def test_update_download_speed(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1169,7 +1113,7 @@ async def test_update_download_speed(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1180,32 +1124,30 @@ async def test_update_download_speed(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state.state == "225064.0"
-        assert state.name == ATTR_SENSOR_WAN_DOWNLOAD_SPEED_NAME
+        assert state.state == "1.8"
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_WAN_DOWNLOAD_SPEED_NAME}"
         assert state.attributes["icon"] == "mdi:speedometer"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
-        assert state.state == "5064.0"
+        assert state.state == "0.04"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_upload_speed(hass: HomeAssistant) -> None:
+async def test_update_upload_speed(hass: HomeAssistant, legacy_clock) -> None:
     """Test update upload speed.
 
     :param hass: HomeAssistant
@@ -1216,13 +1158,10 @@ async def test_update_upload_speed(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1249,7 +1188,7 @@ async def test_update_upload_speed(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1260,32 +1199,30 @@ async def test_update_upload_speed(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state.state == "19276.0"
-        assert state.name == ATTR_SENSOR_WAN_UPLOAD_SPEED_NAME
+        assert state.state == "0.15"
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_WAN_UPLOAD_SPEED_NAME}"
         assert state.attributes["icon"] == "mdi:speedometer"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
         assert entry.entity_category == EntityCategory.DIAGNOSTIC
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
-        assert state.state == "119276.0"
+        assert state.state == "0.95"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_devices(hass: HomeAssistant) -> None:
+async def test_update_devices(hass: HomeAssistant, legacy_clock) -> None:
     """Test update devices.
 
     :param hass: HomeAssistant
@@ -1296,13 +1233,10 @@ async def test_update_devices(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1329,7 +1263,7 @@ async def test_update_devices(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1341,39 +1275,36 @@ async def test_update_devices(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == "3"
-        assert state.name == ATTR_SENSOR_DEVICES_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
         assert entry.entity_category is None
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_devices_lan(hass: HomeAssistant) -> None:
+async def test_update_devices_lan(hass: HomeAssistant, legacy_clock) -> None:
     """Test update devices lan.
 
     :param hass: HomeAssistant
@@ -1384,13 +1315,10 @@ async def test_update_devices_lan(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1419,7 +1347,7 @@ async def test_update_devices_lan(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1430,60 +1358,55 @@ async def test_update_devices_lan(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "1"
-        assert state.name == ATTR_SENSOR_DEVICES_LAN_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_LAN_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_devices_2_4(hass: HomeAssistant) -> None:
+async def test_update_devices_2_4(hass: HomeAssistant, legacy_clock) -> None:
     """Test update devices 2.4.
 
     :param hass: HomeAssistant
@@ -1494,13 +1417,10 @@ async def test_update_devices_2_4(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1529,7 +1449,7 @@ async def test_update_devices_2_4(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1540,60 +1460,55 @@ async def test_update_devices_2_4(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "1"
-        assert state.name == ATTR_SENSOR_DEVICES_2_4_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_2_4_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_devices_5_0(hass: HomeAssistant) -> None:
+async def test_update_devices_5_0(hass: HomeAssistant, legacy_clock) -> None:
     """Test update devices 5.0.
 
     :param hass: HomeAssistant
@@ -1604,13 +1519,10 @@ async def test_update_devices_5_0(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1639,7 +1551,7 @@ async def test_update_devices_5_0(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1650,60 +1562,55 @@ async def test_update_devices_5_0(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "1"
-        assert state.name == ATTR_SENSOR_DEVICES_5_0_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_5_0_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_devices_guest(hass: HomeAssistant) -> None:
+async def test_update_devices_guest(hass: HomeAssistant, legacy_clock) -> None:
     """Test update devices guest.
 
     :param hass: HomeAssistant
@@ -1714,13 +1621,10 @@ async def test_update_devices_guest(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("wifi_connect_devices_data.json"))
@@ -1749,7 +1653,7 @@ async def test_update_devices_guest(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1760,60 +1664,55 @@ async def test_update_devices_guest(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "0"
-        assert state.name == ATTR_SENSOR_DEVICES_GUEST_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_GUEST_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "1"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_devices_5_0_game(hass: HomeAssistant) -> None:
+async def test_update_devices_5_0_game(hass: HomeAssistant, legacy_clock) -> None:
     """Test update devices 5.0 game.
 
     :param hass: HomeAssistant
@@ -1824,13 +1723,10 @@ async def test_update_devices_5_0_game(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         mock_luci_client.return_value.wifi_detail_all = AsyncMock(
             return_value=json.loads(load_fixture("wifi_detail_all_with_game_data.json"))
@@ -1863,7 +1759,7 @@ async def test_update_devices_5_0_game(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1874,53 +1770,48 @@ async def test_update_devices_5_0_game(hass: HomeAssistant) -> None:
 
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
-        assert state is None
+        assert state is not None
         assert entry is not None
-        assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
+        assert entry.disabled_by is None
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
 
         assert entry.disabled_by is None
         assert state.state == "0"
-        assert state.name == ATTR_SENSOR_DEVICES_5_0_GAME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SENSOR_DEVICES_5_0_GAME_NAME}"
         assert state.attributes["icon"] == "mdi:counter"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category is None
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "1"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == "0"
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE

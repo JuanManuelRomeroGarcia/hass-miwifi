@@ -199,7 +199,9 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
     @property
     def icon(self) -> str | None:
         option = self._attr_current_option
-        return ICONS.get(f"{self.entity_description.key}_{option}")
+        return ICONS.get(
+            f"{self.entity_description.key}_{option}", self.entity_description.icon
+        )
 
     def _handle_coordinator_update(self) -> None:
         current_option: str = self._updater.data.get(self.entity_description.key, False)

@@ -1,10 +1,15 @@
-"""Separate maintained HA tests from the pre-existing legacy suite (#325)."""
+"""Run focused HA regressions and the restored legacy integration suite separately."""
 
+import asyncio
+
+import freezegun
 import pytest
+from types import SimpleNamespace
+from unittest.mock import patch
 
-# These modules assert old entity names, service signatures or removed HA APIs.
-# Their failures are reported by a separate CI job, never silently skipped.
-# Remove a module here once its behavior and expectations have been reviewed.
+# These modules form the restored end-to-end integration suite. Both suites
+# are required in CI; selecting files before imports keeps their runtimes
+# isolated without hiding collection errors or skipping legacy failures.
 LEGACY_TEST_FILES = frozenset({
     "test_binary_sensors.py", "test_button.py", "test_config_flow.py",
     "test_device_tracker.py", "test_diagnostics.py", "test_discovery.py",
@@ -24,6 +29,34 @@ def pytest_addoption(parser):
     parser.addoption("--ha-suite", choices=("maintained", "legacy"), default=None)
 
 
+@pytest.fixture
+async def legacy_clock(configure_event_loop, hass):
+    """Advance wall time and timer deadlines while asyncio keeps ticking."""
+    loop = asyncio.get_running_loop()
+    with freezegun.freeze_time(real_asyncio=True) as clock:
+        # HA binds loop.time directly on the instance. Freezegun's real_asyncio
+        # option only restores the loop class method, leaving this binding frozen.
+        # Time-change callbacks fire scheduled timers, but HA debouncers also
+        # compare loop.time() with their cooldown deadlines. Advancing only wall
+        # time leaves those callbacks waiting on a real-time cooldown.
+        offset = [0.0]
+        original_move_to = clock.move_to
+
+        def move_to(when):
+            before = clock()
+            original_move_to(when)
+            offset[0] += (clock() - before).total_seconds()
+
+        clock.move_to = move_to
+        with patch.object(loop, "time", lambda: freezegun.api.real_monotonic() + offset[0]):
+            try:
+                yield clock
+            finally:
+                # Stop HA while its timer deadlines still use the same clock.
+                # Restoring real time first leaves shutdown timers in the future.
+                await hass.async_stop(force=True)
+
+
 def pytest_ignore_collect(collection_path, config):
     """Select files before import so legacy collection errors cannot break the gate."""
     suite = config.getoption("--ha-suite")
@@ -38,3 +71,43 @@ def pytest_ignore_collect(collection_path, config):
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
     yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_legacy_asyncio_namespace(request):
+    """Skipping router delays must not replace HA's shared asyncio.sleep.
+
+    Patching updater.asyncio.sleep on the real asyncio module also removed
+    HA's sleep(0) yield. Background jobs could then start after assertions,
+    consuming scripted API responses unpredictably during subsequent polls.
+    """
+    if request.node.path.name not in LEGACY_TEST_FILES | {"test_legacy_timer_clock.py"}:
+        yield
+        return
+    from custom_components.miwifi import updater
+
+    with patch.object(updater, "asyncio", SimpleNamespace(**vars(asyncio))):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def isolate_legacy_entity_capability_probes(request):
+    """Entity refresh scripts describe polling, not the separate capability scan.
+
+    Keep their endpoint side effects deterministic. The real probe is exercised
+    by test_capability_detection.py rather than consuming these scripted polls.
+    """
+    if request.node.path.name not in {
+        "test_binary_sensors.py", "test_button.py", "test_device_tracker.py",
+        "test_light.py", "test_select.py", "test_sensor.py", "test_switch.py",
+        "test_update.py",
+        "test_updater_ap_mode.py", "test_updater_default_mode.py",
+        "test_updater_mesh_mode.py", "test_updater_repeater_mode.py",
+    }:
+        yield
+        return
+    with patch(
+        "custom_components.miwifi.compatibility.CompatibilityChecker.run",
+        return_value={"device_list": True, "wifi_config": True, "portforward": False},
+    ):
+        yield

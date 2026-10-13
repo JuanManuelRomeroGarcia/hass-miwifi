@@ -2,7 +2,10 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -48,7 +51,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -61,11 +64,9 @@ async def test_init(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -74,7 +75,7 @@ async def test_init(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -86,7 +87,7 @@ async def test_init(hass: HomeAssistant) -> None:
         entry: er.RegistryEntry | None = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.name == ATTR_LIGHT_LED_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_LIGHT_LED_NAME}"
         assert state.attributes["icon"] == "mdi:led-on"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry is not None
@@ -94,7 +95,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_led(hass: HomeAssistant) -> None:
+async def test_update_led(hass: HomeAssistant, legacy_clock) -> None:
     """Test update led.
 
     :param hass: HomeAssistant
@@ -105,13 +106,10 @@ async def test_update_led(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -130,15 +128,7 @@ async def test_update_led(hass: HomeAssistant) -> None:
             raise LuciRequestError
 
         mock_luci_client.return_value.led = AsyncMock(
-            side_effect=MultipleSideEffect(
-                success_led,
-                success_led,
-                success_led,
-                success_led,
-                error_led,
-                error_led,
-                success_led,
-            )
+            side_effect=success_led
         )
 
         setup_data: list = await async_setup(hass)
@@ -146,7 +136,7 @@ async def test_update_led(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
@@ -154,69 +144,78 @@ async def test_update_led(hass: HomeAssistant) -> None:
 
         unique_id: str = _generate_id(ATTR_LIGHT_LED_NAME, updater)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        _prev_calls: int = len(mock_luci_client.mock_calls)
+        _prev_calls: int = mock_luci_client.return_value.led.await_count
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
         assert state.attributes["icon"] == "mdi:led-on"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 1
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 1
+        mock_luci_client.return_value.led.assert_awaited_with(1)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
         assert state.attributes["icon"] == "mdi:led-off"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 2
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 2
+        mock_luci_client.return_value.led.assert_awaited_with(0)
 
-        assert await hass.services.async_call(
+        # A rejected command preserves the last confirmed state.
+        mock_luci_client.return_value.led.side_effect = error_led
+
+        await hass.services.async_call(
             LIGHT_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
-        )
-
-        state = hass.states.get(unique_id)
-        assert state.state == STATE_ON
-        assert state.attributes["icon"] == "mdi:led-on"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 3
-
-        assert await hass.services.async_call(
-            LIGHT_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
         assert state.attributes["icon"] == "mdi:led-off"
-        assert len(mock_luci_client.mock_calls) == _prev_calls + 4
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 3
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_OFF,
+            {ATTR_ENTITY_ID: [unique_id]},
+            blocking=True,
         )
-        await hass.async_block_till_done()
+
+        state = hass.states.get(unique_id)
+        assert state.state == STATE_OFF
+        assert state.attributes["icon"] == "mdi:led-off"
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 4
+
+        mock_luci_client.return_value.led.side_effect = success_led
+        await hass.services.async_call(
+            LIGHT_DOMAIN,
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: [unique_id]},
+            blocking=True,
+        )
+        assert hass.states.get(unique_id).state == STATE_ON
+        assert mock_luci_client.return_value.led.await_count == _prev_calls + 5
+
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE

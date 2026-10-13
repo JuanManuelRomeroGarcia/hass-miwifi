@@ -119,7 +119,9 @@ class MiWifiBinarySensor(MiWifiEntity, BinarySensorEntity):
     @property
     def icon(self) -> str | None:
         state = STATE_ON if self._attr_is_on else STATE_OFF
-        return ICONS.get(f"{self.entity_description.key}_{state}")
+        return ICONS.get(
+            f"{self.entity_description.key}_{state}", self.entity_description.icon
+        )
 
     def _handle_coordinator_update(self) -> None:
         is_available: bool = (
