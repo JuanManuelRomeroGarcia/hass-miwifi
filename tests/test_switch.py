@@ -2,7 +2,11 @@
 
 # pylint: disable=no-member,too-many-statements,protected-access,too-many-lines
 
+
 from __future__ import annotations
+
+from tests.setup import assert_snapshot_contains
+from tests.setup import async_advance_time
 
 import json
 import logging
@@ -55,7 +59,7 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 
 
 @pytest.mark.asyncio
-async def test_init(hass: HomeAssistant) -> None:
+async def test_init(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -68,11 +72,9 @@ async def test_init(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -81,7 +83,7 @@ async def test_init(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -106,7 +108,7 @@ async def test_init(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_game(hass: HomeAssistant) -> None:
+async def test_init_with_game(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -119,11 +121,9 @@ async def test_init_with_game(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -141,7 +141,7 @@ async def test_init_with_game(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -166,7 +166,7 @@ async def test_init_with_game(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_without_guest(hass: HomeAssistant) -> None:
+async def test_init_without_guest(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -179,11 +179,9 @@ async def test_init_without_guest(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -197,7 +195,7 @@ async def test_init_without_guest(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -222,7 +220,7 @@ async def test_init_without_guest(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_init_with_error(hass: HomeAssistant) -> None:
+async def test_init_with_error(hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -235,11 +233,9 @@ async def test_init_with_error(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -252,7 +248,7 @@ async def test_init_with_error(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -274,8 +270,7 @@ async def test_init_with_error(hass: HomeAssistant) -> None:
 
 @pytest.mark.asyncio
 async def test_init_bsd(
-    hass: HomeAssistant,
-) -> None:
+    hass: HomeAssistant, legacy_clock) -> None:
     """Test init.
 
     :param hass: HomeAssistant
@@ -288,11 +283,9 @@ async def test_init_bsd(
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -318,7 +311,7 @@ async def test_init_bsd(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -329,52 +322,51 @@ async def test_init_bsd(
         entry = registry.async_get(unique_id)
         state: State = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_2_4_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_2_4_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_2_4_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_GAME_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_GAME_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_GAME_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_2_4_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_2_4_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_2_4_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_2_4_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_NAME
 
         unique_id = _generate_id(ATTR_SWITCH_WIFI_5_0_GAME_NAME, updater)
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
-        assert state.attributes["friendly_name"] == ATTR_SWITCH_WIFI_5_0_GAME_NAME
+        assert state.attributes["friendly_name"] == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_GAME_NAME}"
         assert entry.original_name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
 
 
 @pytest.mark.asyncio
-async def test_update_2_4(hass: HomeAssistant) -> None:
+async def test_update_2_4(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -385,13 +377,10 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -408,17 +397,16 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
 
         assert updater.last_update_success
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         unique_id: str = _generate_id(ATTR_SWITCH_WIFI_2_4_NAME, updater)
 
@@ -427,22 +415,21 @@ async def test_update_2_4(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_ON
-        assert state.name == ATTR_SWITCH_WIFI_2_4_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_2_4_NAME}"
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_2_4_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -453,13 +440,10 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -489,12 +473,12 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_2_4_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_2_4_DATA), {
             "ssid": "**REDACTED**",
             "pwd": "**REDACTED**",
             "encryption": "psk2",
@@ -504,15 +488,14 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
             "hidden": "0",
             "on": "1",
             "txbf": "3",
-        }
+        })
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_2_4_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_2_4_DATA), {
             "ssid": "**REDACTED**",
             "pwd": "**REDACTED**",
             "encryption": "psk2",
@@ -522,11 +505,11 @@ async def test_update_2_4_wifi_data(hass: HomeAssistant) -> None:
             "hidden": "0",
             "on": "1",
             "txbf": "3",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_2_4_turn(hass: HomeAssistant) -> None:
+async def test_update_2_4_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 2.4.
 
     :param hass: HomeAssistant
@@ -537,13 +520,10 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success_set_wifi(data: dict) -> dict:
             return {"code": 0}
@@ -565,7 +545,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
@@ -578,12 +558,11 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -591,12 +570,11 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -604,12 +582,11 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -617,12 +594,11 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -632,7 +608,7 @@ async def test_update_2_4_turn(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0(hass: HomeAssistant) -> None:
+async def test_update_5_0(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -643,13 +619,10 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -666,17 +639,16 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
 
         assert updater.last_update_success
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         unique_id: str = _generate_id(ATTR_SWITCH_WIFI_5_0_NAME, updater)
 
@@ -685,22 +657,21 @@ async def test_update_5_0(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_ON
-        assert state.name == ATTR_SWITCH_WIFI_5_0_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_NAME}"
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_5_0_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -711,13 +682,10 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -747,12 +715,12 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_DATA), {
             "bandwidth": "0",
             "channel": 149,
             "encryption": "psk2",
@@ -762,15 +730,14 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "max",
-        }
+        })
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_DATA), {
             "bandwidth": "0",
             "channel": 149,
             "encryption": "psk2",
@@ -780,11 +747,11 @@ async def test_update_5_0_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "min",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_turn(hass: HomeAssistant) -> None:
+async def test_update_5_0_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -795,13 +762,10 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success_set_wifi(data: dict) -> dict:
             return {"code": 0}
@@ -823,7 +787,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
@@ -836,12 +800,11 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -849,12 +812,11 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -862,12 +824,11 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -875,12 +836,11 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -890,7 +850,7 @@ async def test_update_5_0_turn(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game(hass: HomeAssistant) -> None:
+async def test_update_5_0_game(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0 game.
 
     :param hass: HomeAssistant
@@ -901,13 +861,10 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         mock_luci_client.return_value.wifi_detail_all = AsyncMock(
             return_value=json.loads(load_fixture("wifi_detail_all_with_game_data.json"))
@@ -933,17 +890,16 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
 
         assert updater.last_update_success
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         unique_id: str = _generate_id(ATTR_SWITCH_WIFI_5_0_GAME_NAME, updater)
 
@@ -952,22 +908,21 @@ async def test_update_5_0_game(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_ON
-        assert state.name == ATTR_SWITCH_WIFI_5_0_GAME_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_5_0_GAME_NAME}"
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_5_0_game_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0.
 
     :param hass: HomeAssistant
@@ -978,13 +933,10 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         mock_luci_client.return_value.wifi_diag_detail_all = AsyncMock(
             return_value=json.loads(
@@ -1022,12 +974,12 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_GAME_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_GAME_DATA), {
             "bandwidth": "0",
             "channel": 48,
             "encryption": "psk2",
@@ -1037,15 +989,14 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "max",
-        }
+        })
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_5_0_GAME_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_5_0_GAME_DATA), {
             "bandwidth": "0",
             "channel": 48,
             "encryption": "psk2",
@@ -1055,11 +1006,11 @@ async def test_update_5_0_game_wifi_data(hass: HomeAssistant) -> None:
             "ssid": "**REDACTED**",
             "txbf": "3",
             "txpwr": "min",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
+async def test_update_5_0_game_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update 5.0 game.
 
     :param hass: HomeAssistant
@@ -1070,13 +1021,10 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         mock_luci_client.return_value.wifi_detail_all = AsyncMock(
             return_value=json.loads(load_fixture("wifi_detail_all_with_game_data.json"))
@@ -1107,7 +1055,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
@@ -1120,12 +1068,11 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1133,12 +1080,11 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1146,12 +1092,11 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1159,12 +1104,11 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1174,7 +1118,7 @@ async def test_update_5_0_game_turn(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_update_guest(hass: HomeAssistant) -> None:
+async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1185,13 +1129,10 @@ async def test_update_guest(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success() -> dict:
             return json.loads(load_fixture("device_list_data.json"))
@@ -1200,7 +1141,7 @@ async def test_update_guest(hass: HomeAssistant) -> None:
             raise LuciRequestError
 
         mock_luci_client.return_value.device_list = AsyncMock(
-            side_effect=MultipleSideEffect(success, success, success, error, error)
+            side_effect=success
         )
 
         setup_data: list = await async_setup(hass)
@@ -1208,7 +1149,7 @@ async def test_update_guest(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1224,17 +1165,15 @@ async def test_update_guest(hass: HomeAssistant) -> None:
         assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
         state = hass.states.get(unique_id)
@@ -1243,30 +1182,30 @@ async def test_update_guest(hass: HomeAssistant) -> None:
 
         assert entry.disabled_by is None
         assert state.state == STATE_OFF
-        assert state.name == ATTR_SWITCH_WIFI_GUEST_NAME
+        assert state.name == f"{updater.data['model']} {ATTR_SWITCH_WIFI_GUEST_NAME}"
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        # Fail after setup/reload, then verify the first and repeated failure.
+        mock_luci_client.return_value.device_list.side_effect = error
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_UNAVAILABLE
 
 
 @pytest.mark.asyncio
-async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
+async def test_update_guest_wifi_data(hass: HomeAssistant, legacy_clock) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1277,13 +1216,10 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success_wifi_data() -> dict:
             return json.loads(load_fixture("wifi_diag_detail_all_data.json"))
@@ -1292,12 +1228,7 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
             return json.loads(load_fixture("wifi_diag_detail_all_change_data.json"))
 
         mock_luci_client.return_value.wifi_diag_detail_all = AsyncMock(
-            side_effect=MultipleSideEffect(
-                success_wifi_data,
-                success_wifi_data,
-                success_wifi_data,
-                change_wifi_data,
-            )
+            side_effect=success_wifi_data
         )
 
         setup_data: list = await async_setup(hass)
@@ -1305,18 +1236,18 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_GUEST_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_GUEST_DATA), {
             "encryption": "none",
             "on": 0,
             "pwd": "**REDACTED**",
             "ssid": "**REDACTED**",
-        }
+        })
 
         unique_id: str = _generate_id(ATTR_SWITCH_WIFI_GUEST_NAME, updater)
 
@@ -1326,23 +1257,22 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
         assert entry is not None
         assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
 
+        # Change the router response explicitly; reloads can add a poll.
+        mock_luci_client.return_value.wifi_diag_detail_all.side_effect = change_wifi_data
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
 
@@ -1351,16 +1281,16 @@ async def test_update_guest_wifi_data(hass: HomeAssistant) -> None:
         updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         assert updater.last_update_success
-        assert updater.data.get(ATTR_WIFI_GUEST_DATA) == {
+        assert_snapshot_contains(updater.data.get(ATTR_WIFI_GUEST_DATA), {
             "encryption": "none",
             "on": 0,
             "pwd": "**NEW_REDACTED**",
             "ssid": "**REDACTED**",
-        }
+        })
 
 
 @pytest.mark.asyncio
-async def test_update_guest_turn(hass: HomeAssistant) -> None:
+async def test_update_guest_turn(hass: HomeAssistant, legacy_clock) -> None:
     """Test update guest.
 
     :param hass: HomeAssistant
@@ -1371,13 +1301,10 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
         await async_mock_luci_client(mock_luci_client)
 
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
 
         def success_set_wifi(data: dict) -> dict:
             return {"code": 0}
@@ -1399,7 +1326,7 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         registry = er.async_get(hass)
@@ -1415,17 +1342,15 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION
 
         registry.async_update_entity(entity_id=unique_id, disabled_by=None)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        async_fire_time_changed(
-            hass, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         entry = registry.async_get(unique_id)
 
@@ -1436,12 +1361,11 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
 
         _prev_calls: int = len(mock_luci_client.mock_calls)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1449,12 +1373,11 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-lock-open"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1462,12 +1385,11 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_ON,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)
@@ -1475,12 +1397,11 @@ async def test_update_guest_turn(hass: HomeAssistant) -> None:
         assert state.attributes["icon"] == "mdi:wifi-lock-open"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             SWITCH_DOMAIN,
             SERVICE_TURN_OFF,
             {ATTR_ENTITY_ID: [unique_id]},
             blocking=True,
-            limit=None,
         )
 
         state = hass.states.get(unique_id)

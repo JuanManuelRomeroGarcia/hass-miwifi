@@ -60,7 +60,7 @@ async def async_get_config_entry_diagnostics(
             _data["data"] = async_redact_data(_updater.data, TO_REDACT)
 
         if hasattr(_updater, "devices"):
-            _data["devices"] = _updater.devices
+            _data["devices"] = async_redact_data(_updater.devices, TO_REDACT)
 
         if len(_updater.luci.diagnostics) > 0:
             _data["requests"] = async_redact_data(_updater.luci.diagnostics, TO_REDACT)

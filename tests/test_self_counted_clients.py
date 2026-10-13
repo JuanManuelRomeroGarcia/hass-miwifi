@@ -52,6 +52,7 @@ Connection, DeviceAction, Mode = enum.Connection, enum.DeviceAction, enum.Mode
 UPDATER_METHODS = {
     "is_repeater",
     "_counters_pushed_by_parent",
+    "_counts_own_clients",
     "reset_counter",
     "add_device",
     "_async_prepare_device_list",

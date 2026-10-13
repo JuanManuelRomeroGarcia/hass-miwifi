@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import asyncio
 from contextlib import ExitStack
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -43,6 +43,39 @@ UID = "miwifi-dev-02:00:00:00:00:01-ip"
 MAC = "02:00:00:00:00:02"
 CLIENT_UIDS = [f"miwifi-dev-{MAC.lower()}-{desc.key}" for desc in MIWIFI_DEVICE_SENSORS]
 CLIENT_IP_UID = f"miwifi-dev-{MAC.lower()}-{ATTR_TRACKER_IP}"
+
+
+@pytest.mark.parametrize("topology_ready", [False, True])
+async def test_sensor_startup_refreshes_only_when_topology_is_missing(hass, topology_ready):
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    updater = DataUpdateCoordinator(
+        hass, logging.getLogger(__name__), config_entry=entry, name=entry.entry_id
+    )
+    ready_data = {"topo_graph": {"graph": {"is_main": False}}}
+    updater.data = ready_data if topology_ready else {}
+    updater.devices = {}
+
+    async def publish_topology():
+        updater.data = ready_data
+
+    updater.async_request_refresh = AsyncMock(side_effect=publish_topology)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {UPDATER: updater}
+    add_entities = Mock()
+    with ExitStack() as stack:
+        stack.enter_context(patch("custom_components.miwifi.sensor.MIWIFI_SENSORS", []))
+        stack.enter_context(patch("custom_components.miwifi.sensor._is_cb0401v2", return_value=False))
+        for name in ("MiWifiTopologyGraphSensor", "MiWifiConfigSensor"):
+            stack.enter_context(patch(
+                f"custom_components.miwifi.sensor.{name}",
+                side_effect=lambda updater, kind=name: ClientSensor("0", kind),
+            ))
+        await _async_add_all_sensors_later(hass, entry, add_entities)
+
+    assert updater.async_request_refresh.await_count == (0 if topology_ready else 1)
+    add_entities.assert_called_once()
+    assert len(add_entities.call_args.args[0]) == 2
+    await updater.async_shutdown()
 
 
 @pytest.mark.parametrize("filter_live", [False, True])

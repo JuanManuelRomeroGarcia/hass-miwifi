@@ -87,9 +87,11 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
     :param hass: HomeAssistant
     """
 
-    def pn_check(hass: HomeAssistant, message: str, title: str) -> None:
-        assert title == NAME
-        assert message == "Your passwd: 0f2d9073"
+    passwords = []
+
+    def pn_check(hass: HomeAssistant, message: str, title: str, notification_id=None) -> None:
+        if title == NAME:
+            passwords.append(message)
 
     with patch(
         "custom_components.miwifi.updater.LuciClient"
@@ -98,13 +100,11 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ), patch(
         "custom_components.miwifi.services.pn.async_create", side_effect=pn_check
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -113,24 +113,22 @@ async def test_calc_passwd(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
-        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             DOMAIN,
             SERVICE_CALC_PASSWD,
             target={CONF_DEVICE_ID: [device.id]},
             blocking=True,
-            limit=None,
         )
+
+        assert passwords == ["🔐 Your password is: <b>0f2d9073</b>"]
 
 
 @pytest.mark.asyncio
@@ -147,11 +145,9 @@ async def test_calc_passwd_not_found_device(hass: HomeAssistant) -> None:
     ), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -160,7 +156,7 @@ async def test_calc_passwd_not_found_device(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         with pytest.raises(vol.Invalid) as error:
             await hass.services.async_call(
@@ -168,7 +164,6 @@ async def test_calc_passwd_not_found_device(hass: HomeAssistant) -> None:
                 SERVICE_CALC_PASSWD,
                 target={CONF_DEVICE_ID: ["test"]},
                 blocking=True,
-                limit=None,
             )
 
         assert str(error.value) == "Device test not found."
@@ -186,11 +181,9 @@ async def test_calc_passwd_unsupported_device(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -199,14 +192,11 @@ async def test_calc_passwd_unsupported_device(hass: HomeAssistant) -> None:
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         device_identifier: str = "00:00:00:00:00:01"
         registry: dr.DeviceRegistry = dr.async_get(hass)
-        device: dr.DeviceEntry | None = registry.async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = registry.async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
@@ -216,7 +206,6 @@ async def test_calc_passwd_unsupported_device(hass: HomeAssistant) -> None:
                 SERVICE_CALC_PASSWD,
                 target={CONF_DEVICE_ID: [device.id]},
                 blocking=True,
-                limit=None,
             )
 
         assert (
@@ -239,11 +228,9 @@ async def test_calc_passwd_unsupported_device_with_integration(
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 
@@ -256,14 +243,11 @@ async def test_calc_passwd_unsupported_device_with_integration(
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
-        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
@@ -273,7 +257,6 @@ async def test_calc_passwd_unsupported_device_with_integration(
                 SERVICE_CALC_PASSWD,
                 target={CONF_DEVICE_ID: [device.id]},
                 blocking=True,
-                limit=None,
             )
 
         assert (
@@ -296,106 +279,147 @@ async def test_request(
     """
 
     httpx_mock.add_response(text=load_fixture("login_data.json"), method="POST")
+    # Capability detection repeats read-only polling endpoints and probes these.
+    for endpoint in ("misystem/qos_info", "xqsystem/flash_permission"):
+        httpx_mock.add_response(
+            json={"code": 0}, method="GET", url=get_url(endpoint),
+            is_reusable=True,
+        )
+    for endpoint in ("xqnetwork/portforward", "xqsystem/portforward"):
+        httpx_mock.add_response(
+            status_code=404, text="not found", method="GET",
+            url=get_url(endpoint, {"ftype": 1}), is_reusable=True,
+        )
+
+    httpx_mock.add_response(
+        json={"code": 0, "list": []}, method="GET",
+        url=get_url("xqnetwork/wifi_macfilter_info"), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        text=load_fixture("topo_graph_data.json"), method="GET",
+        url=get_url("misystem/topo_graph", use_stok=False), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        json={"code": 0, "netmode": 0}, method="GET",
+        url=get_url("xqnetwork/get_netmode"), is_optional=True, is_reusable=True,
+    )
+    httpx_mock.add_response(
+        json={"code": 0}, method="GET",
+        url=f"http://192.168.31.1/cgi-bin/luci/;stok=**REDACTED**/web/logout",
+        is_optional=True, is_reusable=True,
+    )
     httpx_mock.add_response(
         text=load_fixture("init_info_data.json"),
         method="GET",
         url=get_url("xqsystem/init_info"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("status_data.json"),
         method="GET",
         url=get_url("misystem/status"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("mode_data.json"),
         method="GET",
         url=get_url("xqnetwork/mode"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_detail_all_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_detail_all"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_diag_detail_all_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_diag_detail_all"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("vpn_status_data.json"),
         method="GET",
         url=get_url("xqsystem/vpn_status"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("avaliable_channels_2g_data.json"),
         method="GET",
         url=get_url("xqnetwork/avaliable_channels", {"wifiIndex": 1}),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("avaliable_channels_5g_data.json"),
         method="GET",
         url=get_url("xqnetwork/avaliable_channels", {"wifiIndex": 2}),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wan_info_data.json"),
         method="GET",
         url=get_url("xqnetwork/wan_info"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("led_data.json"),
         method="GET",
         url=get_url("misystem/led", {}),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("device_list_data.json"),
         method="GET",
         url=get_url("misystem/devicelist"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("wifi_connect_devices_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_connect_devices"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("rom_update_data.json"),
         method="GET",
         url=get_url("xqsystem/check_rom_update"),
+        is_reusable=True,
     )
     httpx_mock.add_response(
         text=load_fixture("led_data.json"),
         method="GET",
         url=get_url("misystem/led", {"on": 1}),
+        is_reusable=True,
     )
 
     with patch("custom_components.miwifi.updater.async_dispatcher_send"), patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         setup_data: list = await async_setup(hass)
 
         config_entry: MockConfigEntry = setup_data[1]
 
         assert await hass.config_entries.async_setup(config_entry.entry_id)
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
         device_identifier: str = updater.data.get(ATTR_DEVICE_MAC_ADDRESS, updater.ip)
-        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device(
-            set(),
-            {(dr.CONNECTION_NETWORK_MAC, device_identifier)},
-        )
+        device: dr.DeviceEntry | None = dr.async_get(hass).async_get_device_by_connection((dr.CONNECTION_NETWORK_MAC, device_identifier), config_entry.entry_id)
 
         assert device is not None
 
         assert await setup_automation(hass, device.id, EVENT_TYPE_RESPONSE)
-        await hass.async_block_till_done()
+        # Automations attach their triggers when HA starts, not just when the
+        # automation component has finished loading.
+        await hass.async_start()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
-        assert await hass.services.async_call(
+        await hass.services.async_call(
             DOMAIN,
             SERVICE_REQUEST,
             {
@@ -404,9 +428,8 @@ async def test_request(
             },
             target={CONF_DEVICE_ID: [device.id]},
             blocking=True,
-            limit=None,
         )
-        await hass.async_block_till_done()
+        await hass.async_block_till_done(wait_background_tasks=True)
 
         assert len(calls) == 1
 
