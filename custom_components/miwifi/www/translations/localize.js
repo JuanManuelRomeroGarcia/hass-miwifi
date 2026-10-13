@@ -1,4 +1,4 @@
-const version = "3.9.0";
+const version = "3.9.1";
 const supported = new Set(["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"]);
 let translations = {};
 

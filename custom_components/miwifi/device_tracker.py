@@ -130,6 +130,13 @@ def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
     if not isinstance(domain_data, dict):
         return None
 
+    # A node can advertise its backhaul MAC while its registered identifier
+    # uses the hardware MAC. Resolve a known connection alias only on the
+    # registered router row owned by that loaded updater.
+    alias_rows = device_registry_rows(
+        dev_reg, connections={(dr.CONNECTION_NETWORK_MAC, via_router_mac_lc)}
+    )
+
     target_entry_id: str | None = None
     target_name: str | None = None
     target_manufacturer: str | None = None
@@ -149,6 +156,13 @@ def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
         router_mac = _norm_mac(
             udata.get(ATTR_DEVICE_MAC_ADDRESS) or udata.get("device_mac")
         )
+        if router_mac:
+            for row in alias_rows:
+                if (
+                    entry_id in device_config_entry_ids(row)
+                    and (DOMAIN, router_mac) in row.identifiers
+                ):
+                    return row
         if router_mac and router_mac == via_router_mac_lc:
             target_entry_id = entry_id
             target_name = (

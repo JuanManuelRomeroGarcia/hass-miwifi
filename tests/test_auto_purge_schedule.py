@@ -113,3 +113,47 @@ def test_scheduled_parameters_are_the_conservative_ones() -> None:
     assert '"only_randomized": True' in params
     assert '"include_orphans_without_age": False' in params
     assert '"apply": True' in params
+
+
+@pytest.mark.parametrize("disable_before_kickoff", [False, True])
+async def test_kickoff_cancels_previous_deadline_and_shutdown_cancels_replacement(
+    disable_before_kickoff,
+):
+    hass = _hass_with_tasks()
+    hass.services.async_call = AsyncMock()
+    store = {"every_days": 7, "at": "00:00"}
+    deadlines = []
+    kickoff = []
+
+    def schedule(_hass, callback, when):
+        cancel = MagicMock()
+        deadlines.append((callback, cancel))
+        return cancel
+
+    def schedule_kickoff(_hass, delay, callback):
+        cancel = MagicMock()
+        kickoff.append((callback, cancel))
+        return cancel
+
+    with patch.object(auto_purge, "_load", AsyncMock(side_effect=lambda _h: dict(store))), patch.object(
+        auto_purge, "_save", AsyncMock()
+    ), patch.object(auto_purge, "async_track_point_in_time", schedule), patch.object(
+        auto_purge, "async_call_later", schedule_kickoff
+    ):
+        schedule_auto_purge(hass, SimpleNamespace(entry_id="entry-1"))
+        for coro in hass.pending:
+            await coro
+        assert len(deadlines) == len(kickoff) == 1
+        if disable_before_kickoff:
+            store["every_days"] = 0
+        await kickoff[0][0]()
+        deadlines[0][1].assert_called_once()
+        kickoff[0][1].assert_called_once()
+        if disable_before_kickoff:
+            assert len(deadlines) == 1
+            hass.services.async_call.assert_not_awaited()
+        else:
+            assert len(deadlines) == 2
+            hass.services.async_call.assert_awaited_once()
+            auto_purge.cancel_auto_purge(hass)
+            deadlines[1][1].assert_called_once()

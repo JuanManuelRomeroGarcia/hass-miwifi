@@ -272,3 +272,8 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
             await _updater.async_stop(clean_store=True)
         
         data_dom.pop(entry.entry_id, None)
+    else:
+        # HA unloads the entry before removing it. Its runtime data may already
+        # be gone, but the per-router history must still be removed.
+        if ip := entry.data.get(CONF_IP_ADDRESS):
+            await get_store(hass, ip).async_remove()

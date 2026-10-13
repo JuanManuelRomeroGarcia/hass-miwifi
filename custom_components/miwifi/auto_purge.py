@@ -131,6 +131,10 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
             return None
 
     async def _job(_now=None):
+        # The startup kickoff and the regular deadline share this job. Cancel
+        # the pending deadline before replacing it, otherwise a kickoff leaves
+        # a second scheduled purge whose cancellation handle is lost.
+        cancel_auto_purge(hass)
         # 1) Reprogramar siguiente ejecución
         now = dt_util.now()
         at_time, every_days, at_str = await _current_cfg()

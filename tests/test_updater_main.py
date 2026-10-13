@@ -56,7 +56,7 @@ from custom_components.miwifi.enum import Mode
 from custom_components.miwifi.exceptions import LuciError, LuciRequestError
 from custom_components.miwifi.luci import LuciClient
 from custom_components.miwifi.updater import LuciUpdater, async_get_updater
-from tests.setup import MultipleSideEffect, async_mock_luci_client, async_setup
+from tests.setup import async_first_refresh, MultipleSideEffect, async_mock_luci_client, async_setup
 
 MOCK_IP_ADDRESS: Final = "192.168.31.1"
 MOCK_PASSWORD: Final = "**REDACTED**"
@@ -123,6 +123,9 @@ async def test_updater(hass: HomeAssistant) -> None:
     assert updater.device_info["sw_version"] is None
     assert updater.device_info["configuration_url"] == f"http://{MOCK_IP_ADDRESS}/"
 
+    await updater.async_shutdown()
+    assert updater._unsub_refresh is None
+
 
 @pytest.mark.asyncio
 async def test_updater_login_fail(hass: HomeAssistant) -> None:
@@ -145,7 +148,7 @@ async def test_updater_login_fail(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
 
         with pytest.raises(LuciError):
-            await updater.async_config_entry_first_refresh()
+            await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -180,7 +183,7 @@ async def test_updater_reauthorization(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await hass.async_block_till_done()
 
         assert updater.code == codes.OK
@@ -228,7 +231,7 @@ async def test_updater_skip_method(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await hass.async_block_till_done()
 
     assert updater.code == codes.OK
@@ -257,7 +260,7 @@ async def test_updater_without_model_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await hass.async_block_till_done()
 
     assert updater.code == codes.OK
@@ -292,7 +295,7 @@ async def test_updater_undefined_router(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
 
         with pytest.raises(LuciError):
-            await updater.async_config_entry_first_refresh()
+            await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -326,7 +329,7 @@ async def test_updater_without_hardware_info(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
 
         with pytest.raises(LuciError):
-            await updater.async_config_entry_first_refresh()
+            await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -355,7 +358,7 @@ async def test_updater_without_version_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await hass.async_block_till_done()
 
     assert ATTR_UPDATE_CURRENT_VERSION not in updater.data
@@ -381,7 +384,7 @@ async def test_updater_raise_rom_update(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await hass.async_block_till_done()
 
     assert updater.data[ATTR_UPDATE_FIRMWARE] == {
@@ -413,7 +416,7 @@ async def test_updater_need_rom_update(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await hass.async_block_till_done()
 
     assert updater.data[ATTR_UPDATE_FIRMWARE] == {
@@ -449,11 +452,15 @@ async def test_updater_key_error_rom_update(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
-    assert ATTR_UPDATE_FIRMWARE not in updater.data
+    firmware = updater.data[ATTR_UPDATE_FIRMWARE]
+    assert firmware[ATTR_UPDATE_CURRENT_VERSION] == "3.0.34"
+    assert firmware[ATTR_UPDATE_LATEST_VERSION] == "3.0.35"
+    assert ATTR_UPDATE_DOWNLOAD_URL not in firmware
+    assert ATTR_UPDATE_FILE_HASH not in firmware
 
 
 @pytest.mark.asyncio
@@ -475,7 +482,7 @@ async def test_updater_skip_mode_mesh(hass: HomeAssistant) -> None:
         updater: LuciUpdater = setup_data[0]
         updater.data[ATTR_SENSOR_MODE] = Mode.MESH
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -504,7 +511,7 @@ async def test_updater_value_error_mode(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -533,7 +540,7 @@ async def test_updater_incorrect_wan_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -562,7 +569,7 @@ async def test_updater_incorrect_led(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -593,7 +600,7 @@ async def test_updater_undefined_bsd_wifi_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -622,7 +629,7 @@ async def test_updater_empty_wifi_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -668,7 +675,7 @@ async def test_updater_unsupported_guest_wifi_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -699,7 +706,7 @@ async def test_updater_error_guest_wifi_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -732,7 +739,7 @@ async def test_updater_is_absent_ifname_wifi_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -768,7 +775,7 @@ async def test_updater_undefined_ifname_wifi_info(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -810,7 +817,7 @@ async def test_updater_empty_2g_avaliable_channels(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
 
         await hass.async_block_till_done()
 
@@ -841,7 +848,7 @@ async def test_updater_without_store(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop()
 
         await hass.async_block_till_done()
@@ -867,7 +874,7 @@ async def test_updater_with_clean_store(hass: HomeAssistant) -> None:
 
         updater: LuciUpdater = setup_data[0]
 
-        await updater.async_config_entry_first_refresh()
+        await async_first_refresh(updater)
         await updater.async_stop(clean_store=True)
 
         await hass.async_block_till_done()
@@ -885,11 +892,9 @@ async def test_get_updater_by_ip_error(hass: HomeAssistant) -> None:
     ) as mock_luci_client, patch(
         "custom_components.miwifi.async_start_discovery", return_value=None
     ), patch(
-        "custom_components.miwifi.device_tracker.socket.socket"
-    ) as mock_socket, patch(
         "custom_components.miwifi.updater.asyncio.sleep", return_value=None
     ):
-        mock_socket.return_value.recv.return_value = AsyncMock(return_value=None)
+
 
         await async_mock_luci_client(mock_luci_client)
 

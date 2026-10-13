@@ -9,6 +9,7 @@ from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .purged_clients import get_purged_clients, _confirmed_online
+from .registry import all_devices
 
 
 def _mac(value):
@@ -48,7 +49,7 @@ class MacReplacement:
             # Use integration-provided names, never a user's display-name override.
             registered_clients = []
             registry = er.async_get(self.hass)
-            for device in dr.async_get(self.hass).devices.values():
+            for device in all_devices(dr.async_get(self.hass)):
                 trackers = [entry for entry in er.async_entries_for_device(
                     registry, device.id, include_disabled_entities=True
                 ) if entry.platform == DOMAIN and entry.domain == "device_tracker"]
