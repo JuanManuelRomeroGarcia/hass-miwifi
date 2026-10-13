@@ -420,6 +420,9 @@ async def test_update_2_4(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
         # eventual entity unavailability on the repeated failed refresh.
@@ -673,6 +676,9 @@ async def test_update_5_0(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
@@ -936,6 +942,9 @@ async def test_update_5_0_game(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert entry.entity_category == EntityCategory.CONFIG
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
@@ -1231,6 +1240,9 @@ async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and

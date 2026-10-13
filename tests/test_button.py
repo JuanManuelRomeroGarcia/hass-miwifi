@@ -171,6 +171,9 @@ async def test_update_reboot(hass: HomeAssistant, legacy_clock) -> None:
 
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
         # eventual entity unavailability on the repeated failed refresh.

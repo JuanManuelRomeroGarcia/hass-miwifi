@@ -263,6 +263,9 @@ async def test_update_channel_2_4(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == "2"
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
         # eventual entity unavailability on the repeated failed refresh.
@@ -613,6 +616,9 @@ async def test_update_channel_5_0(hass: HomeAssistant, legacy_clock) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == "149"
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
@@ -1024,6 +1030,9 @@ async def test_update_channel_5_0_game(hass: HomeAssistant, legacy_clock) -> Non
         state = hass.states.get(unique_id)
         assert state.state == "48"
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
         # eventual entity unavailability on the repeated failed refresh.
@@ -1378,6 +1387,9 @@ async def test_update_strength_2_4(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == "max"
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
         # eventual entity unavailability on the repeated failed refresh.
@@ -1672,6 +1684,9 @@ async def test_update_strength_5_0(hass: HomeAssistant, legacy_clock) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == "max"
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
@@ -1970,6 +1985,9 @@ async def test_update_strength_5_0_game(hass: HomeAssistant, legacy_clock) -> No
 
         state = hass.states.get(unique_id)
         assert state.state == "max"
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
 
         # Optional client-list errors leave the router healthy. A later
         # critical status failure still exercises reauthorization and
