@@ -431,7 +431,7 @@ async def test_update_2_4(hass: HomeAssistant, legacy_clock) -> None:
         )
         await hass.async_block_till_done(wait_background_tasks=True)
         assert updater._is_reauthorization
-        
+
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -685,7 +685,7 @@ async def test_update_5_0(hass: HomeAssistant, legacy_clock) -> None:
         )
         await hass.async_block_till_done(wait_background_tasks=True)
         assert updater._is_reauthorization
-        
+
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -948,7 +948,7 @@ async def test_update_5_0_game(hass: HomeAssistant, legacy_clock) -> None:
         )
         await hass.async_block_till_done(wait_background_tasks=True)
         assert updater._is_reauthorization
-        
+
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -1243,7 +1243,7 @@ async def test_update_guest(hass: HomeAssistant, legacy_clock) -> None:
         )
         await hass.async_block_till_done(wait_background_tasks=True)
         assert updater._is_reauthorization
-        
+
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
