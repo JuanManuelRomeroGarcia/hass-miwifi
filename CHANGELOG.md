@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 3.9.1 — 2026-10-13
+
+Maintenance release for client counters, private-MAC configuration and current Home Assistant compatibility. Includes #345, #347 and #348.
 
 - Preserve a force-load leaf's own client counters when the parent router pushes client records to it (#348).
 - Resolve a known router's backhaul connection alias when linking clients to their serving node, requiring the registered router identity and loaded entry to match.
@@ -8,6 +10,17 @@
 - Cancel the pending automatic purge deadline before its startup kickoff or scheduled run replaces it, preventing duplicate runs and timers left behind after cancellation.
 - Preserve nested Wi-Fi channel and bandwidth values in write snapshots, with top-level provider fields as fallbacks when nested values are missing.
 - Restore the legacy Home Assistant integration tests and make their CI job required alongside the maintained compatibility suites. Isolate router delay mocks, wait for background jobs and validate current registry, polling and client ownership behavior.
+- Read device entries through the supported registry iterator when saving private-MAC replacement rules, including registry-only historical clients. Retain compatibility with older mapping-based registries (#347, thanks to @brembygit).
+- Use the coordinator's supported refresh callback, wait for topology data before provisioning client sensors, and shut down temporary login coordinators on success and failure.
+- Cancel discovery timers at Home Assistant shutdown and remove per-router stored history when an already unloaded integration entry is deleted.
+- Redact device data in downloaded diagnostics and restore entity-description icons for Wi-Fi selectors and binary sensors.
+- Refresh the integration and bundled panel cache version to 3.9.1.
+
+### Validation and upgrade
+
+- The combined release is checked with the complete legacy suite on HA Core 2026.10.0, maintained compatibility suites on 2026.10.0 and 2026.9.3, and HACS, hassfest, standalone regression and frontend checks. The newer device-registry ownership test retains its version-specific skip on 2026.9.3.
+- Update through HACS, restart Home Assistant and refresh the browser. Existing private-MAC rules remain configured; automatic replacement is still opt-in for individually configured clients with unique router names.
+- This release does not claim to resolve every router-specific report. #329 still needs its reporter's diagnostic validation; topology-role overrides, Wi-Fi write verification and the remaining mesh-node cleanup proposals stay in their separate PRs.
 
 ## 3.9.0 — 2026-10-11
 
