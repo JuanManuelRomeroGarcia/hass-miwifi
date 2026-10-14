@@ -14,13 +14,17 @@ const calls = [], panel = new context.Panel();
 const row = { mac: "02:00:00:00:00:51", ip: "192.0.2.51", name: "Watch" };
 const snapshot = { bindings: [row], clients: [row], revision: "first", writable: true, enabled: true };
 let result = snapshot;
-panel.hass = { user: { is_admin: true }, callWS: async payload => { calls.push(payload); return result; } };
-result = { routers: [{ entry_id: "main", name: "Main", ip: "192.0.2.1" }] };
+const routerResult = { routers: [{ entry_id: "main", name: "Main", ip: "192.0.2.1" }] };
+panel.hass = { user: { is_admin: true }, callWS: async payload => { calls.push(payload); return payload.type === "miwifi/dhcp_routers" ? routerResult : result; } };
 await panel._routers();
-assert.equal(panel.entry, ""); // Selecting the actual router is explicit.
-result = snapshot;
-await panel._select("main");
+assert.equal(panel.entry, "main");
+assert.equal(panel.snapshot, snapshot); // The main's list loads without a click.
+assert.equal(calls.length, 2);
 assert.equal(calls.at(-1).entry_id, "main");
+const renderedText = value => value?.strings ? value.strings.join("") + value.values.map(renderedText).join("")
+  : Array.isArray(value) ? value.map(renderedText).join("") : typeof value === "string" ? value : "";
+assert.ok(!renderedText(panel.render()).includes("dhcp_choose_router"));
+assert.ok(renderedText(panel.render()).includes("Main"));
 panel._edit(row);
 panel._field("ip", "192.0.2.53");
 assert.equal(panel.editing, true);
@@ -66,4 +70,39 @@ panel.entry = "other";
 finish(snapshot);
 await pendingRead;
 assert.equal(panel.snapshot, null);
-console.log("PASS: explicit router, edit, confirmed delete, verified result, failed-write refresh, read-only/admin controls and late-response isolation.");
+
+const noMain = new context.Panel(), noMainCalls = [];
+noMain.hass = { user: { is_admin: true }, callWS: async payload => { noMainCalls.push(payload); return { routers: [] }; } };
+await noMain._routers();
+assert.equal(noMain.entry, "");
+assert.equal(noMain.snapshot, null);
+assert.equal(noMainCalls.length, 1);
+assert.ok(!renderedText(noMain.render()).includes("dhcp_choose_router"));
+
+const multiple = new context.Panel(), multipleCalls = [];
+multiple.hass = { user: { is_admin: true }, callWS: async payload => { multipleCalls.push(payload); return { routers: [
+  { entry_id: "one", name: "Main one", ip: "192.0.2.1" },
+  { entry_id: "two", name: "Main two", ip: "198.51.100.1" },
+] }; } };
+await multiple._routers();
+assert.equal(multiple.entry, "");
+assert.equal(multipleCalls.length, 1); // Don't guess between independent networks.
+assert.ok(renderedText(multiple.render()).includes("dhcp_choose_router"));
+
+const changedMain = new context.Panel(), changedCalls = [];
+let available = [{ entry_id: "old", name: "Old", ip: "192.0.2.1" }];
+changedMain.hass = { user: { is_admin: true }, callWS: async payload => { changedCalls.push(payload); return payload.type === "miwifi/dhcp_routers" ? { routers: available } : snapshot; } };
+await changedMain._routers();
+available = [{ entry_id: "new", name: "New", ip: "192.0.2.2" }];
+await changedMain._routers();
+assert.equal(changedMain.entry, "new");
+assert.equal(changedCalls.at(-1).entry_id, "new");
+available = [];
+await changedMain._routers();
+assert.equal(changedMain.entry, "");
+assert.equal(changedMain.snapshot, null);
+changedMain.hass.callWS = async () => { throw new Error("offline"); };
+await changedMain._routers();
+assert.equal(changedMain.snapshot, null);
+assert.equal(changedMain.routers.length, 0);
+console.log("PASS: automatic main selection/read, no redundant selector, main refresh/removal, edit, confirmed delete, failed-write refresh, read-only/admin controls and late-response isolation.");

@@ -6,6 +6,7 @@
 - Validate LAN host addresses and known IP conflicts, serialize writes, reject stale editors and verify unrelated reservations. Require a refresh after an ambiguous write failure without automatic retries or rollback. Keep DHCP reservations independent of private-MAC entity cleanup.
 - Translate DHCP controls and errors into all eight panel languages and document the combined local #346/DHCP hardware test.
 - Show router names rather than repeated IP titles in the DHCP selector. Include only confirmed main routers and reject node-targeted requests or a main-role change during an operation.
+- Automatically load the sole main router's DHCP reservations without a redundant selector. Look up its HA name through the config-entry-scoped registry API, avoiding the deprecated device lookup and names from another entry.
 
 - Adapt @brembygit's topology-role and updater resilience contribution (#324) on the v3.9.1 baseline (#346). Use positive mesh/AP topology roles while preserving main-router, CB0401V2 and existing mesh-mode precedence; fall back to the mode endpoint when local or parent topology is malformed.
 - Normalize whitespace in topology leaf addresses before matching configured nodes, preserving both role detection and the parent topology's client-count fallback.

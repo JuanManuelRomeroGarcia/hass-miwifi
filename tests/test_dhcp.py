@@ -3,7 +3,7 @@ import asyncio
 import json
 from copy import deepcopy
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -326,10 +326,26 @@ def test_unknown_role_never_guesses_a_main(hass, router, data):
 
 
 def test_router_name_falls_back_without_repeating_ip(hass):
-    entry = SimpleNamespace(title="192.0.2.1")
+    entry = SimpleNamespace(title="192.0.2.1", entry_id="selected")
     updater = SimpleNamespace(ip=entry.title, data={"device_name": entry.title, "topo_graph": {"graph": {"name": "Gateway"}}})
     assert ws_api._dhcp_router_name(hass, entry, updater) == "Gateway"
     updater.data = {"device_model": "BE10000"}
     assert ws_api._dhcp_router_name(hass, entry, updater) == "BE10000"
     updater.data = {}
     assert ws_api._dhcp_router_name(hass, entry, updater) == "MiWiFi"
+
+
+def test_name_lookup_is_scoped_and_never_uses_deprecated_api(hass):
+    main = MockConfigEntry(domain=DOMAIN, title="192.0.2.1")
+    other = MockConfigEntry(domain=DOMAIN, title="192.0.2.2")
+    main.add_to_hass(hass)
+    other.add_to_hass(hass)
+    registry = dr.async_get(hass)
+    identifier = (DOMAIN, MAC)
+    wrong = registry.async_get_or_create(config_entry_id=other.entry_id, identifiers={identifier}, name="Other router")
+    registry.async_update_device(wrong.id, name_by_user="Wrong entry name")
+    right = registry.async_get_or_create(config_entry_id=main.entry_id, identifiers={identifier}, name="BE10000")
+    registry.async_update_device(right.id, name_by_user="Router Casa")
+    updater = SimpleNamespace(ip=main.title, data={"device_mac_address": MAC, "device_name": "BE10000"})
+    with patch.object(registry, "async_get_device", side_effect=AssertionError("Deprecated API used")):
+        assert ws_api._dhcp_router_name(hass, main, updater) == "Router Casa"

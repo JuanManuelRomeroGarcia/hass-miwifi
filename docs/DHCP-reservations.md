@@ -1,10 +1,12 @@
 # DHCP reservations (local testing)
 
-Open MiWiFi → **DHCP**, select the main router, and inspect its reservations. The selector shows its router name and IP and includes only loaded entries with a confirmed `is_main` role. Mesh nodes are excluded, and the backend rejects both reads and writes targeting them. For separate networks, choose the corresponding main router. Administrators can add a known client or enter a MAC, IPv4 address and name manually, edit a reservation's IP/name, or confirm its removal. Operations never fall back to another mesh node.
+Open MiWiFi → **DHCP** to inspect the main router's reservations. Only loaded entries with a confirmed `is_main` role are eligible. Mesh nodes are excluded, and the backend rejects both reads and writes targeting them. For multiple independent networks, choose the corresponding main router. Administrators can add a known client or enter a MAC, IPv4 address and name manually, edit a reservation's IP/name, or confirm its removal. Operations never fall back to another mesh node.
 
 ## Initial support
 
 Read and incremental add/edit/delete API behavior was verified on **BE10000 / RC01 firmware 1.1.56**. Writes are enabled only for this profile with DHCP enabled. Other firmware is read-only when its responses are compatible. AX1800 stock 3.0.34 (#314) still needs request/response and mutation verification.
+
+When there is one main router, its name/IP and reservations load automatically with no router dropdown. Only multiple main routers from independent networks require choosing one. Refresh rechecks the loaded main entries before reading their reservations.
 
 The feature does not modify LAN addresses, the DHCP pool, DNS or lease durations. Reads run on demand and do not add DHCP queries to coordinator polling.
 

@@ -1,6 +1,6 @@
 # Reservas DHCP (pruebas locales)
 
-El panel **DHCP** permite consultar las reservas del router principal y, en los firmwares verificados, añadirlas, editar su IP o nombre y eliminarlas. Está disponible para administradores de Home Assistant. El selector muestra el nombre del router y su IP, y solo incluye entradas cargadas con el rol `is_main` confirmado. Los nodos mesh quedan excluidos; el backend también rechaza consultas y escrituras dirigidas a ellos. Si hay varias redes independientes, elige su router principal correspondiente. No se selecciona silenciosamente otro nodo.
+El panel **DHCP** permite consultar las reservas del router principal y, en los firmwares verificados, añadirlas, editar su IP o nombre y eliminarlas. Está disponible para administradores de Home Assistant. Cuando hay un solo principal, muestra su nombre e IP y carga sus reservas automáticamente, sin desplegable. Solo usa entradas cargadas con el rol `is_main` confirmado. Los nodos mesh quedan excluidos; el backend también rechaza consultas y escrituras dirigidas a ellos. Si hay varias redes independientes con sus propios principales, se muestra el selector para elegir la red correspondiente.
 
 ## Compatibilidad inicial
 
@@ -10,7 +10,7 @@ El panel no modifica la dirección LAN, el rango DHCP, DNS ni la duración de la
 
 ## Uso
 
-1. Abre MiWiFi → DHCP y selecciona el router principal de la red.
+1. Abre MiWiFi → DHCP: el router principal y sus reservas se cargan automáticamente. Se muestra su nombre e IP sin desplegable. Solo si hay varios principales de redes independientes se solicita elegir uno.
 2. Revisa las reservas actuales. Elige un cliente conocido o introduce manualmente MAC, IPv4 y nombre.
 3. Guarda. Se valida la dirección de host dentro de la subred, se excluyen la IP del router, la dirección de red y la de difusión, y se rechazan conflictos con otras reservas o clientes conocidos por el router.
 4. Para editar, pulsa **Editar reserva**. La MAC no cambia: si necesitas otra MAC, añade su reserva por separado.

@@ -41,13 +41,18 @@ export class MiWiFiDhcp extends LitElement {
   }
   async _routers() {
     if (this.busy || !this.hass?.user?.is_admin) return;
+    const previous = this.entry;
     this._attempted = true; this.busy = true; this.error = "";
+    this.routers = []; this.entry = ""; this.snapshot = null; this.saved = false; this._reset();
     try {
       const result = await this.hass.callWS({ type: "miwifi/dhcp_routers" });
       if (!Array.isArray(result?.routers)) throw new Error();
       this.routers = result.routers;
     } catch (error) { this._error(error); }
     finally { this.busy = false; }
+    const entry = this.routers.length === 1 ? this.routers[0].entry_id
+      : this.routers.find(row => row.entry_id === previous)?.entry_id;
+    if (entry) await this._select(entry);
   }
   _reset() { this.form = { mac: "", ip: "", name: "" }; this.editing = false; this.pending = null; }
   async _select(entry) {
@@ -92,11 +97,12 @@ export class MiWiFiDhcp extends LitElement {
     const data = this.snapshot, disabled = this.busy || !data?.writable;
     return html`
       <h3>${localize("dhcp_title")}</h3><p>${localize("dhcp_description")}</p>
-      <label>${localize("dhcp_router")}<select .value=${this.entry} ?disabled=${this.busy} @change=${event => this._select(event.target.value)}>
+      ${this.routers.length === 1 ? html`<p><strong>${localize("dhcp_router")}:</strong> ${this.routers[0].name} (${this.routers[0].ip})</p>`
+        : this.routers.length > 1 ? html`<label>${localize("dhcp_router")}<select .value=${this.entry} ?disabled=${this.busy} @change=${event => this._select(event.target.value)}>
         <option value="">${localize("dhcp_choose_router")}</option>
         ${this.routers.map(row => html`<option value=${row.entry_id}>${row.name} (${row.ip})</option>`)}
-      </select></label>
-      <div class="actions"><button ?disabled=${this.busy} @click=${() => this.entry ? this._load() : this._routers()}>${localize("mac_reload")}</button></div>
+      </select></label>` : ""}
+      <div class="actions"><button ?disabled=${this.busy} @click=${() => this._routers()}>${localize("mac_reload")}</button></div>
       ${!this.busy && !this.routers.length ? html`<p>${localize("dhcp_no_routers")}</p>` : ""}
       ${this.busy ? html`<p role="status">${localize("ui_loading")}</p>` : ""}
       ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : ""}

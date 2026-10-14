@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.components import websocket_api
 from .const import DOMAIN, UPDATER, ATTR_DEVICE_NAME, ATTR_DEVICE_MODEL, ATTR_DEVICE_MAC_ADDRESS
 from .mac_replacement import get_mac_replacement
+from .registry import get_device
 
 
 def _dhcp_router_name(hass, entry, updater) -> str:
@@ -15,7 +16,7 @@ def _dhcp_router_name(hass, entry, updater) -> str:
 
     data = updater.data or {}
     identity = data.get(ATTR_DEVICE_MAC_ADDRESS) or updater.ip
-    device = dr.async_get(hass).async_get_device(identifiers={(DOMAIN, identity)})
+    device = get_device(dr.async_get(hass), entry.entry_id, identifier=(DOMAIN, identity))
     topology = data.get("topo_graph")
     graph = topology.get("graph") if isinstance(topology, dict) else None
     graph = graph if isinstance(graph, dict) else {}
