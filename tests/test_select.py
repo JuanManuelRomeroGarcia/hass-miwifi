@@ -19,6 +19,7 @@ from homeassistant.components.select import ENTITY_ID_FORMAT as SELECT_ENTITY_ID
 from homeassistant.components.select import SERVICE_SELECT_OPTION
 from homeassistant.const import ATTR_ENTITY_ID, ATTR_OPTION, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.util.dt import utcnow
@@ -518,12 +519,13 @@ async def test_update_channel_2_4_change_channel(hass: HomeAssistant, legacy_clo
         assert state.state == "10"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        await hass.services.async_call(
-            SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "10"},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SELECT_DOMAIN,
+                SERVICE_SELECT_OPTION,
+                {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "10"},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
         assert state.state == "10"
@@ -936,15 +938,16 @@ async def test_update_channel_5_0_change_channel(hass: HomeAssistant, legacy_clo
         assert state.state == "48"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        await hass.services.async_call(
-            SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "44"},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SELECT_DOMAIN,
+                SERVICE_SELECT_OPTION,
+                {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "44"},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == "44"
+        assert state.state == "48"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
 
@@ -1295,15 +1298,16 @@ async def test_update_channel_5_0_game_change_channel(hass: HomeAssistant, legac
         assert state.state == "36"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        await hass.services.async_call(
-            SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "40"},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SELECT_DOMAIN,
+                SERVICE_SELECT_OPTION,
+                {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "40"},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == "40"
+        assert state.state == "36"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
 
@@ -1592,16 +1596,17 @@ async def test_update_strength_2_4_change_strength(hass: HomeAssistant, legacy_c
         assert state.attributes["icon"] == "mdi:wifi-strength-1"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        await hass.services.async_call(
-            SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SELECT_DOMAIN,
+                SERVICE_SELECT_OPTION,
+                {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == "mid"
-        assert state.attributes["icon"] == "mdi:wifi-strength-2"
+        assert state.state == "min"
+        assert state.attributes["icon"] == "mdi:wifi-strength-1"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
 
@@ -1889,16 +1894,17 @@ async def test_update_strength_5_0_change_channel(hass: HomeAssistant, legacy_cl
         assert state.attributes["icon"] == "mdi:wifi-strength-1"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        await hass.services.async_call(
-            SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SELECT_DOMAIN,
+                SERVICE_SELECT_OPTION,
+                {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == "mid"
-        assert state.attributes["icon"] == "mdi:wifi-strength-2"
+        assert state.state == "min"
+        assert state.attributes["icon"] == "mdi:wifi-strength-1"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
 
@@ -2196,16 +2202,17 @@ async def test_update_strength_5_0_game_change_strength(hass: HomeAssistant, leg
         assert state.attributes["icon"] == "mdi:wifi-strength-1"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 1
 
-        await hass.services.async_call(
-            SELECT_DOMAIN,
-            SERVICE_SELECT_OPTION,
-            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SELECT_DOMAIN,
+                SERVICE_SELECT_OPTION,
+                {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "mid"},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == "mid"
-        assert state.attributes["icon"] == "mdi:wifi-strength-2"
+        assert state.state == "min"
+        assert state.attributes["icon"] == "mdi:wifi-strength-1"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
 
