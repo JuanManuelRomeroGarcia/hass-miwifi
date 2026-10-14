@@ -243,6 +243,21 @@ async def test_update_wan_state(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
+
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -339,6 +354,21 @@ async def test_update_dual_band(hass: HomeAssistant, legacy_clock) -> None:
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
 
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
+
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )
         await hass.async_block_till_done(wait_background_tasks=True)
@@ -434,6 +464,21 @@ async def test_update_vpn_state(hass: HomeAssistant, legacy_clock) -> None:
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
+
+        # Enabling a disabled entity can reload its integration entry.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
+        # Optional client-list errors leave the router healthy. A later
+        # critical status failure still exercises reauthorization and
+        # eventual entity unavailability on the repeated failed refresh.
+        assert updater.data["state"] is True
+        assert not updater._is_reauthorization
+        mock_luci_client.return_value.status.side_effect = LuciRequestError
+        async_advance_time(
+            hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+        assert updater._is_reauthorization
 
         async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
         )

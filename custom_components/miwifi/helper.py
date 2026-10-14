@@ -88,7 +88,7 @@ async def async_verify_access(
         await hass.async_add_executor_job(_LOGGER.exception, "[MiWiFi] Error inesperado durante el login con %s", ip)
         return codes.INTERNAL_SERVER_ERROR, str(e)
     finally:
-        await updater.async_shutdown()
+        # async_stop cancels polling before persistence/logout on every exit.
         await updater.async_stop()
 
 
