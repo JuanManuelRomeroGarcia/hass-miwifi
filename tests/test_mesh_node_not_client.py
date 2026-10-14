@@ -241,3 +241,114 @@ def test_empty_row_shared_with_another_integration_only_loses_the_miwifi_link() 
 
     dev_reg.async_remove_device.assert_not_called()
     dev_reg.async_update_device.assert_called_once_with("row-id", remove_config_entry_id="miwifi-entry")
+
+
+def _leftover_client_entities(hass, entry, *, legacy: bool = False):
+    """A node's client tracker and sensors, left on `entry` by an earlier session."""
+    dev_reg, registry = dr.async_get(hass), er.async_get(hass)
+    row = dev_reg.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, NODE_MAC)},
+        connections={(dr.CONNECTION_NETWORK_MAC, NODE_MAC)},
+    )
+    tracker_uid = f"{DOMAIN}-{entry.entry_id}-{NODE_MAC.upper()}" if legacy else f"{DOMAIN}-{NODE_MAC}"
+    entities = [
+        registry.async_get_or_create(
+            "device_tracker", DOMAIN, tracker_uid, config_entry=entry, device_id=row.id
+        )
+    ] + [
+        registry.async_get_or_create(
+            "sensor", DOMAIN, f"{DOMAIN}-dev-{NODE_MAC}-{desc.key}",
+            config_entry=entry, device_id=row.id,
+            disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+        )
+        for desc in MIWIFI_DEVICE_SENSORS
+    ]
+    return row, entities
+
+
+@pytest.mark.parametrize("later_row", ["isap_0", "omitted"])
+async def test_node_seen_only_in_the_first_refresh_is_still_purged(hass, router_doubles, later_row):
+    main_entry, node_entry = _entry(hass, MAIN_IP), _entry(hass, NODE_IP)
+    row, entities = _leftover_client_entities(hass, main_entry)
+    main = _updater(hass, main_entry, MAIN_IP, is_main=True)
+    _updater(hass, node_entry, NODE_IP, is_main=False)
+    registry, dev_reg = er.async_get(hass), dr.async_get(hass)
+
+    # The only positive identification comes while nothing may be purged yet.
+    await _refresh(hass, main, [_row(NODE_MAC, NODE_IP, isap=8), _row(CLIENT_MAC, CLIENT_IP)])
+    assert all(registry.async_get(entity.entity_id) for entity in entities)
+    main._is_first_update = False
+
+    # From then on the node is listed as a client again, or not at all.
+    rows = [_row(CLIENT_MAC, CLIENT_IP)]
+    if later_row == "isap_0":
+        rows.insert(0, _row(NODE_MAC, NODE_IP))
+    await _refresh(hass, main, rows)
+
+    assert all(registry.async_get(entity.entity_id) is None for entity in entities)
+    assert dev_reg.async_get(row.id) is None
+    assert NODE_MAC.upper() in hass.data[DOMAIN]["mesh_node_purged"]
+    assert CLIENT_MAC.upper() in main.devices
+
+
+async def test_a_node_known_only_by_its_address_is_skipped_but_not_purged(hass, router_doubles):
+    main_entry, node_entry = _entry(hass, MAIN_IP), _entry(hass, NODE_IP)
+    row, entities = _leftover_client_entities(hass, main_entry)
+    main = _updater(hass, main_entry, MAIN_IP, is_main=True)
+    _updater(hass, node_entry, NODE_IP, is_main=False)
+    main._is_first_update = False
+
+    # Never reported with isap > 0: the entry's address keeps it out of the
+    # clients, but is no licence to delete what the registry holds for the MAC.
+    await _refresh(hass, main, [_row(NODE_MAC, NODE_IP), _row(CLIENT_MAC, CLIENT_IP)])
+    await _refresh(hass, main, [_row(NODE_MAC, NODE_IP), _row(CLIENT_MAC, CLIENT_IP)])
+
+    assert NODE_MAC.upper() not in main.devices
+    registry = er.async_get(hass)
+    assert all(registry.async_get(entity.entity_id) for entity in entities)
+    assert dr.async_get(hass).async_get(row.id) is not None
+    assert NODE_MAC.upper() not in hass.data[DOMAIN].get("mesh_node_purged", set())
+
+
+async def test_purge_reaches_a_legacy_tracker_owned_by_another_entry(hass, router_doubles):
+    main_entry, node_entry = _entry(hass, MAIN_IP), _entry(hass, NODE_IP)
+    leaf_entry = _entry(hass, "192.0.2.4")
+    other_entry = MockConfigEntry(domain="other")
+    other_entry.add_to_hass(hass)
+    registry, dev_reg = er.async_get(hass), dr.async_get(hass)
+
+    # The node's client entities were made by a leaf under the per-entry legacy
+    # ID. That leaf's platforms are not set up, so no handler of its listens.
+    row, entities = _leftover_client_entities(hass, leaf_entry, legacy=True)
+    other_row = dev_reg.async_get_or_create(
+        config_entry_id=other_entry.entry_id,
+        connections={(dr.CONNECTION_NETWORK_MAC, NODE_MAC)},
+    )
+    other_entity = registry.async_get_or_create(
+        "sensor", "other", "node-temperature", config_entry=other_entry, device_id=other_row.id
+    )
+    router_row = dev_reg.async_get_or_create(
+        config_entry_id=node_entry.entry_id, identifiers={(DOMAIN, NODE_MAC.upper())}
+    )
+    router_entity = registry.async_get_or_create(
+        "sensor", DOMAIN, f"{NODE_IP}_uptime", config_entry=node_entry, device_id=router_row.id
+    )
+
+    main = _updater(hass, main_entry, MAIN_IP, is_main=True)
+    _updater(hass, node_entry, NODE_IP, is_main=False)
+    main._is_first_update = False
+    await _connect_platforms(hass, main_entry)
+
+    # The main reports the node; the purge is the main's, the entities the leaf's.
+    await _refresh(hass, main, [_row(NODE_MAC, NODE_IP, isap=8), _row(CLIENT_MAC, CLIENT_IP)])
+
+    assert all(registry.async_get(entity.entity_id) is None for entity in entities)
+    assert dev_reg.async_get(row.id) is None
+    assert NODE_MAC.upper() in hass.data[DOMAIN]["mesh_node_purged"]
+
+    assert registry.async_get(other_entity.entity_id) is not None
+    assert dev_reg.async_get(other_row.id) is not None
+    assert registry.async_get(router_entity.entity_id) is not None
+    assert dev_reg.async_get(router_row.id) is not None
+    assert registry.async_get_entity_id("device_tracker", DOMAIN, f"{DOMAIN}-{CLIENT_MAC}")

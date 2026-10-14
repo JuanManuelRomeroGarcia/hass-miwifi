@@ -340,3 +340,53 @@ def async_remove_empty_client_device(hass: HomeAssistant, device_id: str | None)
 
     for entry_id in owners & ours:
         dev_reg.async_update_device(device_id, remove_config_entry_id=entry_id)
+
+
+def async_purge_client_entities(hass: HomeAssistant, mac: str) -> int:
+    """Remove every MiWiFi client entity of a MAC, whichever entry owns it.
+
+    Works on the entity registry directly, so it does not depend on which
+    entries have their platforms set up: a loaded entity is removed by Home
+    Assistant along with its registry row. It matches only client unique IDs -
+    the tracker (`miwifi-<mac>`, and the legacy per-entry
+    `miwifi-<entry_id>-<mac>` of any MiWiFi entry) and the client sensors
+    (`miwifi-dev-<mac>-<key>`), disabled ones included - so a router's own
+    entities and other integrations' are never touched. The device rows they
+    leave empty go too.
+
+    :param hass: HomeAssistant
+    :param mac: str: the client's MAC, in any case
+    :return int: how many entities were removed
+    """
+
+    mac_lc = str(mac or "").strip().lower()
+    if not mac_lc:
+        return 0
+
+    trackers: set[str] = {f"{DOMAIN}-{mac_lc}"} | {
+        f"{DOMAIN}-{entry.entry_id}-{mac_lc}".lower()
+        for entry in hass.config_entries.async_entries(DOMAIN)
+    }
+    sensor_prefix: str = f"{DOMAIN}-dev-{mac_lc}-"
+
+    registry = er.async_get(hass)
+    matches: list[er.RegistryEntry] = [
+        entity
+        for entity in list(registry.entities.values())
+        if entity.platform == DOMAIN
+        and (
+            (entity.domain == "device_tracker" and (entity.unique_id or "").lower() in trackers)
+            or (entity.domain == "sensor" and (entity.unique_id or "").lower().startswith(sensor_prefix))
+        )
+    ]
+
+    device_ids: set[str] = set()
+    for entity in matches:
+        if entity.device_id:
+            device_ids.add(entity.device_id)
+        registry.async_remove(entity.entity_id)
+
+    for device_id in device_ids:
+        async_remove_empty_client_device(hass, device_id)
+
+    return len(matches)

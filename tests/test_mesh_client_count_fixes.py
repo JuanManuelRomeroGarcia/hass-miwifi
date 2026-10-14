@@ -50,8 +50,9 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+from custom_components.miwifi import helper as helper_module
 from custom_components.miwifi import updater as updater_module
-from custom_components.miwifi.const import DOMAIN, SIGNAL_PURGE_DEVICE, UPDATER
+from custom_components.miwifi.const import DOMAIN, UPDATER
 from custom_components.miwifi.updater import LuciUpdater
 
 NODE_MAC = "02:00:00:00:00:0A"
@@ -100,16 +101,18 @@ def _no_client_history():
 
 
 def _run_device_list(main, rows, integrations):
+    """Run one device_list refresh; report the purge signals and node purges."""
     main.luci = SimpleNamespace(device_list=AsyncMock(return_value={"list": rows}))
-    send = Mock()
+    calls = SimpleNamespace(send=Mock(), purge=Mock(return_value=0))
     with (
         patch.object(updater_module, "async_get_integrations", return_value=integrations),
-        patch.object(updater_module, "async_dispatcher_send", send),
+        patch.object(updater_module, "async_dispatcher_send", calls.send),
+        patch.object(helper_module, "async_purge_client_entities", calls.purge),
         patch.object(updater_module.asyncio, "sleep", AsyncMock()),
         _no_client_history(),
     ):
         asyncio.run(main._async_prepare_device_list({}))
-    return send
+    return calls
 
 
 def test_device_list_purges_stale_client_copies_of_a_reported_node() -> None:
@@ -122,23 +125,24 @@ def test_device_list_purges_stale_client_copies_of_a_reported_node() -> None:
         "192.0.2.4": {UPDATER: leaf, "entry_id": "leaf"},
     }
 
-    # First refresh: the platforms are not listening yet, so no purge signal.
-    send = _run_device_list(main, [_row(NODE_MAC, NODE_IP, isap=8)], integrations)
+    # First refresh: the platforms are not set up yet, so nothing is purged.
+    calls = _run_device_list(main, [_row(NODE_MAC, NODE_IP, isap=8)], integrations)
 
     assert NODE_MAC not in main.devices
     assert NODE_MAC not in leaf.devices
     assert NODE_MAC not in hass.data[DOMAIN]["devices_cache"]
     main.add_device.assert_not_awaited()
-    send.assert_not_called()
+    calls.purge.assert_not_called()
 
-    # Next cycle: purged once.
+    # Next cycle: purged once, across every entry, without a scoped signal.
     main._is_first_update = False
-    send = _run_device_list(main, [_row(NODE_MAC, NODE_IP, isap=8)], integrations)
-    send.assert_called_once_with(hass, SIGNAL_PURGE_DEVICE, "main", NODE_MAC)
+    calls = _run_device_list(main, [_row(NODE_MAC, NODE_IP, isap=8)], integrations)
+    calls.purge.assert_called_once_with(hass, NODE_MAC)
+    calls.send.assert_not_called()
 
     # And not again on every cycle.
-    send = _run_device_list(main, [_row(NODE_MAC, NODE_IP, isap=8)], integrations)
-    send.assert_not_called()
+    calls = _run_device_list(main, [_row(NODE_MAC, NODE_IP, isap=8)], integrations)
+    calls.purge.assert_not_called()
 
 
 def test_device_list_skips_a_node_listed_without_isap() -> None:
@@ -147,9 +151,10 @@ def test_device_list_skips_a_node_listed_without_isap() -> None:
     integrations = {"192.0.2.1": {UPDATER: main, "entry_id": "main"}}
 
     # By the IP of a configured entry, before the node was ever reported.
-    send = _run_device_list(main, [_row(NODE_MAC, NODE_IP)], integrations)
+    calls = _run_device_list(main, [_row(NODE_MAC, NODE_IP)], integrations)
     main.add_device.assert_not_awaited()
-    send.assert_not_called()
+    calls.send.assert_not_called()
+    calls.purge.assert_not_called()
 
     # By a MAC reported earlier with isap > 0, whatever IP it now has.
     hass = _hass()

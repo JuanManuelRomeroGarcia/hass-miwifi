@@ -1821,13 +1821,9 @@ class LuciUpdater(DataUpdateCoordinator):
 
         # A node may still have a client tracker and sensors from an earlier
         # cycle or a device store. Purge them once per session, but not during
-        # the first refresh: the platforms are set up after it and would miss
-        # the signal.
+        # the first refresh: it runs before the platforms are set up.
         if not self._is_first_update:
-            for mac in _remember_mesh_node_macs(
-                self.hass, reported_nodes, MESH_NODE_PURGED
-            ):
-                self._forget_mesh_node(mac, integrations, purge=True)
+            self._purge_pending_mesh_nodes(integrations)
 
         # No client of our own this cycle. A leaf keeps what the main pushed in,
         # but a node no other node lists as a leaf - e.g. the main of a mesh in
@@ -2417,14 +2413,39 @@ class LuciUpdater(DataUpdateCoordinator):
                 async_dispatcher_send(self.hass, SIGNAL_PURGE_DEVICE, entry_id, mac)
 
 
-    def _forget_mesh_node(
-        self, mac: str, integrations: dict[str, dict], purge: bool = False
-    ) -> None:
+    def _purge_pending_mesh_nodes(self, integrations: dict[str, dict]) -> None:
+        """Remove the client entities of every node not purged yet this session.
+
+        The pending set is every MAC a main router has reported with isap > 0,
+        not only this cycle's: a node seen as one during the first refresh, when
+        nothing may be purged yet, can be listed with isap 0 or not at all by the
+        time a purge is allowed. A node recognised only by its address is never
+        purged: an IP alone does not identify a device whose entities may go.
+
+        The removal works on the entity registry across every MiWiFi entry, so it
+        is complete when it returns, whatever entries have their platforms up.
+
+        :param integrations: dict[str, dict]: Integrations list
+        """
+
+        # helper imports this module, so it cannot be imported at the top.
+        from .helper import async_purge_client_entities
+
+        domain_data: dict = self.hass.data.setdefault(DOMAIN, {})
+        pending: set[str] = set(domain_data.get(MESH_NODE_MACS, ())) - set(
+            domain_data.get(MESH_NODE_PURGED, ())
+        )
+
+        for mac in sorted(pending):
+            self._forget_mesh_node(mac, integrations)
+            async_purge_client_entities(self.hass, mac)
+            _remember_mesh_node_macs(self.hass, {mac}, MESH_NODE_PURGED)
+
+    def _forget_mesh_node(self, mac: str, integrations: dict[str, dict]) -> None:
         """Stop tracking a mesh node's MAC as a client on every node.
 
         :param mac: str: Upper-case MAC of the node
         :param integrations: dict[str, dict]: Integrations list
-        :param purge: bool: Also remove its client tracker and sensors
         """
 
         if not mac:
@@ -2442,11 +2463,6 @@ class LuciUpdater(DataUpdateCoordinator):
                 updater._moved_devices.remove(mac)
 
         self.hass.data.get(DOMAIN, {}).get("devices_cache", {}).pop(mac, None)
-
-        if purge:
-            async_dispatcher_send(
-                self.hass, SIGNAL_PURGE_DEVICE, self._entry_id or "", mac
-            )
 
     def reset_counter(self, is_force: bool = False, is_remove: bool = False) -> None:
         """Reset counter
