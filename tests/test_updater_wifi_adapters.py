@@ -10,16 +10,25 @@ which is exactly the shape of "this node shows no 5G switch and the others do".
 from __future__ import annotations
 
 import logging
-from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.miwifi.const import ATTR_WIFI_ADAPTER_LENGTH
-from custom_components.miwifi.exceptions import LuciError
+from custom_components.miwifi.exceptions import (
+    LuciConnectionError,
+    LuciRequestError,
+)
 from custom_components.miwifi.logger import _LOGGER
-from custom_components.miwifi.updater import LuciUpdater
+from custom_components.miwifi.updater import (
+    WIFI_DIAG_RETRY_FIRST,
+    WIFI_DIAG_RETRY_MAX,
+    LuciUpdater,
+)
 
 MOCK_IP: str = "192.0.2.102"
+START: datetime = datetime(2026, 10, 14, 12, 0, tzinfo=timezone.utc)
 
 
 def _updater() -> LuciUpdater:
@@ -31,7 +40,8 @@ def _updater() -> LuciUpdater:
     updater.luci = MagicMock()
     updater.supports_guest = False
     updater._wifi_adapters_logged = None
-    updater._wifi_diag_fills_channels = None
+    updater._wifi_diag_next_try = START
+    updater._wifi_diag_misses = 0
 
     hass = MagicMock()
 
@@ -144,9 +154,23 @@ async def test_the_detail_endpoint_is_enough_on_its_own() -> None:
     updater.luci.wifi_diag_detail_all.assert_not_awaited()
 
 
-@pytest.mark.asyncio
-async def test_a_node_that_never_states_its_channel_is_asked_once() -> None:
-    """Otherwise it costs an extra request every cycle, for ever."""
+class _Clock:
+    """The updater's clock, moved by hand between refreshes."""
+
+    def __init__(self) -> None:
+        self.now: datetime = START
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
+def _clock() -> tuple[_Clock, object]:
+    clock = _Clock()
+    return clock, patch("custom_components.miwifi.updater.dt_util.utcnow", clock)
+
+
+def _node_missing_5g() -> LuciUpdater:
+    """A node whose detail endpoint omits the 5 GHz channel, as the RA82 do."""
 
     updater = _updater()
     updater.luci.wifi_detail_all = AsyncMock(
@@ -155,35 +179,113 @@ async def test_a_node_that_never_states_its_channel_is_asked_once() -> None:
             "info": [_adapter("wl1"), _adapter_without_channel("wl0")],
         }
     )
+    return updater
+
+
+DIAG_36: dict = {"info": [{"ifname": "wl0", "channelInfo": {"channel": 36}}]}
+
+
+@pytest.mark.asyncio
+async def test_a_node_that_never_states_its_channel_is_asked_less_and_less() -> None:
+    """Not every cycle for ever, and not never again either."""
+
+    updater = _node_missing_5g()
     updater.luci.wifi_diag_detail_all = AsyncMock(
         return_value={"info": [_adapter_without_channel("wl0")]}
     )
+    clock, patched = _clock()
 
-    for _ in range(3):
-        await updater._async_prepare_wifi({})
+    with patched:
+        # Three hours of 30 second refreshes.
+        for _ in range(3 * 60 * 2):
+            await updater._async_prepare_wifi({})
+            clock.now += timedelta(seconds=30)
 
-    assert updater.luci.wifi_diag_detail_all.await_count == 1
-    assert updater._wifi_diag_fills_channels is False
+    # 1, 2, 4, 8, 16 and 32 minutes, then hourly: 8 or 9 asks, not 360.
+    assert 6 <= updater.luci.wifi_diag_detail_all.await_count <= 10
+    assert updater._wifi_diag_next_try - clock.now <= WIFI_DIAG_RETRY_MAX
 
 
 @pytest.mark.asyncio
 async def test_a_diagnostics_failure_does_not_break_the_step() -> None:
     """LuciError derives from BaseException and would abort the cycle."""
 
-    updater = _updater()
-    updater.luci.wifi_detail_all = AsyncMock(
-        return_value={
-            "bsd": 1,
-            "info": [_adapter("wl1"), _adapter_without_channel("wl0")],
-        }
-    )
-    updater.luci.wifi_diag_detail_all = AsyncMock(side_effect=LuciError("404"))
+    updater = _node_missing_5g()
+    updater.luci.wifi_diag_detail_all = AsyncMock(side_effect=LuciRequestError("404"))
     data: dict = {}
+    _, patched = _clock()
 
-    await updater._async_prepare_wifi(data)
+    with patched:
+        await updater._async_prepare_wifi(data)
 
     assert "wifi_5_0_channel" not in data
-    assert updater._wifi_diag_fills_channels is False
+    assert updater._wifi_diag_next_try == START + WIFI_DIAG_RETRY_FIRST
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "first",
+    [
+        pytest.param(LuciConnectionError("timeout"), id="timeout"),
+        pytest.param({"info": [{"ifname": "wl0", "channelInfo": {"channel": 0}}]}, id="channel-0"),
+        pytest.param({"info": [{"ifname": "wl0", "channelInfo": {"channel": ""}}]}, id="channel-empty"),
+        pytest.param({"info": []}, id="adapter-absent"),
+    ],
+)
+async def test_a_transient_miss_is_recovered_on_a_later_refresh(first) -> None:
+    """One miss must not cost the channel until the entry is reloaded."""
+
+    updater = _node_missing_5g()
+    updater.luci.wifi_diag_detail_all = AsyncMock(side_effect=[first, DIAG_36])
+    clock, patched = _clock()
+
+    with patched:
+        data: dict = {}
+        await updater._async_prepare_wifi(data)
+        assert "wifi_5_0_channel" not in data
+
+        # The very next refresh is still inside the wait: no request.
+        clock.now += timedelta(seconds=30)
+        data = {}
+        await updater._async_prepare_wifi(data)
+        assert updater.luci.wifi_diag_detail_all.await_count == 1
+
+        clock.now = START + WIFI_DIAG_RETRY_FIRST
+        data = {}
+        await updater._async_prepare_wifi(data)
+
+    assert updater.luci.wifi_diag_detail_all.await_count == 2
+    assert data["wifi_5_0_channel"] == "36"
+    assert data["wifi_5_0_data"]["channel"] == "36"
+
+
+@pytest.mark.asyncio
+async def test_a_recovered_channel_resets_the_wait() -> None:
+    """After a success the endpoint is asked every refresh it is needed."""
+
+    updater = _node_missing_5g()
+    updater.luci.wifi_diag_detail_all = AsyncMock(
+        side_effect=[LuciConnectionError("timeout"), LuciConnectionError("timeout"), DIAG_36, DIAG_36]
+    )
+    clock, patched = _clock()
+
+    with patched:
+        await updater._async_prepare_wifi({})
+        clock.now += WIFI_DIAG_RETRY_FIRST
+        await updater._async_prepare_wifi({})
+        # The second miss in a row waits twice as long.
+        assert updater._wifi_diag_next_try == clock.now + 2 * WIFI_DIAG_RETRY_FIRST
+
+        clock.now += 2 * WIFI_DIAG_RETRY_FIRST
+        await updater._async_prepare_wifi({})
+        assert updater._wifi_diag_misses == 0
+
+        clock.now += timedelta(seconds=30)
+        data: dict = {}
+        await updater._async_prepare_wifi(data)
+
+    assert updater.luci.wifi_diag_detail_all.await_count == 4
+    assert data["wifi_5_0_channel"] == "36"
 
 
 @pytest.mark.asyncio

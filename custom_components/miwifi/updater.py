@@ -228,6 +228,12 @@ def _channel_of(adapter: dict) -> str | None:
     return str(channel)
 
 
+# Wait after an ask of the diagnostics endpoint that recovered no channel. It
+# doubles with every miss in a row, from the first value up to the second.
+WIFI_DIAG_RETRY_FIRST: Final = timedelta(minutes=1)
+WIFI_DIAG_RETRY_MAX: Final = timedelta(hours=1)
+
+
 REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_NAME,
     ATTR_TRACKER_IP,
@@ -343,9 +349,10 @@ class LuciUpdater(DataUpdateCoordinator):
         # Last (mapped, skipped) wifi adapter names reported at debug.
         self._wifi_adapters_logged: tuple | None = None
 
-        # None = never tried, True = the diagnostics endpoint fills channels the
-        # detail one omits, False = it does not, so stop paying for the request.
-        self._wifi_diag_fills_channels: bool | None = None
+        # When the diagnostics endpoint may be asked again for missing channels,
+        # and how many asks in a row have recovered nothing.
+        self._wifi_diag_next_try: datetime = dt_util.utcnow()
+        self._wifi_diag_misses: int = 0
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -1494,22 +1501,31 @@ class LuciUpdater(DataUpdateCoordinator):
         that costs the 5 GHz channel: the adapter is there, with power and
         status, and no channel at all.
 
-        Only called with a gap to fill, and it stops calling once the second
-        endpoint has been shown not to fill it, so a node that simply does not
-        publish its channel is not charged a request per cycle for ever.
+        Only called with a gap to fill. An ask that recovers nothing is not
+        repeated every cycle: the wait before the next one doubles with each
+        miss in a row, from WIFI_DIAG_RETRY_FIRST up to WIFI_DIAG_RETRY_MAX, and
+        the first recovered channel resets it. It is never given up for good,
+        because a miss proves nothing lasting: a timeout or a radio restarting
+        (channel 0 or absent) clears up on its own, and a firmware without the
+        endpoint cannot be told apart from a timeout - its error page fails to
+        parse and arrives as the same LuciConnectionError. So a node that never
+        publishes its channel costs a request an hour, and a transient miss is
+        recovered a minute later without reloading the entry.
 
         :param data: dict: the data being prepared, updated in place
         :param adapters: list[IfName]: adapters that reported no channel
         :return list[str]: the ifnames whose channel was recovered
         """
 
-        if not adapters or self._wifi_diag_fills_channels is False:
+        now: datetime = dt_util.utcnow()
+
+        if not adapters or now < self._wifi_diag_next_try:
             return []
 
         try:
             response: dict = await self.luci.wifi_diag_detail_all()
         except LuciError as _e:
-            self._wifi_diag_fills_channels = False
+            self._wifi_diag_missed(now)
             await self.hass.async_add_executor_job(
                 _LOGGER.debug,
                 "[MiWiFi] wifi_diag_detail_all unavailable for %s: %s",
@@ -1541,9 +1557,25 @@ class LuciUpdater(DataUpdateCoordinator):
 
             filled.append(adapter.value)
 
-        self._wifi_diag_fills_channels = bool(filled)
+        if filled:
+            self._wifi_diag_misses = 0
+            self._wifi_diag_next_try = now
+        else:
+            self._wifi_diag_missed(now)
 
         return filled
+
+    def _wifi_diag_missed(self, now: datetime) -> None:
+        """Push the next diagnostics ask back after one that recovered nothing.
+
+        :param now: datetime: when the ask was made
+        """
+
+        self._wifi_diag_misses += 1
+        # The exponent is capped too: misses keep counting for as long as the
+        # node runs, and the wait stops growing long before that.
+        wait: timedelta = WIFI_DIAG_RETRY_FIRST * 2 ** min(self._wifi_diag_misses - 1, 12)
+        self._wifi_diag_next_try = now + min(wait, WIFI_DIAG_RETRY_MAX)
 
     async def _async_prepare_wifi_guest(self, adapters: list) -> list:
         """Prepare wifi guest.
