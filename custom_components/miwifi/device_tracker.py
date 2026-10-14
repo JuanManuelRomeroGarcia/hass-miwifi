@@ -365,9 +365,7 @@ def _reparent_client_device(
         dev_reg.async_update_device(keep.id, via_device_id=via_id)
 
     _LOGGER.debug(
-        "[MiWiFi] Client %s now belongs to entry %s; dropped %s empty device row(s)",
-        mac_lc,
-        entry_id,
+        "[MiWiFi] Client ownership updated; dropped %s empty device row(s)",
         dropped,
     )
 
