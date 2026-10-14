@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.9.1";
-import { localize } from "../translations/localize.js?v=3.9.1";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.10.0";
+import { localize } from "../translations/localize.js?v=3.10.0";
 
 class MiWiFiDeviceCards extends LitElement {
   static properties = {

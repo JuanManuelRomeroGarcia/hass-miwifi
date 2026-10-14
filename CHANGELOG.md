@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.10.0 — 2026-10-14
 
 - Add an administrator-only DHCP panel page with explicit router selection, reservation reads and verified incremental add/edit/delete. Initial writes are limited to the tested BE10000 / RC01 firmware 1.1.56 profile; other compatible responses remain read-only (#314).
 - Validate LAN host addresses and known IP conflicts, serialize writes, reject stale editors and verify unrelated reservations. Require a refresh after an ambiguous write failure without automatic retries or rollback. Keep DHCP reservations independent of private-MAC entity cleanup.

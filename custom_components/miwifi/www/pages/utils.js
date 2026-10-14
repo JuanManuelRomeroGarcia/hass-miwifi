@@ -1,5 +1,5 @@
-import { html } from "../vendor/lit.js?v=3.9.1";
-import { localize } from "../translations/localize.js?v=3.9.1";
+import { html } from "../vendor/lit.js?v=3.10.0";
+import { localize } from "../translations/localize.js?v=3.10.0";
 
 export function renderToggle(hass, entity) {
   return html`

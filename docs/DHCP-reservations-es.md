@@ -1,4 +1,6 @@
-# Reservas DHCP (pruebas locales)
+# Reservas DHCP
+
+Función incorporada en v3.10.0. Las versiones publicadas se consultan en [Releases](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/releases).
 
 El panel **DHCP** permite consultar las reservas del router principal y, en los firmwares verificados, añadirlas, editar su IP o nombre y eliminarlas. Está disponible para administradores de Home Assistant. Cuando hay un solo principal, muestra su nombre e IP y carga sus reservas automáticamente, sin desplegable. Solo usa entradas cargadas con el rol `is_main` confirmado. Los nodos mesh quedan excluidos; el backend también rechaza consultas y escrituras dirigidas a ellos. Si hay varias redes independientes con sus propios principales, se muestra el selector para elegir la red correspondiente.
 
@@ -28,7 +30,7 @@ Guardar una reserva no obliga al cliente a renovar su concesión actual. Puede n
 
 ## Prueba conjunta con #346
 
-Esta carpeta local combina v3.9.1, la adaptación preparada del #346 y DHCP; no es una nueva versión publicada.
+v3.10.0 combina las correcciones de v3.9.1, la adaptación del #346 y DHCP. Para una actualización normal utiliza HACS, reinicia HA y refresca el panel. Los siguientes pasos sirven para verificar ambas funciones o probar una compilación local.
 
 1. Haz una copia de la carpeta instalada `custom_components/miwifi` y sustituye su contenido por la carpeta local completa de la integración. No copies `.git`, `tests`, `tools` ni credenciales.
 2. Reinicia Home Assistant y recarga el panel sin caché (Ctrl+F5).

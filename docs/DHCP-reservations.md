@@ -1,4 +1,6 @@
-# DHCP reservations (local testing)
+# DHCP reservations
+
+Introduced in v3.10.0. Check [Releases](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/releases) for published versions.
 
 Open MiWiFi → **DHCP** to inspect the main router's reservations. Only loaded entries with a confirmed `is_main` role are eligible. Mesh nodes are excluded, and the backend rejects both reads and writes targeting them. For multiple independent networks, choose the corresponding main router. Administrators can add a known client or enter a MAC, IPv4 address and name manually, edit a reservation's IP/name, or confirm its removal. Operations never fall back to another mesh node.
 
@@ -20,7 +22,7 @@ A reservation belongs to one specific MAC. Automatic private-MAC replacement in 
 
 ## Combined #346 + DHCP testing
 
-The local integration folder contains v3.9.1, the prepared #346 adaptation and this DHCP development. No new release is published.
+v3.10.0 combines the v3.9.1 corrections, the #346 adaptation and DHCP. For a normal upgrade, use HACS, restart HA and refresh the panel. The steps below verify both features or a local development build.
 
 Back up the installed integration folder, copy the complete local `custom_components/miwifi` folder, restart HA and refresh the panel without cache. Verify mesh roles, counters over several polls/reloads and logs. Compare the DHCP list with the router's native UI. Use an agreed spare reservation and free IP for add/edit/delete tests, check unrelated entries remain unchanged, and remove the temporary record afterwards. If using a real client, verify its address after lease renewal. Recheck topology, counters, purged clients and private-MAC rules.
 
