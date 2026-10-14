@@ -270,10 +270,10 @@
   "mac_load_error": "Could not load the saved configuration",
   "nav_dhcp": "DHCP",
   "dhcp_title": "DHCP reservations",
-  "dhcp_description": "Assign a fixed IPv4 address to a MAC on the selected router.",
+  "dhcp_description": "Assign a fixed IPv4 address to a MAC on the main router.",
   "dhcp_router": "Router",
   "dhcp_choose_router": "Select a router",
-  "dhcp_no_routers": "No loaded routers available.",
+  "dhcp_no_routers": "No loaded main router available. Wait for topology or check the main-router setting.",
   "dhcp_saved": "Change verified on the router. An existing lease may need renewal.",
   "dhcp_empty": "No reservations.",
   "dhcp_edit": "Edit reservation",
@@ -296,5 +296,6 @@
   "dhcp_error_disabled": "DHCP is disabled on this router. Changes are unavailable.",
   "dhcp_error_unsupported": "Read only: writes are currently verified for BE10000 / RC01 firmware 1.1.56. Other firmware needs verification.",
   "dhcp_error_conflict": "This IP belongs to a different reservation or known client.",
-  "dhcp_error_unverified": "The change could not be verified. It may have applied: refresh the list and check it before trying again."
+  "dhcp_error_unverified": "The change could not be verified. It may have applied: refresh the list and check it before trying again.",
+  "dhcp_error_not_main": "Only the main router can manage DHCP reservations. Refresh the list once its main role is confirmed."
 }

@@ -1,6 +1,6 @@
 # DHCP reservations (local testing)
 
-Open MiWiFi → **DHCP**, select the router providing DHCP, and inspect its reservations. Administrators can add a known client or enter a MAC, IPv4 address and name manually, edit a reservation's IP/name, or confirm its removal. The selected router entry is explicit; operations never fall back to another mesh node.
+Open MiWiFi → **DHCP**, select the main router, and inspect its reservations. The selector shows its router name and IP and includes only loaded entries with a confirmed `is_main` role. Mesh nodes are excluded, and the backend rejects both reads and writes targeting them. For separate networks, choose the corresponding main router. Administrators can add a known client or enter a MAC, IPv4 address and name manually, edit a reservation's IP/name, or confirm its removal. Operations never fall back to another mesh node.
 
 ## Initial support
 

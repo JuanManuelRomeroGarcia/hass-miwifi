@@ -271,10 +271,10 @@
   "mac_load_error": "Kaydedilmiş yapılandırma yüklenemedi",
   "nav_dhcp": "DHCP",
   "dhcp_title": "DHCP rezervasyonları",
-  "dhcp_description": "Seçilen yönlendiricide bir MAC adresine sabit IPv4 atayın.",
+  "dhcp_description": "Ana yönlendiricide bir MAC adresine sabit IPv4 atayın.",
   "dhcp_router": "Yönlendirici",
   "dhcp_choose_router": "Bir yönlendirici seçin",
-  "dhcp_no_routers": "Kullanılabilir yüklü yönlendirici yok.",
+  "dhcp_no_routers": "Kullanılabilir yüklü ana yönlendirici yok. Topolojiyi bekleyin veya ana yönlendirici ayarını kontrol edin.",
   "dhcp_saved": "Değişiklik yönlendiricide doğrulandı. Mevcut kira yenilenmesi gerekebilir.",
   "dhcp_empty": "Rezervasyon yok.",
   "dhcp_edit": "Rezervasyonu düzenle",
@@ -297,5 +297,6 @@
   "dhcp_error_disabled": "Bu yönlendiricide DHCP kapalı. Değişiklik yapılamaz.",
   "dhcp_error_unsupported": "Salt okunur: yazma işlemleri BE10000 / RC01 ve 1.1.56 ürün yazılımında doğrulandı. Diğer sürümlerin doğrulanması gerekir.",
   "dhcp_error_conflict": "Bu IP başka bir rezervasyona veya bilinen istemciye ait.",
-  "dhcp_error_unverified": "Değişiklik doğrulanamadı. Uygulanmış olabilir: yeniden denemeden önce listeyi yenileyip kontrol edin."
+  "dhcp_error_unverified": "Değişiklik doğrulanamadı. Uygulanmış olabilir: yeniden denemeden önce listeyi yenileyip kontrol edin.",
+  "dhcp_error_not_main": "DHCP rezervasyonlarını yalnızca ana yönlendirici yönetebilir. Ana rolü doğrulandığında listeyi yenileyin."
 }

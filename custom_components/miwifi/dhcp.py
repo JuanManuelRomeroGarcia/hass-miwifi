@@ -18,6 +18,14 @@ class DhcpError(Exception):
     """A stable, translated UI error code, never a raw router response."""
 
 
+def is_main_updater(updater) -> bool:
+    """Require the integration's confirmed main role, without guessing a node."""
+    data = getattr(updater, "data", None)
+    topology = data.get("topo_graph") if isinstance(data, dict) else None
+    graph = topology.get("graph") if isinstance(topology, dict) else None
+    return isinstance(graph, dict) and graph.get("is_main") is True
+
+
 def normalize_mac(value: str) -> str:
     """Accept a single unicast MAC, including locally administered addresses."""
     if not isinstance(value, str) or not re.fullmatch(r"[0-9a-fA-F]{2}([:-][0-9a-fA-F]{2}){5}", value.strip()):
@@ -69,14 +77,17 @@ def _rows(raw: dict, key: str, *, clients: bool = False) -> list[dict]:
 class DhcpManager:
     """Serialize operations for one loaded updater and reject stale editors."""
 
-    def __init__(self, luci, is_current=lambda: True):
+    def __init__(self, luci, is_current=lambda: True, is_main=lambda: True):
         self.luci = luci
         self.is_current = is_current
+        self.is_main = is_main
         self.lock = asyncio.Lock()
 
     def _check_current(self):
         if not self.is_current():
             raise DhcpError("router_changed")
+        if not self.is_main():
+            raise DhcpError("not_main")
 
     async def _snapshot(self) -> dict:
         self._check_current()
@@ -178,8 +189,11 @@ def get_manager(hass, entry_id: str) -> DhcpManager:
     updater = current()
     if updater is None:
         raise DhcpError("router_changed")
+    if not is_main_updater(updater):
+        raise DhcpError("not_main")
     manager = getattr(updater, "_dhcp_manager", None)
     if manager is None:
-        manager = DhcpManager(updater.luci, lambda: current() is updater)
+        manager = DhcpManager(updater.luci, lambda: current() is updater,
+                              lambda: is_main_updater(updater))
         updater._dhcp_manager = manager
     return manager

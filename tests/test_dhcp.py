@@ -9,6 +9,8 @@ import httpx
 import pytest
 
 from homeassistant.components import websocket_api
+from homeassistant.helpers import device_registry as dr
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.miwifi import ws_api
 from custom_components.miwifi.const import DOMAIN, UPDATER
 from custom_components.miwifi.dhcp import DhcpError, DhcpManager, get_manager
@@ -200,13 +202,13 @@ async def test_luci_error_is_contained(router):
 
 async def test_explicit_entry_manager_survives_reads_not_reload(hass, router):
     api, _ = router
-    updater = SimpleNamespace(luci=api)
+    updater = SimpleNamespace(luci=api, data={"topo_graph": {"graph": {"is_main": True}}})
     hass.data[DOMAIN] = {"selected": {UPDATER: updater}}
     manager = get_manager(hass, "selected")
     assert manager is get_manager(hass, "selected")
     with pytest.raises(DhcpError, match="router_changed"):
         get_manager(hass, "missing")
-    hass.data[DOMAIN]["selected"][UPDATER] = SimpleNamespace(luci=api)
+    hass.data[DOMAIN]["selected"][UPDATER] = SimpleNamespace(luci=api, data=updater.data)
     with pytest.raises(DhcpError, match="router_changed"):
         await manager.async_read()
 
@@ -230,7 +232,7 @@ async def test_websockets_require_admin(hass, hass_ws_client, hass_read_only_use
 
 async def test_admin_websocket_reads_and_writes(hass, hass_ws_client, hass_admin_user, router):
     api, _ = router
-    hass.data[DOMAIN] = {"selected": {UPDATER: SimpleNamespace(luci=api)}}
+    hass.data[DOMAIN] = {"selected": {UPDATER: SimpleNamespace(luci=api, data={"topo_graph": {"graph": {"is_main": True}}})}}
     for handler in (ws_api.websocket_dhcp_read, ws_api.websocket_dhcp_write):
         websocket_api.async_register_command(hass, handler)
     client = await hass_ws_client(hass)
@@ -241,3 +243,93 @@ async def test_admin_websocket_reads_and_writes(hass, hass_ws_client, hass_admin
     result = await client.receive_json()
     assert result["success"]
     assert NEW in result["result"]["bindings"]
+
+
+async def test_router_list_names_only_the_main(hass, hass_ws_client):
+    entries = [MockConfigEntry(domain=DOMAIN, title=f"192.0.2.{index}") for index in range(1, 4)]
+    for entry in entries:
+        entry.add_to_hass(hass)
+    hass.data[DOMAIN] = {
+        entry.entry_id: {UPDATER: SimpleNamespace(ip=entry.title, data={
+            "device_name": name,
+            "topo_graph": {"graph": {"is_main": main}},
+        })}
+        for entry, name, main in zip(entries, ("BE10000", "BE7000", "Unknown"), (True, False, None))
+    }
+    websocket_api.async_register_command(hass, ws_api.websocket_dhcp_routers)
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "miwifi/dhcp_routers"})
+    response = await client.receive_json()
+    assert response["result"]["routers"] == [{"entry_id": entries[0].entry_id, "name": "BE10000", "ip": "192.0.2.1"}]
+    registry = dr.async_get(hass)
+    device = registry.async_get_or_create(config_entry_id=entries[0].entry_id, identifiers={(DOMAIN, "192.0.2.1")}, name="BE10000")
+    registry.async_update_device(device.id, name_by_user="Router Casa")
+    await client.send_json({"id": 2, "type": "miwifi/dhcp_routers"})
+    response = await client.receive_json()
+    assert response["result"]["routers"][0]["name"] == "Router Casa"
+
+
+@pytest.mark.parametrize("command", ["read", "write"])
+async def test_direct_websocket_to_leaf_is_rejected(hass, hass_ws_client, router, command):
+    api, _ = router
+    hass.data[DOMAIN] = {"leaf": {UPDATER: SimpleNamespace(luci=api, data={"topo_graph": {"graph": {"is_main": False}}})}}
+    for handler in (ws_api.websocket_dhcp_read, ws_api.websocket_dhcp_write):
+        websocket_api.async_register_command(hass, handler)
+    client = await hass_ws_client(hass)
+    payload = {"id": 1, "type": f"miwifi/dhcp_{command}", "entry_id": "leaf"}
+    if command == "write":
+        payload.update(action="add", revision="old", **NEW)
+    await client.send_json(payload)
+    response = await client.receive_json()
+    assert not response["success"]
+    assert response["error"]["code"] == "not_main"
+    api.dhcp_bindings.assert_not_awaited()
+    api.dhcp_bind.assert_not_awaited()
+    api.dhcp_unbind.assert_not_awaited()
+
+
+async def test_existing_manager_rechecks_main_role(hass, router):
+    api, _ = router
+    updater = SimpleNamespace(luci=api, data={"topo_graph": {"graph": {"is_main": True}}})
+    hass.data[DOMAIN] = {"selected": {UPDATER: updater}}
+    manager = get_manager(hass, "selected")
+    before = await manager.async_read()
+    updater.data["topo_graph"]["graph"]["is_main"] = False
+    with pytest.raises(DhcpError, match="^not_main$"):
+        await manager.async_write("add", before["revision"], **NEW)
+    api.dhcp_bind.assert_not_awaited()
+    api.dhcp_unbind.assert_not_awaited()
+
+
+async def test_role_change_during_preflight_never_posts(hass, router):
+    api, _ = router
+    updater = SimpleNamespace(luci=api, data={"topo_graph": {"graph": {"is_main": True}}})
+    hass.data[DOMAIN] = {"selected": {UPDATER: updater}}
+    manager = get_manager(hass, "selected")
+    before = await manager.async_read()
+    def demote():
+        updater.data["topo_graph"]["graph"]["is_main"] = False
+        return api.init_info.return_value
+    api.init_info.side_effect = demote
+    with pytest.raises(DhcpError, match="^not_main$"):
+        await manager.async_write("add", before["revision"], **NEW)
+    api.dhcp_bind.assert_not_awaited()
+
+
+@pytest.mark.parametrize("data", [{}, {"topo_graph": None}, {"topo_graph": {"graph": []}},
+                                   {"topo_graph": {"graph": {"is_main": "false"}}}])
+def test_unknown_role_never_guesses_a_main(hass, router, data):
+    api, _ = router
+    hass.data[DOMAIN] = {"only_entry": {UPDATER: SimpleNamespace(luci=api, data=data)}}
+    with pytest.raises(DhcpError, match="^not_main$"):
+        get_manager(hass, "only_entry")
+
+
+def test_router_name_falls_back_without_repeating_ip(hass):
+    entry = SimpleNamespace(title="192.0.2.1")
+    updater = SimpleNamespace(ip=entry.title, data={"device_name": entry.title, "topo_graph": {"graph": {"name": "Gateway"}}})
+    assert ws_api._dhcp_router_name(hass, entry, updater) == "Gateway"
+    updater.data = {"device_model": "BE10000"}
+    assert ws_api._dhcp_router_name(hass, entry, updater) == "BE10000"
+    updater.data = {}
+    assert ws_api._dhcp_router_name(hass, entry, updater) == "MiWiFi"

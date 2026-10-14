@@ -271,10 +271,10 @@
   "mac_load_error": "无法加载已保存的配置",
   "nav_dhcp": "DHCP",
   "dhcp_title": "DHCP 地址保留",
-  "dhcp_description": "在所选路由器上为 MAC 分配固定 IPv4 地址。",
+  "dhcp_description": "在主路由器上为 MAC 分配固定 IPv4 地址。",
   "dhcp_router": "路由器",
   "dhcp_choose_router": "选择路由器",
-  "dhcp_no_routers": "没有可用的已加载路由器。",
+  "dhcp_no_routers": "没有可用的已加载主路由器。请等待拓扑数据或检查主路由器设置。",
   "dhcp_saved": "已在路由器上验证更改。现有租约可能需要续租。",
   "dhcp_empty": "没有地址保留。",
   "dhcp_edit": "编辑地址保留",
@@ -297,5 +297,6 @@
   "dhcp_error_disabled": "此路由器已禁用 DHCP，无法更改。",
   "dhcp_error_unsupported": "只读：目前已验证 BE10000 / RC01 固件 1.1.56 的写入操作。其他固件需要验证。",
   "dhcp_error_conflict": "此 IP 属于其他地址保留或已知客户端。",
-  "dhcp_error_unverified": "无法验证更改。更改可能已生效：重试前请刷新并检查列表。"
+  "dhcp_error_unverified": "无法验证更改。更改可能已生效：重试前请刷新并检查列表。",
+  "dhcp_error_not_main": "只有主路由器可以管理 DHCP 地址保留。确认其主路由角色后，请刷新列表。"
 }

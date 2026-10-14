@@ -270,10 +270,10 @@
   "mac_load_error": "No se pudo cargar la configuración guardada",
   "nav_dhcp": "DHCP",
   "dhcp_title": "Reservas DHCP",
-  "dhcp_description": "Asigna una IPv4 fija a una MAC en el router seleccionado.",
+  "dhcp_description": "Asigna una IPv4 fija a una MAC en el router principal.",
   "dhcp_router": "Router",
   "dhcp_choose_router": "Selecciona un router",
-  "dhcp_no_routers": "No hay routers cargados disponibles.",
+  "dhcp_no_routers": "No hay un router principal cargado disponible. Espera a la topología o revisa el ajuste del router principal.",
   "dhcp_saved": "Cambio verificado en el router. Una concesión existente puede necesitar renovarse.",
   "dhcp_empty": "No hay reservas.",
   "dhcp_edit": "Editar reserva",
@@ -296,5 +296,6 @@
   "dhcp_error_disabled": "DHCP está desactivado en este router. No se pueden hacer cambios.",
   "dhcp_error_unsupported": "Solo lectura: las escrituras están verificadas para BE10000 / RC01 con firmware 1.1.56. Otros firmwares necesitan comprobación.",
   "dhcp_error_conflict": "Esta IP pertenece a otra reserva o a otro cliente conocido.",
-  "dhcp_error_unverified": "No se pudo verificar el cambio. Puede haberse aplicado: actualiza la lista y compruébala antes de repetirlo."
+  "dhcp_error_unverified": "No se pudo verificar el cambio. Puede haberse aplicado: actualiza la lista y compruébala antes de repetirlo.",
+  "dhcp_error_not_main": "Solo el router principal puede gestionar reservas DHCP. Actualiza la lista cuando se confirme su rol principal."
 }
