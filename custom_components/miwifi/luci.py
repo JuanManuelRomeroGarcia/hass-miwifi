@@ -64,6 +64,10 @@ API_PATHS = {
     "add_range_redirect": "xqnetwork/add_range_redirect",
     "redirect_apply": "xqnetwork/redirect_apply",
     "delete_redirect": "xqnetwork/delete_redirect",
+    "macbind_info": "xqnetwork/macbind_info",
+    "lan_dhcp": "xqnetwork/lan_dhcp",
+    "mac_bind": "xqnetwork/mac_bind",
+    "mac_unbind": "xqnetwork/mac_unbind",
     "rom_update": "xqsystem/check_rom_update",
     "rom_upgrade": "xqsystem/upgrade_rom",
     "flash_permission": "xqsystem/flash_permission",
@@ -729,6 +733,35 @@ class LuciClient:
             raise LuciRequestError(f"Failed to delete rule: {_data}")
         return _data
 
+
+    async def dhcp_bindings(self) -> dict:
+        """Read static DHCP bindings and the router's candidate clients on demand."""
+        return await self.get(self._api_paths["macbind_info"])
+
+    async def dhcp_settings(self) -> dict:
+        """Read LAN DHCP configuration without modifying the pool."""
+        return await self.get(self._api_paths["lan_dhcp"])
+
+    async def _dhcp_post(self, endpoint: str, data: dict) -> dict:
+        """Send one mutation once; never retry an ambiguous write or log its data."""
+        if not self._url or not self._token:
+            raise LuciRequestError("DHCP authentication unavailable")
+        url = f"{self._url}/;stok={self._token}/api/{self._api_paths[endpoint]}"
+        # A timed-out write may already have taken effect. In particular, do not
+        # route this through _request_with_retry or retry after authentication.
+        response = await self._client.post(url, data=data, timeout=self._timeout)
+        result = response.json()
+        if response.status_code != 200 or not isinstance(result, dict) or result.get("code") != 0:
+            raise LuciRequestError("Router rejected DHCP operation")
+        return result
+
+    async def dhcp_bind(self, binding: dict) -> dict:
+        """Incremental single-MAC upsert on a verified firmware profile."""
+        return await self._dhcp_post("mac_bind", {"data": json.dumps([binding], ensure_ascii=False)})
+
+    async def dhcp_unbind(self, mac: str) -> dict:
+        """Remove only the selected MAC; no bulk or guessed API fallbacks."""
+        return await self._dhcp_post("mac_unbind", {"mac": mac})
 
     async def rom_update(self) -> dict:
         """xqsystem/check_rom_update method.

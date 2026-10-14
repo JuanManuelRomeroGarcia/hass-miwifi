@@ -1,6 +1,6 @@
-import { html } from "../vendor/lit.js?v=3.9.1";
-import "../components/miwifi-settings.js?v=3.9.1";
-import { logToBackend } from "./utils.js?v=3.9.1";
+import { html } from "../vendor/lit.js?v=3.10.0";
+import "../components/miwifi-settings.js?v=3.10.0";
+import { logToBackend } from "./utils.js?v=3.10.0";
 
 async function findMainRouter(hass, retries = 3, delay = 500) {
   for (let i = 0; i < retries; i++) {

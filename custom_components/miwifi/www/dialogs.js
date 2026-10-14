@@ -1,5 +1,5 @@
-import { localize } from "./translations/localize.js?v=3.9.1";
-import { logToBackend } from "./pages/utils.js?v=3.9.1";
+import { localize } from "./translations/localize.js?v=3.10.0";
+import { logToBackend } from "./pages/utils.js?v=3.10.0";
 
 /**
  * Get current main router MAC from sensor

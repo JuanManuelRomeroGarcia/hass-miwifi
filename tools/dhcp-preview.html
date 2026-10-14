@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiWiFi DHCP — vista local con datos ficticios</title>
+<style>
+body { margin: 0; padding: 16px; background: #1c73eb; font: 15px Arial, sans-serif; }
+header { color: white; text-align: center; } header button { margin: 8px; padding: 8px; }
+body.dark { --primary-text-color: #eee; --secondary-text-color: #bbb; --card-background-color: #202329; --divider-color: #555; --primary-color: #03a9f4; --text-primary-color: #fff; --error-color: #ff7777; --success-color: #70cc89; background: #131720; }
+</style>
+<header><p>Vista local · Datos ficticios · Sin conexión al router</p><button id="theme">Cambiar tema</button></header>
+<miwifi-dhcp></miwifi-dhcp>
+<script type="module">
+import { loadTranslations } from "/miwifi_static/translations/localize.js?v=3.10.0";
+import "/miwifi_static/components/miwifi-dhcp.js?v=3.10.0";
+const rows = [
+  { mac: "02:00:00:00:00:51", ip: "192.0.2.51", name: "Reloj de prueba" },
+  { mac: "02:00:00:00:00:52", ip: "192.0.2.52", name: "Equipo con un nombre largo para comprobar el ajuste de la lista" },
+];
+let revision = 1;
+const read = () => ({ bindings: rows.map(row => ({ ...row })), clients: [{ mac: "02:00:00:00:00:53", ip: "192.0.2.53", name: "Cliente de prueba" }], revision: String(revision), writable: true, enabled: true, model: "RC01", firmware: "1.1.56", router_ip: "192.0.2.1", subnet: "192.0.2.0/24" });
+const hass = {
+  language: "es", user: { is_admin: true },
+  async callWS(payload) {
+    if (payload.type === "miwifi/dhcp_routers") return { routers: [{ entry_id: "fixture", name: "BE10000 de prueba", ip: "192.0.2.1" }] };
+    if (payload.type === "miwifi/dhcp_write") {
+      const index = rows.findIndex(row => row.mac === payload.mac);
+      if (index >= 0) rows.splice(index, 1);
+      if (payload.action !== "delete") rows.push({ mac: payload.mac, ip: payload.ip, name: payload.name });
+      revision++;
+    }
+    return read();
+  },
+};
+await loadTranslations(hass);
+document.querySelector("miwifi-dhcp").hass = hass;
+document.getElementById("theme").addEventListener("click", () => document.body.classList.toggle("dark"));
+</script>
+</html>

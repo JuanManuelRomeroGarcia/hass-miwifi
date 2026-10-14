@@ -2,10 +2,81 @@
 from __future__ import annotations
 
 import re
+import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.components import websocket_api
-from .const import DOMAIN, UPDATER
+from .const import DOMAIN, UPDATER, ATTR_DEVICE_NAME, ATTR_DEVICE_MODEL, ATTR_DEVICE_MAC_ADDRESS
 from .mac_replacement import get_mac_replacement
+from .registry import get_device
+
+
+def _dhcp_router_name(hass, entry, updater) -> str:
+    """Use the HA router name override or router data, rather than its IP title."""
+    from homeassistant.helpers import device_registry as dr
+
+    data = updater.data or {}
+    identity = data.get(ATTR_DEVICE_MAC_ADDRESS) or updater.ip
+    device = get_device(dr.async_get(hass), entry.entry_id, identifier=(DOMAIN, identity))
+    topology = data.get("topo_graph")
+    graph = topology.get("graph") if isinstance(topology, dict) else None
+    graph = graph if isinstance(graph, dict) else {}
+    for candidate in (
+        device.name_by_user if device else None,
+        data.get(ATTR_DEVICE_NAME), graph.get("name"), graph.get("locale"),
+        device.name if device else None, entry.title, data.get(ATTR_DEVICE_MODEL),
+    ):
+        if isinstance(candidate, str) and (name := candidate.strip()) and name != updater.ip:
+            return name
+    return "MiWiFi"
+
+
+@websocket_api.websocket_command({"type": "miwifi/dhcp_routers"})
+@websocket_api.require_admin
+def websocket_dhcp_routers(hass: HomeAssistant, connection, msg) -> None:
+    """Offer only loaded main routers; mesh nodes cannot manage reservations."""
+    from .dhcp import is_main_updater
+
+    routers = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        stored = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        updater = stored.get(UPDATER) if isinstance(stored, dict) else None
+        if updater is not None and is_main_updater(updater):
+            routers.append({"entry_id": entry.entry_id, "name": _dhcp_router_name(hass, entry, updater),
+                            "ip": updater.ip})
+    connection.send_result(msg["id"], {"routers": routers})
+
+
+@websocket_api.websocket_command({"type": "miwifi/dhcp_read", "entry_id": str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_dhcp_read(hass: HomeAssistant, connection, msg) -> None:
+    from .dhcp import DhcpError, get_manager
+
+    try:
+        result = await get_manager(hass, msg["entry_id"]).async_read()
+    except DhcpError as err:
+        connection.send_error(msg["id"], str(err), "DHCP list could not be loaded.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({
+    "type": "miwifi/dhcp_write", "entry_id": str, "revision": str,
+    "action": vol.In(["add", "edit", "delete"]), "mac": str,
+    vol.Optional("ip", default=""): str, vol.Optional("name", default=""): str,
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_dhcp_write(hass: HomeAssistant, connection, msg) -> None:
+    from .dhcp import DhcpError, get_manager
+
+    try:
+        result = await get_manager(hass, msg["entry_id"]).async_write(
+            msg["action"], msg["revision"], msg["mac"], msg.get("ip", ""), msg.get("name", ""))
+    except DhcpError as err:
+        connection.send_error(msg["id"], str(err), "DHCP operation could not be verified.")
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({"type": "miwifi/get_mac_replacement"})
