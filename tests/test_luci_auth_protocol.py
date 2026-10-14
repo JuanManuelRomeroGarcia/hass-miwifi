@@ -24,12 +24,13 @@ VECTORS = [
 ]
 
 
-@pytest.mark.parametrize("algorithm,password,expected", VECTORS)
+@pytest.mark.parametrize("case", VECTORS)
 @pytest.mark.asyncio
 async def test_login_sends_firmware_challenge_not_plain_password(
-    algorithm, password, expected,
+    case,
 ) -> None:
     """Exercise the real form POST, including UTF-8 and both firmware modes."""
+    algorithm, password, expected = case
     requests = []
 
     def respond(request):
