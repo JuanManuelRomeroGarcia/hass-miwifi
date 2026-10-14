@@ -21,6 +21,7 @@ jobs:
       - run: python -B tests/test_self_counted_clients.py
       - run: python -B tools/check_frontend_packaging.py
       - run: node tools/test_mac_replacement_ui.mjs
+      - run: node tools/test_dhcp_ui.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:

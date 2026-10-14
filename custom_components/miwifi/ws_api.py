@@ -2,10 +2,57 @@
 from __future__ import annotations
 
 import re
+import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.components import websocket_api
 from .const import DOMAIN, UPDATER
 from .mac_replacement import get_mac_replacement
+
+
+@websocket_api.websocket_command({"type": "miwifi/dhcp_routers"})
+@websocket_api.require_admin
+def websocket_dhcp_routers(hass: HomeAssistant, connection, msg) -> None:
+    """Offer only explicitly loaded MiWiFi router entries."""
+    routers = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        stored = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        if isinstance(stored, dict) and stored.get(UPDATER) is not None:
+            routers.append({"entry_id": entry.entry_id, "name": entry.title,
+                            "ip": stored[UPDATER].ip})
+    connection.send_result(msg["id"], {"routers": routers})
+
+
+@websocket_api.websocket_command({"type": "miwifi/dhcp_read", "entry_id": str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_dhcp_read(hass: HomeAssistant, connection, msg) -> None:
+    from .dhcp import DhcpError, get_manager
+
+    try:
+        result = await get_manager(hass, msg["entry_id"]).async_read()
+    except DhcpError as err:
+        connection.send_error(msg["id"], str(err), "DHCP list could not be loaded.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({
+    "type": "miwifi/dhcp_write", "entry_id": str, "revision": str,
+    "action": vol.In(["add", "edit", "delete"]), "mac": str,
+    vol.Optional("ip", default=""): str, vol.Optional("name", default=""): str,
+})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_dhcp_write(hass: HomeAssistant, connection, msg) -> None:
+    from .dhcp import DhcpError, get_manager
+
+    try:
+        result = await get_manager(hass, msg["entry_id"]).async_write(
+            msg["action"], msg["revision"], msg["mac"], msg.get("ip", ""), msg.get("name", ""))
+    except DhcpError as err:
+        connection.send_error(msg["id"], str(err), "DHCP operation could not be verified.")
+    else:
+        connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command({"type": "miwifi/get_mac_replacement"})

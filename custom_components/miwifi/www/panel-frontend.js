@@ -264,6 +264,7 @@ _startAutoRefresh() {
               </button>
             ` : ""}
             <button class="miwifi-button" @click=${() => this._navigate("/portforwarding")}>${localize("nav_portforwarding")}</button>
+            <button class="miwifi-button" @click=${() => this._navigate("/dhcp")}>${localize("nav_dhcp")}</button>
             <button class="miwifi-button" @click=${() => this._navigate("/settings")}>${localize("nav_settings")}</button>
           </div>
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Add an administrator-only DHCP panel page with explicit router selection, reservation reads and verified incremental add/edit/delete. Initial writes are limited to the tested BE10000 / RC01 firmware 1.1.56 profile; other compatible responses remain read-only (#314).
+- Validate LAN host addresses and known IP conflicts, serialize writes, reject stale editors and verify unrelated reservations. Require a refresh after an ambiguous write failure without automatic retries or rollback. Keep DHCP reservations independent of private-MAC entity cleanup.
+- Translate DHCP controls and errors into all eight panel languages and document the combined local #346/DHCP hardware test.
+
 - Adapt @brembygit's topology-role and updater resilience contribution (#324) on the v3.9.1 baseline (#346). Use positive mesh/AP topology roles while preserving main-router, CB0401V2 and existing mesh-mode precedence; fall back to the mode endpoint when local or parent topology is malformed.
 - Normalize whitespace in topology leaf addresses before matching configured nodes, preserving both role detection and the parent topology's client-count fallback.
 - Contain optional WAN, channel, client-list, upstream signal and force-load counter endpoint failures so later preparation steps can continue. Retry them on later refreshes; critical login/status failures retain their existing error behavior.

@@ -14,6 +14,7 @@ export const router = {
   "/settings": (hass) => loadPage("settings").then((mod) => mod.renderSettings(hass)),
   "/error": (hass) => loadPage("error").then((mod) => mod.renderError(hass)),
   "/portforwarding": (hass) => loadPage("portforwarding").then((mod) => mod.renderPortForwarding(hass)),
+  "/dhcp": (hass) => loadPage("dhcp").then((mod) => mod.renderDhcp(hass)),
 
 };
 

@@ -40,6 +40,8 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
 - [FAQ](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/FAQ)
 - [Private MAC addresses and automatic replacement](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) (v3.9.0)
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses-es)
+- [DHCP reservations — local development and testing](docs/DHCP-reservations.md)
+  - [Reservas DHCP y prueba conjunta con #346](docs/DHCP-reservations-es.md)
 
 
 ## Supported routers
