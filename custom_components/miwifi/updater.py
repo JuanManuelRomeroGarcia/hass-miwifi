@@ -202,6 +202,38 @@ def _ap_macs_by_ip(response: dict) -> dict[str, str]:
             macs[fallback] = mac
     return macs
 
+
+def _channel_of(adapter: dict) -> str | None:
+    """Read an adapter's channel, wherever this firmware chose to put it.
+
+    `channelInfo.channel` is the usual place; provider firmwares answer at the
+    top level instead. "0" is how a firmware says "unset" where it says anything
+    at all, and is not a channel anyone can be shown or set.
+
+    :param adapter: dict: one entry of a wifi detail or diagnostics response
+    :return str | None: the channel, or None when this adapter does not state one
+    """
+
+    channel_info = adapter.get("channelInfo")
+    channel = (
+        channel_info.get("channel") if isinstance(channel_info, dict) else None
+    )
+
+    if str(channel or "").strip() in ("", "0"):
+        channel = adapter.get("channel")
+
+    if str(channel or "").strip() in ("", "0"):
+        return None
+
+    return str(channel)
+
+
+# Wait after an ask of the diagnostics endpoint that recovered no channel. It
+# doubles with every miss in a row, from the first value up to the second.
+WIFI_DIAG_RETRY_FIRST: Final = timedelta(minutes=1)
+WIFI_DIAG_RETRY_MAX: Final = timedelta(hours=1)
+
+
 REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_NAME,
     ATTR_TRACKER_IP,
@@ -299,6 +331,10 @@ class LuciUpdater(DataUpdateCoordinator):
         self._macfilter_fail_count = 0
         self._filter_macs: dict[str, int] = {}
         self._counters_reset_this_cycle = False
+        # One per poll. Listeners hear about a poll more than once - the topology
+        # step publishes mid-cycle, then the coordinator at the end - so anything
+        # that counts polls has to count this instead of its callbacks.
+        self.update_cycle: int = 0
         self._parent_push_pending = False
         self._parent_census_at: float | None = None
         self._parent_census_source: LuciUpdater | None = None
@@ -318,6 +354,13 @@ class LuciUpdater(DataUpdateCoordinator):
         # The topology-derived role is reported once, not once per cycle.
         self._topology_role_logged: bool = False
 
+        # Last (mapped, skipped) wifi adapter names reported at debug.
+        self._wifi_adapters_logged: tuple | None = None
+
+        # When the diagnostics endpoint may be asked again for missing channels,
+        # and how many asks in a row have recovered nothing.
+        self._wifi_diag_next_try: datetime = dt_util.utcnow()
+        self._wifi_diag_misses: int = 0
 
         if store is None and entry_id:
             self._store = Store(hass, 1, f"miwifi/{entry_id}.json")
@@ -379,6 +422,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         self.code = codes.OK
         self._counters_reset_this_cycle = False
+        self.update_cycle += 1
 
         _is_before_reauthorization: bool = self._is_reauthorization
         _err: LuciError | None = None
@@ -1386,6 +1430,9 @@ class LuciUpdater(DataUpdateCoordinator):
         _adapters: list = await self._async_prepare_wifi_guest(response["info"])
 
         length: int = 0
+        _mapped: list[str] = []
+        _skipped: list[str] = []
+        _no_channel: list[IfName] = []
 
         # Support only 5G , 2.4G, 5G Game and Guest
         for wifi in _adapters:
@@ -1395,7 +1442,10 @@ class LuciUpdater(DataUpdateCoordinator):
             try:
                 adapter: IfName = IfName(wifi["ifname"])
             except ValueError:
+                _skipped.append(str(wifi["ifname"]))
                 continue
+
+            _mapped.append(str(wifi["ifname"]))
 
             # Guest network is not an adapter
             if adapter != IfName.WL14:
@@ -1404,13 +1454,13 @@ class LuciUpdater(DataUpdateCoordinator):
             if "status" in wifi:
                 data[adapter.phrase] = int(wifi["status"]) > 0  # type: ignore
 
-            if "channelInfo" in wifi and "channel" in wifi["channelInfo"]:
-                data[f"{adapter.phrase}_channel"] = str(  # type: ignore
-                    wifi["channelInfo"]["channel"]
-                )
-            elif "channel" in wifi:
-                # CB0401V2 provider firmwares can return channel at top-level
-                data[f"{adapter.phrase}_channel"] = str(wifi["channel"])  # type: ignore
+            if _channel_of(wifi) is not None:
+                data[f"{adapter.phrase}_channel"] = _channel_of(wifi)  # type: ignore
+            elif adapter != IfName.WL14:
+                # The RA82 leaves answer wifi_detail_all with an adapter that
+                # carries power and status but no channel at all, which left the
+                # channel picker sitting there reading `unknown`.
+                _no_channel.append(adapter)
 
             if "bandwidth" in wifi:
                 data[f"{adapter.phrase}_bandwidth"] = str(wifi["bandwidth"])  # type: ignore
@@ -1422,6 +1472,119 @@ class LuciUpdater(DataUpdateCoordinator):
                 data[f"{adapter.phrase}_data"] = wifi_data  # type: ignore
 
         data[ATTR_WIFI_ADAPTER_LENGTH] = length
+
+        _filled: list[str] = await self._async_fill_missing_channels(data, _no_channel)
+
+        # Report the picture once, and again whenever it changes: a radio that
+        # never shows up is the difference between a node with a 5G switch and a
+        # node without one, and a band with no channel is the difference between
+        # a channel picker you can use and one that reads `unknown`.
+        _fingerprint: tuple = (
+            tuple(_mapped),
+            tuple(_skipped),
+            tuple(a.value for a in _no_channel),
+            tuple(_filled),
+        )
+        if _fingerprint != self._wifi_adapters_logged:
+            self._wifi_adapters_logged = _fingerprint
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] wifi adapters for %s: mapped %s, skipped %s,"
+                " no channel reported %s, filled from diagnostics %s",
+                self.ip,
+                _mapped or "none",
+                _skipped or "none",
+                [a.value for a in _no_channel] or "none",
+                _filled or "none",
+            )
+
+    async def _async_fill_missing_channels(
+        self, data: dict, adapters: list[IfName]
+    ) -> list[str]:
+        """Ask the diagnostics endpoint for channels the detail one omitted.
+
+        `xqnetwork/wifi_detail_all` and `xqnetwork/wifi_diag_detail_all` are
+        complementary - the panel's own `ws_api.websocket_get_wifis` merges both
+        for exactly this reason - but the updater only ever read the first, and
+        touched the second solely to find the guest network. On the RA82 leaves
+        that costs the 5 GHz channel: the adapter is there, with power and
+        status, and no channel at all.
+
+        Only called with a gap to fill. An ask that recovers nothing is not
+        repeated every cycle: the wait before the next one doubles with each
+        miss in a row, from WIFI_DIAG_RETRY_FIRST up to WIFI_DIAG_RETRY_MAX, and
+        the first recovered channel resets it. It is never given up for good,
+        because a miss proves nothing lasting: a timeout or a radio restarting
+        (channel 0 or absent) clears up on its own, and a firmware without the
+        endpoint cannot be told apart from a timeout - its error page fails to
+        parse and arrives as the same LuciConnectionError. So a node that never
+        publishes its channel costs a request an hour, and a transient miss is
+        recovered a minute later without reloading the entry.
+
+        :param data: dict: the data being prepared, updated in place
+        :param adapters: list[IfName]: adapters that reported no channel
+        :return list[str]: the ifnames whose channel was recovered
+        """
+
+        now: datetime = dt_util.utcnow()
+
+        if not adapters or now < self._wifi_diag_next_try:
+            return []
+
+        try:
+            response: dict = await self.luci.wifi_diag_detail_all()
+        except LuciError as _e:
+            self._wifi_diag_missed(now)
+            await self.hass.async_add_executor_job(
+                _LOGGER.debug,
+                "[MiWiFi] wifi_diag_detail_all unavailable for %s: %s",
+                self.ip,
+                _e,
+            )
+            return []
+
+        by_ifname: dict[str, dict] = {
+            entry["ifname"]: entry
+            for entry in (response.get("info") or [])
+            if isinstance(entry, dict) and "ifname" in entry
+        }
+
+        filled: list[str] = []
+
+        for adapter in adapters:
+            channel = _channel_of(by_ifname.get(adapter.value) or {})
+            if channel is None:
+                continue
+
+            data[f"{adapter.phrase}_channel"] = channel  # type: ignore
+
+            # The selects and switches read their availability from this dict,
+            # so it has to learn the channel too or the picker stays hidden.
+            wifi_data = data.get(f"{adapter.phrase}_data")  # type: ignore
+            if isinstance(wifi_data, dict):
+                wifi_data["channel"] = channel
+
+            filled.append(adapter.value)
+
+        if filled:
+            self._wifi_diag_misses = 0
+            self._wifi_diag_next_try = now
+        else:
+            self._wifi_diag_missed(now)
+
+        return filled
+
+    def _wifi_diag_missed(self, now: datetime) -> None:
+        """Push the next diagnostics ask back after one that recovered nothing.
+
+        :param now: datetime: when the ask was made
+        """
+
+        self._wifi_diag_misses += 1
+        # The exponent is capped too: misses keep counting for as long as the
+        # node runs, and the wait stops growing long before that.
+        wait: timedelta = WIFI_DIAG_RETRY_FIRST * 2 ** min(self._wifi_diag_misses - 1, 12)
+        self._wifi_diag_next_try = now + min(wait, WIFI_DIAG_RETRY_MAX)
 
     async def _async_prepare_wifi_guest(self, adapters: list) -> list:
         """Prepare wifi guest.
