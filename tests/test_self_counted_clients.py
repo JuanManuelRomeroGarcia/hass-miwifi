@@ -158,6 +158,8 @@ class Mesh:
         updater.hass.config_entries.async_entries = lambda domain: []
         updater._is_first_update = True
         updater._forget_mesh_node = lambda *args, **kwargs: None
+        # Registry work on the node's device row, not part of the counters.
+        updater._async_record_backhaul_aliases = AsyncMock()
         updater.new_device_callback = None
         updater._entry_id = f"entry-{ip}"
         updater._moved_devices = []

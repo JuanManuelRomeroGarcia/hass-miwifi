@@ -19,6 +19,7 @@ from homeassistant.components.switch import ENTITY_ID_FORMAT as SWITCH_ENTITY_ID
 from homeassistant.components.switch import SERVICE_TURN_OFF, SERVICE_TURN_ON
 from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_ON, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant, State
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.util.dt import utcnow
@@ -597,24 +598,26 @@ async def test_update_2_4_turn(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_OFF,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == STATE_OFF
-        assert state.attributes["icon"] == "mdi:wifi-off"
+        assert state.state == STATE_ON
+        assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_ON,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
@@ -854,24 +857,26 @@ async def test_update_5_0_turn(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_OFF,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == STATE_OFF
-        assert state.attributes["icon"] == "mdi:wifi-off"
+        assert state.state == STATE_ON
+        assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_ON,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
@@ -1137,24 +1142,26 @@ async def test_update_5_0_game_turn(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_OFF,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == STATE_OFF
-        assert state.attributes["icon"] == "mdi:wifi-off"
+        assert state.state == STATE_ON
+        assert state.attributes["icon"] == "mdi:wifi"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_ON,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_ON
@@ -1445,24 +1452,26 @@ async def test_update_guest_turn(hass: HomeAssistant, legacy_clock) -> None:
         assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 2
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_ON,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_ON,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
-        assert state.state == STATE_ON
-        assert state.attributes["icon"] == "mdi:wifi-lock-open"
+        assert state.state == STATE_OFF
+        assert state.attributes["icon"] == "mdi:wifi-off"
         assert len(mock_luci_client.mock_calls) == _prev_calls + 3
 
-        await hass.services.async_call(
-            SWITCH_DOMAIN,
-            SERVICE_TURN_OFF,
-            {ATTR_ENTITY_ID: [unique_id]},
-            blocking=True,
-        )
+        with pytest.raises(HomeAssistantError, match="refused"):
+            await hass.services.async_call(
+                SWITCH_DOMAIN,
+                SERVICE_TURN_OFF,
+                {ATTR_ENTITY_ID: [unique_id]},
+                blocking=True,
+            )
 
         state = hass.states.get(unique_id)
         assert state.state == STATE_OFF

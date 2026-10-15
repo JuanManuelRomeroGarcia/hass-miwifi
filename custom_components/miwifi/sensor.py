@@ -103,6 +103,7 @@ from .entity import MiWifiEntity
 from .enum import Connection, DeviceClass
 from .helper import (
     async_remove_empty_client_device,
+    async_get_serving_node,
     detect_manufacturer,
     get_config_value,
     map_signal_quality,
@@ -810,6 +811,7 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
 
         via_mac = dev.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS)
         via_entry = dev.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        serving_node = async_get_serving_node(self.hass, via_mac)
 
         return {
             # Keep same attribute names as device_tracker
@@ -819,6 +821,8 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
             # Optional duplicates (your custom keys) for backwards compatibility
             "connected_via_router_mac": via_mac,
             "connected_via_entry_id": via_entry,
+            "connected_via_router_device_mac": serving_node[0] if serving_node else None,
+            "connected_via_router_name": serving_node[1] if serving_node else None,
 
             "connection": conn_text,
         }

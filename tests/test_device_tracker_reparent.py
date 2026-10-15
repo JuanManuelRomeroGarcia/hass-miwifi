@@ -25,6 +25,8 @@ the entities belonging to that row's config entry.
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -237,6 +239,28 @@ def test_the_entity_moves_before_the_old_node_is_dropped() -> None:
 
     assert calls.index(("entity-move", NEW)) < calls.index(("device-remove", OLD))
     assert calls.index(("device-add", NEW)) < calls.index(("device-remove", OLD))
+
+
+def test_roaming_log_does_not_expose_client_or_entry_identifiers(caplog) -> None:
+    """Shared debug logs must not disclose the client's identity or owner."""
+    kept = _Device({OLD}, entities=1)
+    leftover = _Device({NEW}, entities=0)
+    entity = _EntityEntry(OLD, device_id=kept.id)
+
+    with caplog.at_level(logging.DEBUG, logger="miwifi"):
+        moved, _, registry = _run([kept, leftover], entity)
+
+    assert moved is True
+    assert registry.rows == [kept]
+    assert entity.config_entry_id == NEW
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("Client ownership updated" in message for message in messages)
+    assert any("dropped 1 empty device row(s)" in message for message in messages)
+    for record in caplog.records:
+        # Also check raw arguments, which structured log handlers can retain.
+        payload = f"{record.getMessage()} {record.args!r}"
+        for identifier in (MAC, OLD, NEW, kept.id, leftover.id):
+            assert identifier not in payload
 
 
 def test_a_client_that_has_not_moved_is_left_alone() -> None:
