@@ -12,7 +12,7 @@ Run maintained tests with:
 python -m pytest -q --ha-suite=maintained --continue-on-collection-errors
 ```
 
-Run outdated tests separately with:
+Run legacy integration tests separately with:
 
 ```sh
 python -m pytest -q --ha-suite=legacy --continue-on-collection-errors
@@ -25,9 +25,9 @@ an old module from the legacy list only after reviewing its expectations and
 getting it to pass. Running pytest without `--ha-suite` still collects both
 suites normally.
 
-Both maintained CI jobs must pass. The legacy job uses `continue-on-error` and
-publishes its JUnit report even on failure; its errors are not fixed or ignored
-as successful tests. The three standalone test modules are excluded only when
+Both maintained CI jobs and the legacy job must pass. Each job publishes its
+JUnit report even on failure; the legacy job does not use `continue-on-error`.
+The three standalone test modules are excluded only when
 `--ha-suite` is selected because `validate.yml` already runs them directly,
 together with frontend packaging, HACS and hassfest checks.
 
