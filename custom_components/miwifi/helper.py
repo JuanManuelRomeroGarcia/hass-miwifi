@@ -7,6 +7,7 @@ from typing import Any
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
@@ -15,6 +16,8 @@ from homeassistant.util import slugify
 from httpx import codes, HTTPError, ConnectError, TimeoutException
 
 from .const import (
+    ATTR_DEVICE_MAC_ADDRESS,
+    ATTR_DEVICE_NAME,
     DEFAULT_TIMEOUT,
     DOMAIN,
     MANUFACTURERS,
@@ -27,6 +30,7 @@ from .const import (
     STORE_AUTO_PURGE,
     DEFAULT_AUTO_PURGE_AT,
     DEFAULT_AUTO_PURGE_EVERY_DAYS,
+    UPDATER,
     )
 
 from .updater import LuciUpdater
@@ -300,3 +304,111 @@ def device_registry_rows(
     )
 
     return [device] if device is not None else []
+
+
+def async_register_backhaul_alias(
+    hass: HomeAssistant, entry_id: str, device_mac: str, backhaul_mac: str
+) -> str:
+    """Record on a node's own device row the MAC its main lists it under.
+
+    A main names the node serving a client by the MAC in the client's `parent`,
+    and on some leaves that is not the MAC the leaf reports for itself: an RA82
+    registers its hardware MAC and is listed by its LAN MAC. Nothing could find
+    the node by that second MAC, so "Connected via" kept whatever it last was,
+    and client attributes named a MAC no node row carries.
+
+    The alias goes on the node's row as one more MAC connection, which is what
+    `_ensure_via_device_exists` already resolves. The registry rejects a MAC
+    that another row of the same entry already has - and, before core 2026.9,
+    any other row at all, of any integration. That row is not ours to merge or
+    drop, so the alias is simply not recorded: the node is still resolved
+    through its updater, see `async_get_serving_node`.
+
+    :param hass: HomeAssistant
+    :param entry_id: str: the node's own config entry
+    :param device_mac: str: the MAC the node reports for itself
+    :param backhaul_mac: str: the MAC the main lists it under
+    :return str: "added", "present", "missing" (no row for the node yet, or
+        nothing to record) or "taken" (another row has the MAC)
+    """
+
+    device_lc = str(device_mac or "").strip().lower()
+    backhaul_lc = str(backhaul_mac or "").strip().lower()
+    if not device_lc or not backhaul_lc or device_lc == backhaul_lc:
+        return "missing"
+
+    dev_reg = dr.async_get(hass)
+    row = next(
+        (
+            row
+            for row in device_registry_rows(
+                dev_reg, identifiers={(DOMAIN, device_lc)}
+            )
+            if entry_id in device_config_entry_ids(row)
+        ),
+        None,
+    )
+
+    alias = (dr.CONNECTION_NETWORK_MAC, backhaul_lc)
+    if row is None:
+        return "missing"
+    if alias in row.connections:
+        return "present"
+
+    try:
+        # The full set: `merge_connections` is deprecated from core 2026.10.
+        dev_reg.async_update_device(row.id, new_connections=row.connections | {alias})
+    except HomeAssistantError:
+        # DeviceConnectionCollisionError: another row already has this MAC.
+        return "taken"
+
+    return "added"
+
+
+def async_get_serving_node(
+    hass: HomeAssistant, parent_mac: str | None
+) -> tuple[str, str | None] | None:
+    """The loaded node a client's parent MAC names: its own MAC and its name.
+
+    The parent MAC is either the node's own MAC or the one its main lists it
+    under (see `async_register_backhaul_alias`). The name is the one shown in
+    Home Assistant when the user gave one, else the router's own name.
+
+    :param hass: HomeAssistant
+    :param parent_mac: str | None: the MAC in the client's `router_mac`
+    :return tuple[str, str | None] | None: (node MAC, node name), or None
+    """
+
+    parent = str(parent_mac or "").strip().upper()
+    if not parent or hass is None:
+        return None
+
+    for entry_id, entry_data in (hass.data.get(DOMAIN) or {}).items():
+        if not isinstance(entry_data, dict):
+            continue
+
+        updater = entry_data.get(UPDATER)
+        data = getattr(updater, "data", None) or {}
+        own = str(data.get(ATTR_DEVICE_MAC_ADDRESS) or "").strip().upper()
+        if not own or parent not in (own, getattr(updater, "backhaul_mac", None)):
+            continue
+
+        row = next(
+            (
+                row
+                for row in device_registry_rows(
+                    dr.async_get(hass), identifiers={(DOMAIN, own.lower())}
+                )
+                if entry_id in device_config_entry_ids(row)
+            ),
+            None,
+        )
+        name = (
+            (row.name_by_user if row is not None else None)
+            or data.get(ATTR_DEVICE_NAME)
+            or (row.name if row is not None else None)
+        )
+
+        return own, name
+
+    return None

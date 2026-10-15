@@ -338,6 +338,10 @@ class LuciUpdater(DataUpdateCoordinator):
         self._parent_push_pending = False
         self._parent_census_at: float | None = None
         self._parent_census_source: LuciUpdater | None = None
+        # The MAC a main lists this node under in `parent`, when it is not the
+        # one the node reports for itself. Set by the main's device list.
+        self.backhaul_mac: str | None = None
+        self._backhaul_alias_skipped: set[str] = set()
         
         # --- CB0401V2 / 5G CPE throttling ---
         self._is_cb0401v2: bool = False
@@ -1799,6 +1803,57 @@ class LuciUpdater(DataUpdateCoordinator):
                         await self.add_device(device, action=action)
 
 
+    async def _async_record_backhaul_aliases(
+        self, integrations: dict, ap_macs: dict[str, str], mac_to_ip: dict[str, str]
+    ) -> None:
+        """Let a node be found by the MAC this device list names it with.
+
+        Clients are routed by that MAC already (`mac_to_ip`); nothing else knew
+        it. The node keeps it, so client attributes can name the node, and its
+        device row gets it as a connection, so "Connected via" can point at it.
+        A MAC that already belongs to another node is left alone.
+
+        :param integrations: dict: loaded entries by IP
+        :param ap_macs: dict[str, str]: listed node MACs by IP
+        :param mac_to_ip: dict[str, str]: routing map built from both
+        """
+
+        from .helper import async_register_backhaul_alias
+
+        for ip, integration in integrations.items():
+            updater = integration.get(UPDATER)
+            backhaul = ap_macs.get(ip)
+            if not isinstance(updater, LuciUpdater) or not backhaul:
+                continue
+
+            own = str((updater.data or {}).get(ATTR_DEVICE_MAC_ADDRESS) or "").strip().upper()
+            if not own or backhaul == own or mac_to_ip.get(backhaul) != ip:
+                continue
+
+            updater.backhaul_mac = backhaul
+
+            entry_id = integration.get(ATTR_TRACKER_ENTRY_ID)
+            if not entry_id or backhaul in self._backhaul_alias_skipped:
+                continue
+
+            outcome = async_register_backhaul_alias(self.hass, entry_id, own, backhaul)
+            if outcome == "added":
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] %s is listed by its mesh under a second MAC;"
+                    " recorded it on the node's device",
+                    ip,
+                )
+            elif outcome == "taken":
+                # Not retried every cycle: the other row is not going anywhere.
+                self._backhaul_alias_skipped.add(backhaul)
+                await self.hass.async_add_executor_job(
+                    _LOGGER.debug,
+                    "[MiWiFi] %s: its second MAC already belongs to another"
+                    " device; clients are still linked through the node itself",
+                    ip,
+                )
+
     async def _async_prepare_device_list(self, data: dict) -> None:
         """Prepare MiWiFi device list (api/misystem/devicelist)."""
 
@@ -1832,6 +1887,8 @@ class LuciUpdater(DataUpdateCoordinator):
                     mac_to_ip[mac.strip().upper()] = ip
                 if (backhaul := ap_macs.get(ip)) and backhaul not in mac_to_ip:
                     mac_to_ip[backhaul] = ip
+
+        await self._async_record_backhaul_aliases(integrations, ap_macs, mac_to_ip)
 
         trace = getattr(self, "_mesh_trace", None)
         if trace is not None:
