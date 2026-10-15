@@ -1888,7 +1888,8 @@ class LuciUpdater(DataUpdateCoordinator):
                     ip,
                 )
             elif outcome == "taken":
-                # Not retried every cycle: the other row is not going anywhere.
+                # Not retried every cycle: only the purge of a node's client
+                # row, `_purge_pending_mesh_nodes`, frees the MAC again.
                 self._backhaul_alias_skipped.add(backhaul)
                 await self.hass.async_add_executor_job(
                     _LOGGER.debug,
@@ -2658,7 +2659,11 @@ class LuciUpdater(DataUpdateCoordinator):
 
         for mac in sorted(pending):
             self._forget_mesh_node(mac, integrations)
-            async_purge_client_entities(self.hass, mac)
+            if async_purge_client_entities(self.hass, mac):
+                # A client row under a node's second MAC blocks its alias, see
+                # `_async_record_backhaul_aliases`. It is gone: let the next
+                # census record the alias.
+                self._backhaul_alias_skipped.discard(mac)
             _remember_mesh_node_macs(self.hass, {mac}, MESH_NODE_PURGED)
 
     def _forget_mesh_node(self, mac: str, integrations: dict[str, dict]) -> None:

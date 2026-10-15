@@ -19,6 +19,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEn
 
 from custom_components.miwifi import device_tracker, helper, sensor
 from custom_components.miwifi.const import (
+    ATTR_DEVICE_MAC_ADDRESS,
     ATTR_SENSOR_MODE,
     ATTR_STATE,
     ATTR_TRACKER_ENTRY_ID,
@@ -352,3 +353,45 @@ async def test_purge_reaches_a_legacy_tracker_owned_by_another_entry(hass, route
     assert registry.async_get(router_entity.entity_id) is not None
     assert dev_reg.async_get(router_row.id) is not None
     assert registry.async_get_entity_id("device_tracker", DOMAIN, f"{DOMAIN}-{CLIENT_MAC}")
+
+
+async def test_a_purged_client_row_frees_the_node_alias_it_blocked(hass, router_doubles):
+    """The node's second MAC is recorded once the client row holding it is gone.
+
+    The main lists the node under a second MAC, and the node's entry still has a
+    client row under it: the registry refuses the alias (from core 2026.9 a row
+    of the same entry, before it any row), and the census stops asking. Purging
+    that client row has to let the next census record the alias.
+    """
+    node_own = "02:00:00:00:00:0c"
+    main_entry, node_entry = _entry(hass, MAIN_IP), _entry(hass, NODE_IP)
+    client_row, entities = _leftover_client_entities(hass, node_entry)
+    dev_reg = dr.async_get(hass)
+    node_row = dev_reg.async_get_or_create(
+        config_entry_id=node_entry.entry_id,
+        identifiers={(DOMAIN, node_own)},
+        connections={(dr.CONNECTION_NETWORK_MAC, node_own)},
+    )
+    main = _updater(hass, main_entry, MAIN_IP, is_main=True)
+    node = _updater(hass, node_entry, NODE_IP, is_main=False)
+    node.data[ATTR_DEVICE_MAC_ADDRESS] = node_own.upper()
+    hass.data[DOMAIN][node_entry.entry_id][CONF_IP_ADDRESS] = NODE_IP
+    rows = [_row(NODE_MAC, NODE_IP, isap=8), _row(CLIENT_MAC, CLIENT_IP)]
+    alias = (dr.CONNECTION_NETWORK_MAC, NODE_MAC)
+
+    # First census: nothing may be purged yet, and the client row has the MAC.
+    await _refresh(hass, main, rows)
+    assert node.backhaul_mac == NODE_MAC.upper()
+    assert alias not in dev_reg.async_get(node_row.id).connections
+    main._is_first_update = False
+
+    # Second: the alias is still skipped when its step runs, then the purge
+    # removes the client row.
+    await _refresh(hass, main, rows)
+    assert dev_reg.async_get(client_row.id) is None
+    assert alias not in dev_reg.async_get(node_row.id).connections
+
+    # Third: the alias is recorded on the node's own row.
+    await _refresh(hass, main, rows)
+    assert alias in dev_reg.async_get(node_row.id).connections
+    assert device_tracker._ensure_via_device_exists(hass, NODE_MAC).id == node_row.id
