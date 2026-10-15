@@ -66,6 +66,7 @@ from .const import (
 
 from .enum import Connection, DeviceClass
 from .helper import (
+    async_get_serving_node,
     detect_manufacturer,
     device_config_entry_ids,
     device_registry_rows,
@@ -121,6 +122,20 @@ def _ensure_via_device_exists(hass: HomeAssistant, via_router_mac: Any):
         return None
 
     dev_reg = dr.async_get(hass)
+
+    # The MAC a main lists a node under comes first: a node that was once
+    # tracked as a client can have left a client row under that very MAC, and
+    # the lookup below would hand that row back as the parent.
+    for entry_id, entry_data in (hass.data.get(DOMAIN) or {}).items():
+        up = entry_data.get(UPDATER) if isinstance(entry_data, dict) else None
+        if _norm_mac(getattr(up, "backhaul_mac", None)) != via_router_mac_lc:
+            continue
+        own = _norm_mac((getattr(up, "data", None) or {}).get(ATTR_DEVICE_MAC_ADDRESS))
+        if not own:
+            continue
+        for row in device_registry_rows(dev_reg, identifiers={(DOMAIN, own)}):
+            if entry_id in device_config_entry_ids(row):
+                return row
 
     # If already exists, ok.
     if rows := device_registry_rows(dev_reg, identifiers={(DOMAIN, via_router_mac_lc)}):
@@ -784,6 +799,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
 
         connected_via_router_mac  = self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS, None)
         connected_via_entry_id  = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID, None)
+        # `router_mac` is the MAC the main names the node by, which on some
+        # leaves is not the MAC of the node's own device: name the node too.
+        serving_node = async_get_serving_node(self.hass, connected_via_router_mac)
 
         return {
             ATTR_TRACKER_SCANNER: DOMAIN,
@@ -801,6 +819,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             # Opcional (si el panel ya usa estas keys o quieres compatibilidad)
             "connected_via_router_mac": connected_via_router_mac,
             "connected_via_entry_id": connected_via_entry_id,
+            "connected_via_router_device_mac": serving_node[0] if serving_node else None,
+            "connected_via_router_name": serving_node[1] if serving_node else None,
             
             ATTR_TRACKER_SIGNAL: signal,
             ATTR_TRACKER_DOWN_SPEED: self._speed_attribute(ATTR_TRACKER_DOWN_SPEED),
