@@ -26,8 +26,8 @@ jobs:
             phacc: "0.13.371"
             suite: legacy
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
           cache: pip
@@ -49,7 +49,7 @@ jobs:
           --cov=custom_components/miwifi --cov-report=term-missing
       - name: Save test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-${{ matrix.version }}-${{ matrix.suite }}
           path: pytest-*.xml
