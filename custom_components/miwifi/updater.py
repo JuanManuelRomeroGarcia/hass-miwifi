@@ -608,12 +608,32 @@ class LuciUpdater(DataUpdateCoordinator):
         - type 5 => 5G Game
         - type 6 => IoT dedicated WiFi
         """
+        # A parent's census has already been decoded using the reporting
+        # router's schema. Do not reinterpret it using a different leaf model.
+        if "_miwifi_connection" in device:
+            connection = device["_miwifi_connection"]
+            return connection if isinstance(connection, Connection) else None
+
         raw_type = device.get("type")
 
         try:
             raw_type_int = int(raw_type) if raw_type not in ("", None) else None
         except Exception:
             raw_type_int = None
+
+        model = str(self.data.get(ATTR_MODEL) or "").strip().lower()
+        device_model = str(self.data.get(ATTR_DEVICE_MODEL) or "").strip().lower()
+        if model == Model.RD08.value or device_model == "xiaomi.router.rd08":
+            # RD08 1.1.96 devicelist uses 1=LAN, 2=2.4 GHz, 3=5 GHz.
+            # Verified against the native UI and wifi_connect_devices in #356.
+            # Do not shift other codes: guest/IoT codes need their own evidence.
+            rd08_connections = {
+                1: Connection.LAN,
+                2: Connection.WIFI_2_4,
+                3: Connection.WIFI_5_0,
+            }
+            if raw_type_int in rd08_connections:
+                return rd08_connections[raw_type_int]
 
         if self._has_dedicated_iot_wifi():
             if raw_type_int == 5:
@@ -1743,6 +1763,11 @@ class LuciUpdater(DataUpdateCoordinator):
                 continue
             device[ATTR_TRACKER_MAC] = mac.strip().upper()
 
+            # Keep the reporting router's interpretation when this raw record
+            # is pushed to a leaf with a different firmware/model schema.
+            device.pop("_miwifi_connection", None)
+            device["_miwifi_connection"] = self._resolve_connection(device)
+
             # Skip mesh/AP nodes from client counters and trackers
             try:
                 if int(device.get("isap", 0) or 0) > 0:
@@ -2104,7 +2129,11 @@ class LuciUpdater(DataUpdateCoordinator):
             connection = _device.get(ATTR_TRACKER_CONNECTION)
 
             # ✅ Defensive fallback only for routers with dedicated IoT WiFi
-            if connection is None and self._has_dedicated_iot_wifi():
+            if (
+                connection is None
+                and "_miwifi_connection" not in device
+                and self._has_dedicated_iot_wifi()
+            ):
                 try:
                     raw_type = int(device.get("type")) if device.get("type") not in ("", None) else None
                 except Exception:
