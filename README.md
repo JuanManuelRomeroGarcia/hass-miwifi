@@ -37,6 +37,8 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Lighting automation](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Example-automation#lighting-automation)
 - [Diagnostics](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Diagnostics)
   - [Mesh support capture](tests/MESH_SUPPORT.md)
+  - [Mesh node identities and dashboard filters](docs/Mesh-client-routing.md)
+    - [Guía en español](docs/Mesh-client-routing-es.md)
 - [FAQ](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/FAQ)
 - [Private MAC addresses and automatic replacement](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) (v3.9.0)
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses-es)

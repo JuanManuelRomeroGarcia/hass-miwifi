@@ -12,6 +12,7 @@ node device carries.
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
 from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -19,15 +20,22 @@ from custom_components.miwifi.const import (
     ATTR_DEVICE_MAC_ADDRESS,
     ATTR_DEVICE_NAME,
     ATTR_TRACKER_ENTRY_ID,
+    ATTR_TRACKER_MAC,
+    ATTR_TRACKER_ROUTER_MAC_ADDRESS,
+    ATTR_TRACKER_UPDATER_ENTRY_ID,
     DOMAIN,
     UPDATER,
 )
-from custom_components.miwifi.device_tracker import _ensure_via_device_exists
+from custom_components.miwifi.device_tracker import (
+    MiWifiDeviceTracker,
+    _ensure_via_device_exists,
+)
 from custom_components.miwifi.helper import (
     async_get_serving_node,
     async_register_backhaul_alias,
 )
 from custom_components.miwifi.updater import LuciUpdater
+from custom_components.miwifi.sensor import MiWifiDeviceAttributeSensor
 
 NODE = "02:00:00:00:00:10"
 BACKHAUL = "02:00:00:00:00:11"
@@ -220,3 +228,62 @@ async def test_a_taken_mac_is_not_tried_again_every_cycle(hass):
 
     assert register.call_count == 1
     assert node.backhaul_mac == BACKHAUL
+
+
+@pytest.mark.parametrize("entity_type", [MiWifiDeviceTracker, MiWifiDeviceAttributeSensor])
+def test_clients_publish_both_node_identities_without_changing_existing_attributes(
+    hass, entity_type,
+):
+    """Dashboards can use the node's real MAC on trackers and client sensors."""
+    entry, row = _node(hass, backhaul=BACKHAUL)
+    dr.async_get(hass).async_update_device(row.id, name_by_user="Node in HA")
+    device = {
+        ATTR_TRACKER_MAC: CLIENT,
+        ATTR_TRACKER_ROUTER_MAC_ADDRESS: BACKHAUL,
+        ATTR_TRACKER_UPDATER_ENTRY_ID: entry.entry_id,
+    }
+    entity = entity_type.__new__(entity_type)
+    entity.hass = hass
+    if entity_type is MiWifiDeviceTracker:
+        entity._device = device
+        entity._is_connected = True
+    else:
+        entity._mac = CLIENT
+        entity._updater = SimpleNamespace(devices={CLIENT: device})
+
+    attributes = entity.extra_state_attributes
+
+    assert attributes[ATTR_TRACKER_ROUTER_MAC_ADDRESS] == BACKHAUL
+    assert attributes["connected_via_router_mac"] == BACKHAUL
+    assert attributes["connected_via_entry_id"] == entry.entry_id
+    assert attributes["connected_via_router_device_mac"] == NODE
+    assert attributes["connected_via_router_name"] == "Node in HA"
+
+
+async def test_alias_registration_retries_when_the_node_row_appears_later(hass):
+    """The first census may run before the node's platforms create its row."""
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    main = _updater(hass, "02:00:00:00:00:01")
+    node = _updater(hass, NODE)
+    integrations = {NODE_IP: {UPDATER: node, ATTR_TRACKER_ENTRY_ID: entry.entry_id}}
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = integrations[NODE_IP]
+    listed = {NODE_IP: BACKHAUL}
+    routed = {NODE: NODE_IP, BACKHAUL: NODE_IP}
+
+    await main._async_record_backhaul_aliases(integrations, listed, routed)
+    assert node.backhaul_mac == BACKHAUL
+    assert main._backhaul_alias_skipped == set()
+
+    registry = dr.async_get(hass)
+    row = registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, NODE.lower())},
+        connections={(dr.CONNECTION_NETWORK_MAC, NODE.lower())},
+    )
+    await main._async_record_backhaul_aliases(integrations, listed, routed)
+
+    assert (dr.CONNECTION_NETWORK_MAC, BACKHAUL.lower()) in registry.async_get(
+        row.id
+    ).connections
+    assert _ensure_via_device_exists(hass, BACKHAUL).id == row.id
