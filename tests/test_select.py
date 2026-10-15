@@ -533,6 +533,87 @@ async def test_update_channel_2_4_change_channel(hass: HomeAssistant, legacy_clo
 
 
 @pytest.mark.asyncio
+async def test_update_channel_2_4_revert_is_counted_per_poll(
+    hass: HomeAssistant, legacy_clock, caplog
+) -> None:
+    """One poll reaches the select twice, and counts as one disagreeing refresh.
+
+    The topology step publishes mid-cycle and the coordinator publishes again at
+    the end. Counted per callback, the first poll after a write - the one that
+    may have been in flight when it landed - was alone enough to warn.
+
+    :param hass: HomeAssistant
+    """
+
+    with patch(
+        "custom_components.miwifi.updater.LuciClient"
+    ) as mock_luci_client, patch(
+        "custom_components.miwifi.async_start_discovery", return_value=None
+    ), patch(
+        "custom_components.miwifi.updater.asyncio.sleep", return_value=None
+    ):
+        await async_mock_luci_client(mock_luci_client)
+
+        mock_luci_client.return_value.set_wifi = AsyncMock(return_value={"code": 0})
+
+        setup_data: list = await async_setup(hass)
+
+        config_entry: MockConfigEntry = setup_data[1]
+
+        assert await hass.config_entries.async_setup(config_entry.entry_id)
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+        updater: LuciUpdater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+        registry = er.async_get(hass)
+
+        unique_id: str = _generate_id(ATTR_SELECT_WIFI_2_4_CHANNEL_NAME, updater)
+
+        registry.async_update_entity(entity_id=unique_id, disabled_by=None)
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+        async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+        )
+        await hass.async_block_till_done(wait_background_tasks=True)
+
+        assert hass.states.get(unique_id).state == "2"
+
+        # Enabling the entity reloaded the entry, with a new updater.
+        updater = hass.data[DOMAIN][config_entry.entry_id][UPDATER]
+
+        await hass.services.async_call(
+            SELECT_DOMAIN,
+            SERVICE_SELECT_OPTION,
+            {ATTR_ENTITY_ID: [unique_id], ATTR_OPTION: "10"},
+            blocking=True,
+        )
+
+        # The router keeps reporting 2.
+        with caplog.at_level(logging.WARNING, logger="miwifi"):
+            cycle: int = updater.update_cycle
+
+            async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+            )
+            await hass.async_block_till_done(wait_background_tasks=True)
+
+            assert updater.update_cycle == cycle + 1
+            assert hass.states.get(unique_id).state == "2"
+            assert "replaced wifi_2_4_channel" not in caplog.text
+
+            async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
+            )
+            await hass.async_block_till_done(wait_background_tasks=True)
+
+        assert caplog.text.count(
+            "replaced wifi_2_4_channel with 2 after accepting 10"
+        ) == 1
+        assert hass.states.get(unique_id).attributes["requested_option"] == "10"
+
+
+@pytest.mark.asyncio
 async def test_update_channel_5_0(hass: HomeAssistant, legacy_clock) -> None:
     """Test update channel 5.0.
 

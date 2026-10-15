@@ -204,6 +204,7 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
         self._requested_option: str | None = None
         self._requested_confirmed: bool = False
         self._requested_mismatches: int = 0
+        self._mismatch_cycle: int | None = None
         self._override_reported: str | None = None
 
         self._attr_available: bool = (
@@ -371,6 +372,7 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
             self._requested_option = option
             self._requested_confirmed = False
             self._requested_mismatches = 0
+            self._mismatch_cycle = None
             self._override_reported = None
 
             self._updater.data[self.entity_description.key] = option
@@ -399,7 +401,10 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
 
         Before the first confirmation two disagreeing refreshes are required: a
         poll already in flight when the write landed reports the old value once
-        through no fault of the router.
+        through no fault of the router. They are counted per poll of the
+        updater, not per callback: one poll reaches this method twice, once
+        when the topology step publishes mid-cycle and once at the end, and
+        counted per callback the in-flight poll alone was enough to warn.
 
         :param reported: Any: what this refresh says the value is
         """
@@ -421,7 +426,9 @@ class MiWifiSelect(MiWifiEntity, SelectEntity):
             return
 
         if not self._requested_confirmed:
-            self._requested_mismatches += 1
+            if self._updater.update_cycle != self._mismatch_cycle:
+                self._mismatch_cycle = self._updater.update_cycle
+                self._requested_mismatches += 1
             if self._requested_mismatches < 2:
                 return
 

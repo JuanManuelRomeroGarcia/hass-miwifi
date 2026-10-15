@@ -50,10 +50,12 @@ def _select(key: str = ATTR_SELECT_WIFI_2_4_CHANNEL) -> MiWifiSelect:
     select._requested_option = None
     select._requested_confirmed = False
     select._requested_mismatches = 0
+    select._mismatch_cycle = None
     select._override_reported = None
 
     updater = MagicMock()
     updater.ip = "192.0.2.104"
+    updater.update_cycle = 0
     updater.data = {
         ATTR_STATE: True,
         key: "1",
@@ -66,8 +68,15 @@ def _select(key: str = ATTR_SELECT_WIFI_2_4_CHANNEL) -> MiWifiSelect:
     return select
 
 
-def _report(select: MiWifiSelect, channel) -> None:
-    """Let a refresh land carrying what the router says now."""
+def _report(select: MiWifiSelect, channel, new_poll: bool = True) -> None:
+    """Let a refresh land carrying what the router says now.
+
+    `new_poll=False` is the same poll reaching the entity again, as the
+    topology step's mid-cycle publish and the coordinator's own do.
+    """
+
+    if new_poll:
+        select._updater.update_cycle += 1
 
     key = select.entity_description.key
     select._updater.data[key] = channel
@@ -149,6 +158,27 @@ async def test_an_immediate_revert_still_needs_two_disagreeing_refreshes(
         _report(select, "1")
 
     assert "replaced wifi_2_4_channel with 1 after accepting 6" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_the_in_flight_poll_counts_once_however_often_it_is_heard(
+    caplog,
+) -> None:
+    """One poll reaches the entity twice; counted twice, it alone was a warning."""
+
+    select = _select()
+
+    await select.async_select_option("6")
+
+    with caplog.at_level(logging.WARNING):
+        _report(select, "1")
+        _report(select, "1", new_poll=False)
+        assert OVERRIDDEN not in caplog.text
+
+        _report(select, "6")
+
+    assert OVERRIDDEN not in caplog.text
+    assert select._requested_confirmed is True
 
 
 @pytest.mark.asyncio

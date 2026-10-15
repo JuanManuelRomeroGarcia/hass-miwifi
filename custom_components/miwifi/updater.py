@@ -331,6 +331,10 @@ class LuciUpdater(DataUpdateCoordinator):
         self._macfilter_fail_count = 0
         self._filter_macs: dict[str, int] = {}
         self._counters_reset_this_cycle = False
+        # One per poll. Listeners hear about a poll more than once - the topology
+        # step publishes mid-cycle, then the coordinator at the end - so anything
+        # that counts polls has to count this instead of its callbacks.
+        self.update_cycle: int = 0
         self._parent_push_pending = False
         self._parent_census_at: float | None = None
         self._parent_census_source: LuciUpdater | None = None
@@ -414,6 +418,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         self.code = codes.OK
         self._counters_reset_this_cycle = False
+        self.update_cycle += 1
 
         _is_before_reauthorization: bool = self._is_reauthorization
         _err: LuciError | None = None
