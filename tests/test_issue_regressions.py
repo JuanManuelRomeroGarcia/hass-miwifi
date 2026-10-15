@@ -378,6 +378,10 @@ class MeshSensorTests(unittest.TestCase):
             'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
             'DEFAULT_ENABLE_DEVICE_SENSORS': False,
             'get_config_value': lambda entry, key, default: entry.options.get(key, entry.data.get(key, default)),
+            'get_mesh_device_sensors_enabled': lambda hass: any(
+                bool(entry.options.get('enable_device_sensors', entry.data.get('enable_device_sensors', False)))
+                for entry in hass.config_entries.async_entries('miwifi')
+            ),
         }
         enabled = load_function('sensor.py', '_device_sensors_enabled', env)
 
@@ -557,23 +561,36 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             'CONF_PASSWORD': 'password', 'CONF_ENCRYPTION_ALGORITHM': 'encryption_algorithm',
             'CONF_TIMEOUT': 'timeout', 'CONF_PROTOCOL': 'protocol', 'DEFAULT_PROTOCOL': 'auto',
             'CONF_AUTO_PURGE_EVERY_DAYS': 'auto_purge_every_days', 'CONF_AUTO_PURGE_AT': 'auto_purge_at',
+            'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
+            'CONF_DEVICE_SENSORS_GLOBAL': 'device_sensors_global',
             'set_global_log_level': AsyncMock(), 'set_global_panel_state': AsyncMock(),
             'async_verify_access': AsyncMock(return_value=(200, None)),
             'codes': SimpleNamespace(is_success=lambda code: code == 200),
             'set_global_auto_purge': set_purge,
         }
-        cls = load_class('config_flow.py', 'MiWifiOptionsFlow', env, {'__init__', 'async_step_init', 'async_update_unique_id'})
+        cls = load_class(
+            'config_flow.py',
+            'MiWifiOptionsFlow',
+            env,
+            {'__init__', 'async_step_global_settings'},
+        )
         flow = cls(entry)
         flow.hass = hass
         user_input = {
-            'ip_address': '192.0.2.2', 'password': 'x', 'encryption_algorithm': 'sha1', 'timeout': 20,
-            'protocol': 'auto', 'auto_purge_every_days': 8, 'auto_purge_at': '01:00:00',
+            'auto_purge_every_days': 8,
+            'auto_purge_at': '01:00',
+            'enable_device_sensors': True,
         }
 
-        result = await flow.async_step_init(user_input)
+        result = await flow.async_step_global_settings(user_input)
 
         self.assertEqual(result['type'], 'create_entry')
         set_purge.assert_awaited_once_with(hass, every_days=8, at='01:00')
+        self.assertEqual(
+            result['data']['enable_device_sensors'],
+            True,
+        )
+        self.assertTrue(result['data']['device_sensors_global'])
         update_entry.assert_not_called()
 
 

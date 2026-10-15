@@ -159,10 +159,13 @@ def test_global_device_sensor_setting_preserves_legacy_until_saved(
     main, _node = _entries(hass)
     assert get_mesh_device_sensors_enabled(hass)
 
-    main.options = {
-        CONF_DEVICE_SENSORS_GLOBAL: True,
-        CONF_ENABLE_DEVICE_SENSORS: False,
-    }
+    hass.config_entries.async_update_entry(
+        main,
+        options={
+            CONF_DEVICE_SENSORS_GLOBAL: True,
+            CONF_ENABLE_DEVICE_SENSORS: False,
+        },
+    )
     assert not get_mesh_device_sensors_enabled(hass)
 
 
