@@ -26,6 +26,7 @@ from custom_components.miwifi.const import (
     ATTR_TRACKER_MAC,
     ATTR_TRACKER_UPDATER_ENTRY_ID,
     CONF_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSORS_GLOBAL,
     DOMAIN,
     SIGNAL_NEW_DEVICE,
     UPDATER,
@@ -37,6 +38,7 @@ from custom_components.miwifi.sensor import (
     _async_add_all_sensors_later,
     async_setup_entry,
 )
+from custom_components.miwifi.helper import get_mesh_device_sensors_enabled
 
 UID = "miwifi-dev-02:00:00:00:00:01-ip"
 
@@ -149,6 +151,19 @@ def _entries(hass: HomeAssistant) -> tuple[MockConfigEntry, MockConfigEntry]:
     main.add_to_hass(hass)
     node.add_to_hass(hass)
     return main, node
+
+
+def test_global_device_sensor_setting_preserves_legacy_until_saved(
+    hass: HomeAssistant,
+) -> None:
+    main, _node = _entries(hass)
+    assert get_mesh_device_sensors_enabled(hass)
+
+    main.options = {
+        CONF_DEVICE_SENSORS_GLOBAL: True,
+        CONF_ENABLE_DEVICE_SENSORS: False,
+    }
+    assert not get_mesh_device_sensors_enabled(hass)
 
 
 async def test_registered_sensor_of_a_mesh_node_is_provided_after_startup(hass: HomeAssistant) -> None:

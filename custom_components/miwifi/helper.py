@@ -30,6 +30,9 @@ from .const import (
     STORE_AUTO_PURGE,
     DEFAULT_AUTO_PURGE_AT,
     DEFAULT_AUTO_PURGE_EVERY_DAYS,
+    CONF_ENABLE_DEVICE_SENSORS,
+    DEFAULT_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSORS_GLOBAL,
     UPDATER,
     )
 
@@ -48,6 +51,38 @@ def get_config_value(
         config_entry.options.get(param, config_entry.data.get(param, default))
         if config_entry is not None
         else default
+    )
+
+
+def get_mesh_device_sensors_enabled(hass: HomeAssistant) -> bool:
+    """Return the canonical mesh setting, falling back to legacy node options."""
+    entries = hass.config_entries.async_entries(DOMAIN)
+    canonical_entry = next(
+        (
+            entry
+            for entry in entries
+            if get_config_value(entry, CONF_DEVICE_SENSORS_GLOBAL, False)
+        ),
+        None,
+    )
+    if canonical_entry is not None:
+        return bool(
+            get_config_value(
+                canonical_entry,
+                CONF_ENABLE_DEVICE_SENSORS,
+                DEFAULT_ENABLE_DEVICE_SENSORS,
+            )
+        )
+
+    return any(
+        bool(
+            get_config_value(
+                entry,
+                CONF_ENABLE_DEVICE_SENSORS,
+                DEFAULT_ENABLE_DEVICE_SENSORS,
+            )
+        )
+        for entry in entries
     )
 
 

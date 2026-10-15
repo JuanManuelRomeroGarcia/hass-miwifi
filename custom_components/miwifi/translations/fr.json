@@ -42,7 +42,25 @@
     "step": {
       "init": {
         "title": "Paramètres MiWiFi",
-        "description": "Saisissez l’adresse IP et le mot de passe de votre routeur MiWiFi",
+        "menu_options": {
+          "global_settings": "Param?tres globaux du r?seau maill?",
+          "device_settings": "Param?tres de cet appareil"
+        }
+      },
+      "global_settings": {
+        "title": "Param?tres globaux du r?seau maill?",
+        "description": "Param?tres globaux du r?seau maill? MiWiFi, applicables ? tous les appareils.",
+        "data": {
+          "enable_panel": "Activer le panneau de contrôle",
+          "log_level": "Niveau de log (global)",
+          "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
+          "auto_purge_at": "Heure de purge automatique (0–23) [PRO]",
+          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)"
+        }
+      },
+      "device_settings": {
+        "title": "Param?tres de cet appareil",
+        "description": "Ces param?tres s?appliquent uniquement ? cet appareil MiWiFi.",
         "data": {
           "ip_address": "Adresse IP",
           "password": "Mot de passe",
@@ -50,16 +68,13 @@
           "is_track_devices": "Suivre les appareils",
           "stay_online": "Temps minimum en ligne (secondes)",
           "scan_interval": "Intervalle d’analyse (secondes) [PRO]",
-          "timeout": "Délai des requêtes (secondes) [PRO]",
           "activity_days": "Nombre de jours autorisés après la dernière activité [PRO]",
-          "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
+          "timeout": "Délai des requêtes (secondes) [PRO]",
           "wan_speed_unit": "Unité de vitesse WAN",
-          "log_level": "Niveau de log (global)",
-          "enable_panel": "Activer le panneau de contrôle",
-          "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
-          "auto_purge_at": "Heure de purge automatique (0–23) [PRO]",
-          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
-          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil"
+          "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
+          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
+          "protocol": "Protocole",
+          "is_ap_mode": "Point d?acc?s / n?ud mesh (ignorer les points de terminaison WAN et de passerelle)"
         }
       }
     }

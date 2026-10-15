@@ -517,6 +517,10 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             'get_config_value': config_value, 'DOMAIN': 'miwifi',
             'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
             'DEFAULT_ENABLE_DEVICE_SENSORS': False,
+            'get_mesh_device_sensors_enabled': lambda hass: any(
+                bool(config_value(entry, 'enable_device_sensors', False))
+                for entry in hass.config_entries.async_entries('miwifi')
+            ),
         })
         listener, hass, reload = self.listener(entries, sensors_before=True, sensors_now=True)
         listener.__globals__['_device_sensors_enabled'] = enabled

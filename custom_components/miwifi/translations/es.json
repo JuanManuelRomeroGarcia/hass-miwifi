@@ -42,7 +42,25 @@
     "step": {
       "init": {
         "title": "Configuración de MiWiFi",
-        "description": "Introduce la dirección IP y la contraseña de tu router MiWiFi",
+        "menu_options": {
+          "global_settings": "Ajustes globales de la malla",
+          "device_settings": "Ajustes de este dispositivo"
+        }
+      },
+      "global_settings": {
+        "title": "Ajustes globales de la malla",
+        "description": "Ajustes globales de la malla MiWiFi, aplicables a todos los dispositivos.",
+        "data": {
+          "enable_panel": "Habilitar panel de control",
+          "log_level": "Nivel de log (global)",
+          "auto_purge_every_days": "Autopurga cada X días (0 = desactivada) [PRO]",
+          "auto_purge_at": "Hora diaria de la autopurga (HH:MM)",
+          "enable_device_sensors": "Crear sensores de dispositivos (clientes)"
+        }
+      },
+      "device_settings": {
+        "title": "Ajustes de este dispositivo",
+        "description": "Estos ajustes solo se aplican a este dispositivo MiWiFi.",
         "data": {
           "ip_address": "Dirección IP",
           "password": "Contraseña",
@@ -50,16 +68,13 @@
           "is_track_devices": "Rastrear dispositivos",
           "stay_online": "Permanencia mínima en línea en segundos",
           "scan_interval": "Intervalo de escaneo en segundos [PRO]",
-          "wan_speed_unit": "Unidad de velocidad WAN",
-          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
           "activity_days": "Días permitidos desde la última actividad [PRO]",
           "timeout": "Tiempo de espera de solicitudes en segundos [PRO]",
-          "log_level": "Nivel de log (global)",
-          "enable_panel": "Habilitar panel de control",
-          "auto_purge_every_days": "Autopurga cada X días (0 = desactivada) [PRO]",
-          "auto_purge_at": "Hora diaria de la autopurga (HH:MM)",
-          "enable_device_sensors": "Crear sensores de dispositivos (clientes)",
-          "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo"
+          "wan_speed_unit": "Unidad de velocidad WAN",
+          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
+          "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo",
+          "protocol": "Protocolo",
+          "is_ap_mode": "Punto de acceso / nodo mesh (omitir endpoints WAN y de gateway)"
         }
       }
     }
