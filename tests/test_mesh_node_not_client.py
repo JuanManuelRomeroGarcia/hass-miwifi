@@ -115,10 +115,12 @@ async def test_force_load_wifi_list_skips_known_mesh_nodes(hass, router_doubles,
     parent_entry, node_entry = _entry(hass, MAIN_IP), _entry(hass, NODE_IP)
     parent = _updater(hass, parent_entry, MAIN_IP, is_main=False)
     node = _updater(hass, node_entry, NODE_IP, is_main=False)
+    hass.data[DOMAIN][parent_entry.entry_id][CONF_IP_ADDRESS] = MAIN_IP
+    hass.data[DOMAIN][node_entry.entry_id][CONF_IP_ADDRESS] = NODE_IP
     if known_by == "configured_mac":
         node.data[ATTR_DEVICE_MAC_ADDRESS] = NODE_MAC
     else:
-        hass.data[DOMAIN]["mesh_node_macs"] = {NODE_MAC}
+        hass.data[DOMAIN]["mesh_node_macs"] = {NODE_MAC.upper()}
     parent.is_force_load = True
     parent.devices[NODE_MAC] = {ATTR_TRACKER_MAC: NODE_MAC}
     node.devices[NODE_MAC] = {ATTR_TRACKER_MAC: NODE_MAC}
