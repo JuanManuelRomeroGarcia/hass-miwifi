@@ -1813,12 +1813,23 @@ class LuciUpdater(DataUpdateCoordinator):
 
         if "list" in response:
             integrations: dict[str, dict] = {}
+            node_macs: set[str] = set()
 
             if self.is_repeater and self.is_force_load:
                 integrations = async_get_integrations(self.hass)
+                node_macs, _ = _known_mesh_nodes(self.hass)
 
             for device in response["list"]:
-                mac = device.get("mac", "").upper()
+                if not isinstance(device, dict):
+                    continue
+                mac = device.get(ATTR_TRACKER_MAC)
+                if not isinstance(mac, str) or not mac.strip():
+                    continue
+                mac = mac.strip().upper()
+
+                if mac in node_macs:
+                    self._forget_mesh_node(mac, integrations)
+                    continue
 
                 self._signals[mac] = device["signal"] if "signal" in device else 0
 

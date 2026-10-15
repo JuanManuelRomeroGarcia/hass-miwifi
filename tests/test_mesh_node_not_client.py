@@ -110,6 +110,42 @@ async def _refresh(hass, updater, rows):
     await hass.async_block_till_done()
 
 
+@pytest.mark.parametrize("known_by", ["configured_mac", "reported_isap"])
+async def test_force_load_wifi_list_skips_known_mesh_nodes(hass, router_doubles, known_by):
+    parent_entry, node_entry = _entry(hass, MAIN_IP), _entry(hass, NODE_IP)
+    parent = _updater(hass, parent_entry, MAIN_IP, is_main=False)
+    node = _updater(hass, node_entry, NODE_IP, is_main=False)
+    if known_by == "configured_mac":
+        node.data[ATTR_DEVICE_MAC_ADDRESS] = NODE_MAC
+    else:
+        hass.data[DOMAIN]["mesh_node_macs"] = {NODE_MAC}
+    parent.is_force_load = True
+    parent.devices[NODE_MAC] = {ATTR_TRACKER_MAC: NODE_MAC}
+    node.devices[NODE_MAC] = {ATTR_TRACKER_MAC: NODE_MAC}
+    hass.data[DOMAIN]["devices_cache"] = {NODE_MAC: {ATTR_TRACKER_MAC: NODE_MAC}}
+    parent.luci.wifi_connect_devices = AsyncMock(
+        return_value={
+            "list": [
+                {"mac": NODE_MAC, "signal": 80, "wifiIndex": 1},
+                {"mac": CLIENT_MAC, "signal": 65, "wifiIndex": 2},
+            ]
+        }
+    )
+    parent.luci.macfilter_info = AsyncMock(return_value={"flist": [], "list": []})
+    parent.add_device = AsyncMock()
+    parent._mass_update_device = Mock(return_value=False)
+
+    await parent._async_prepare_devices(parent.data)
+
+    parent.add_device.assert_awaited_once()
+    assert parent.add_device.await_args.args[0][ATTR_TRACKER_MAC] == CLIENT_MAC
+    parent._mass_update_device.assert_called_once()
+    assert NODE_MAC not in parent.devices
+    assert NODE_MAC not in node.devices
+    assert NODE_MAC not in parent._signals
+    assert NODE_MAC not in hass.data[DOMAIN]["devices_cache"]
+
+
 def _stored(mac, ip, entry):
     return {
         ATTR_TRACKER_MAC: mac.upper(),
