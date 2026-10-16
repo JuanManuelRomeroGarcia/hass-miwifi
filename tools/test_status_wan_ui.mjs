@@ -9,6 +9,8 @@ const mac = "02_00_00_00_00_01";
 const flatten = item => item?.strings
   ? item.strings.join("") + item.values.map(flatten).join("")
   : Array.isArray(item) ? item.map(flatten).join("")
+  : item?.items ? flatten(item.title) + flatten(item.items)
+  : item?.label ? flatten(item.label) + flatten(item.value)
   : typeof item === "string" ? item : "";
 
 for (const language of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"]) {

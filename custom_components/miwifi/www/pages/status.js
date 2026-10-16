@@ -1,7 +1,8 @@
-import { html } from "../vendor/lit.js?v=3.10.0";
-import { getMainRouterMac, formatSignal, logToBackend } from "./utils.js?v=3.10.0";
-import { localize } from "../translations/localize.js?v=3.10.0";
-import { showDialog } from "../dialogs.js?v=3.10.0";
+import "../components/miwifi-status-data.js?v=3.11.0";
+import { html } from "../vendor/lit.js?v=3.11.0";
+import { getMainRouterMac, formatSignal, logToBackend } from "./utils.js?v=3.11.0";
+import { localize } from "../translations/localize.js?v=3.11.0";
+import { showDialog } from "../dialogs.js?v=3.11.0";
 
 async function findMainTopoSensor(hass, retries = 6, delay = 500) {
   if (!hass || !hass.states) return null;
@@ -22,11 +23,6 @@ function normalizeMacForEntity(mac) {
   if (!mac) return "";
   const m = mac.toString().trim().toLowerCase();
   return m.includes(":") ? m.replace(/:/g, "_") : m;
-}
-
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
 }
 
 const SENSOR_SUFFIXES = {
@@ -160,24 +156,6 @@ export async function renderStatus(hass) {
     );
   }
 
-  const renderSection = (title, items) => html`
-    <div class="section-title">${title}</div>
-    <div class="status-grid">
-      ${items.map((item) => {
-        const isUnavailable = String(item.value).includes("unavailable");
-        const value = isUnavailable ? localize("status_unavailable") : item.value;
-        return html`
-          <div class="status-card">
-            <div class="status-label">${item.label}</div>
-            <div class="status-value ${isUnavailable ? "unavailable" : ""}">
-              ${value}
-            </div>
-          </div>
-        `;
-      })}
-    </div>
-  `;
-
   // ─────────────────────────────────────────────────────────────
   // DEVICES: main + mesh nodes (por sensores del router, no device_tracker)
   // ─────────────────────────────────────────────────────────────
@@ -231,94 +209,24 @@ export async function renderStatus(hass) {
     };
   };
 
-  const renderDevicesCards = (counts) => {
-    const items = [
-      { label: localize("label_devices_total") || "Dispositivos totales", value: counts.total },
-      { label: localize("label_devices_lan") || "Dispositivos LAN", value: counts.lan },
-      { label: localize("label_devices_2g") || "Dispositivos 2.4G", value: counts.g24 },
-      { label: localize("label_devices_5g") || "Dispositivos 5G", value: counts.g5 },
-      { label: localize("label_devices_5g_game") || "Dispositivos gaming", value: counts.gaming },
-      { label: localize("label_devices_iot") || "Dispositivos IoT", value: counts.iot },
-      { label: localize("label_devices_guest") || "Dispositivos invitados", value: counts.guest },
-    ];
-
-    return html`
-      <div class="status-grid">
-        ${items.map((item) => {
-          const isUnavailable = String(item.value).includes("unavailable");
-          const value = isUnavailable ? localize("status_unavailable") : item.value;
-          return html`
-            <div class="status-card">
-              <div class="status-label">${item.label}</div>
-              <div class="status-value ${isUnavailable ? "unavailable" : ""}">
-                ${value}
-              </div>
-            </div>
-          `;
-        })}
-      </div>
-    `;
-  };
-
-  const mainCounts = readDeviceCounts(mac);
-
-  // Para “Mesh total” usamos suma numérica SOLO si los valores son numéricos.
-  const meshTotals = meshNodes.reduce(
-    (acc, n) => {
-      const nMac = n._macNorm;
-      const counts = readDeviceCounts(nMac);
-
-      acc.total += safeNum(counts.total);
-      acc.lan += safeNum(counts.lan);
-      acc.g24 += safeNum(counts.g24);
-      acc.g5 += safeNum(counts.g5);
-      acc.guest += safeNum(counts.guest);
-      acc.gaming += safeNum(counts.gaming);
-      acc.iot += safeNum(counts.iot);
-      return acc;
-    },
-    { total: 0, lan: 0, g24: 0, g5: 0, guest: 0, gaming: 0, iot: 0 }
-  );
-
-
-  const renderDevicesSection = () => html`
-    <div class="section-title"> ${localize("section_devices")}</div>
-
-    ${renderDevicesCards(mainCounts)}
-
-    <div style="margin-top:22px;">
-      <div class="section-title" style="font-size:1.1rem;">
-        🧩 ${localize("section_mesh_devices") || "Dispositivos en Mesh"}
-        ${meshNodes.length ? html`<span style="opacity:.9;"> (${meshNodes.length})</span>` : html``}
-      </div>
-
-      ${meshNodes.length
-        ? html`
-
-            ${meshNodes.map((n) => {
-              const nMac = n._macNorm;
-              const title = `🧩 ${n.name || n.locale || n.mac}`;
-              const c = readDeviceCounts(nMac);
-
-              return html`
-                <div style="margin-top:18px;">
-                  <div class="section-title" style="font-size:1.05rem;">${title}</div>
-                  ${renderDevicesCards(c)}
-                </div>
-              `;
-            })}
-          `
-        : html`
-            <div style="text-align:center; padding:12px; color:white; opacity:.9;">
-              ${localize("mesh_no_nodes") || "No se detectaron nodos Mesh integrados."}
-            </div>
-          `}
-    </div>
-  `;
-
-  return html`
-    ${renderSection(localize("section_system"), systemItems)}
-    ${renderSection(localize("section_internet"), internetItems)}
-    ${renderDevicesSection()}
-  `;
+  const countItems = counts => [
+    { label: localize("label_devices_total"), value: counts.total },
+    { label: localize("label_devices_lan"), value: counts.lan },
+    { label: localize("label_devices_2g"), value: counts.g24 },
+    { label: localize("label_devices_5g"), value: counts.g5 },
+    { label: localize("label_devices_5g_game"), value: counts.gaming },
+    { label: localize("label_devices_iot"), value: counts.iot },
+    { label: localize("label_devices_guest"), value: counts.guest },
+  ];
+  const sections = [
+    { title: localize("section_system"), items: systemItems },
+    { title: localize("section_internet"), items: internetItems },
+    { title: localize("section_devices"), items: countItems(readDeviceCounts(mac)) },
+    { title: localize("section_mesh_devices"), items: [], message: meshNodes.length ? "" : localize("mesh_no_nodes") },
+    ...meshNodes.map(node => ({
+      title: `🧩 ${node.name || node.locale || node.mac}`,
+      items: countItems(readDeviceCounts(node._macNorm)),
+    })),
+  ];
+  return html`<miwifi-status-data .sections=${sections}></miwifi-status-data>`;
 }

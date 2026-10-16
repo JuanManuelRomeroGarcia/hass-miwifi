@@ -1,10 +1,11 @@
 # Compatibilidad BE6500 Pro / RD08 (PR #358)
 
-Estos cambios están en revisión y no están incluidos en v3.10.0.
+Disponible desde **v3.11.0**, incorporado mediante el PR #358. No incluido en v3.10.0.
 Se basan en las respuestas del RD08 con firmware 1.1.96 aportadas en
 [#355](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/issues/355) y
 [#356](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/issues/356).
-Falta confirmar la integración modificada en el router real.
+El autor confirmó las categorías de clientes y WAN2 en su RD08 real tras instalar
+la compilación de prueba y refrescar la sesión del panel.
 
 ## Conexiones de clientes
 
@@ -34,9 +35,10 @@ hasta cinco minutos en reflejarse.
 No se modifica la política WAN ni la configuración de puertos. El ancho de
 banda configurado y los pesos no son velocidades medidas: no se inventan
 sensores de tráfico de WAN2 ni se deduce el comportamiento de conmutación o
-balanceo a partir del modo numérico. Antes de fusionar hay que comprobar en
-el router real los estados activado, desconectado, desactivado y reconectado,
-además de WAN1 y la actualización de clientes mesh.
+balanceo a partir del modo numérico. Al verificar un firmware nuevo, compara los
+estados activado, desconectado, desactivado y reconectado, además de WAN1 y los
+clientes mesh. La confirmación general del autor no acredita todos los escenarios
+de conmutación entre conexiones.
 
 ## Memoria
 

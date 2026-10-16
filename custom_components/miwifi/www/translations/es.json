@@ -301,5 +301,21 @@
   "label_wan2_ip": "IP de WAN2",
   "label_wan2_type": "Tipo de WAN2",
   "label_wan2_link": "Enlace físico de WAN2",
-  "label_wan2_state": "Conexión de WAN2"
+  "label_wan2_state": "Conexión de WAN2",
+  "devices_column_node": "Router / nodo",
+  "devices_column_connection": "Conexión",
+  "devices_view": "Vista de dispositivos",
+  "devices_view_cards": "Tarjetas",
+  "devices_view_table": "Tabla",
+  "devices_search": "Buscar dispositivos",
+  "devices_columns": "Columnas visibles",
+  "devices_table_hint": "Desliza horizontalmente para ver más columnas. Pulsa un encabezado para ordenar.",
+  "devices_no_results": "No hay dispositivos que coincidan con esta vista.",
+  "devices_wan_error": "No se pudo cambiar el acceso a Internet. Actualiza y comprueba el estado antes de reintentarlo.",
+  "devices_column_upload": "Subida",
+  "devices_column_download": "Descarga",
+  "status_view": "Vista de estado",
+  "status_view_list": "Lista",
+  "status_column_field": "Datos",
+  "status_column_value": "Valor"
 }

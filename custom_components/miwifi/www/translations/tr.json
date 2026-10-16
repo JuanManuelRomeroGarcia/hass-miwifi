@@ -302,5 +302,21 @@
   "label_wan2_ip": "WAN2 IP adresi",
   "label_wan2_type": "WAN2 türü",
   "label_wan2_link": "WAN2 fiziksel bağlantısı",
-  "label_wan2_state": "WAN2 bağlantısı"
+  "label_wan2_state": "WAN2 bağlantısı",
+  "devices_column_node": "Yönlendirici / düğüm",
+  "devices_column_connection": "Bağlantı",
+  "devices_view": "Cihaz görünümü",
+  "devices_view_cards": "Kartlar",
+  "devices_view_table": "Tablo",
+  "devices_search": "Cihaz ara",
+  "devices_columns": "Görünür sütunlar",
+  "devices_table_hint": "Diğer sütunlar için yatay kaydırın. Sıralamak için bir başlık seçin.",
+  "devices_no_results": "Bu görünüme uyan cihaz yok.",
+  "devices_wan_error": "İnternet erişimi değiştirilemedi. Yeniden denemeden önce yenileyip cihaz durumunu kontrol edin.",
+  "devices_column_upload": "Gönderme",
+  "devices_column_download": "İndirme",
+  "status_view": "Durum görünümü",
+  "status_view_list": "Liste",
+  "status_column_field": "Alan",
+  "status_column_value": "Değer"
 }
