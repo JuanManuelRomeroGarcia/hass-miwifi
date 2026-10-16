@@ -394,7 +394,10 @@ async def test_purge_reaches_a_legacy_tracker_owned_by_another_entry(hass, route
     assert registry.async_get_entity_id("device_tracker", DOMAIN, f"{DOMAIN}-{CLIENT_MAC}")
 
 
-async def test_a_purged_client_row_frees_the_node_alias_it_blocked(hass, router_doubles):
+@pytest.mark.parametrize("purge_from", ["main", "node"])
+async def test_a_purged_client_row_frees_the_node_alias_it_blocked(
+    hass, router_doubles, purge_from
+):
     """The node's second MAC is recorded once the client row holding it is gone.
 
     The main lists the node under a second MAC, and the node's entry still has a
@@ -414,6 +417,7 @@ async def test_a_purged_client_row_frees_the_node_alias_it_blocked(hass, router_
     main = _updater(hass, main_entry, MAIN_IP, is_main=True)
     node = _updater(hass, node_entry, NODE_IP, is_main=False)
     node.data[ATTR_DEVICE_MAC_ADDRESS] = node_own.upper()
+    hass.data[DOMAIN][main_entry.entry_id][CONF_IP_ADDRESS] = MAIN_IP
     hass.data[DOMAIN][node_entry.entry_id][CONF_IP_ADDRESS] = NODE_IP
     rows = [_row(NODE_MAC, NODE_IP, isap=8), _row(CLIENT_MAC, CLIENT_IP)]
     alias = (dr.CONNECTION_NETWORK_MAC, NODE_MAC)
@@ -421,13 +425,21 @@ async def test_a_purged_client_row_frees_the_node_alias_it_blocked(hass, router_
     # First census: nothing may be purged yet, and the client row has the MAC.
     await _refresh(hass, main, rows)
     assert node.backhaul_mac == NODE_MAC.upper()
+    assert NODE_MAC.upper() in main._backhaul_alias_skipped
     assert alias not in dev_reg.async_get(node_row.id).connections
     main._is_first_update = False
 
     # Second: the alias is still skipped when its step runs, then the purge
     # removes the client row.
-    await _refresh(hass, main, rows)
+    if purge_from == "node":
+        # The pending purge is shared, so a different updater can finish it
+        # before the main's next census. The main must still retry its alias.
+        node._is_first_update = False
+        await _refresh(hass, node, [])
+    else:
+        await _refresh(hass, main, rows)
     assert dev_reg.async_get(client_row.id) is None
+    assert NODE_MAC.upper() not in main._backhaul_alias_skipped
     assert alias not in dev_reg.async_get(node_row.id).connections
 
     # Third: the alias is recorded on the node's own row.

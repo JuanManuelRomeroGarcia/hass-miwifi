@@ -1900,7 +1900,8 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
             elif outcome == "taken":
                 # Not retried every cycle: only the purge of a node's client
-                # row, `_purge_pending_mesh_nodes`, frees the MAC again.
+                # row, `_purge_pending_mesh_nodes`, frees the MAC again and
+                # clears the skip on every loaded updater.
                 self._backhaul_alias_skipped.add(backhaul)
                 await self.hass.async_add_executor_job(
                     _LOGGER.debug,
@@ -2673,8 +2674,14 @@ class LuciUpdater(DataUpdateCoordinator):
             if async_purge_client_entities(self.hass, mac):
                 # A client row under a node's second MAC blocks its alias, see
                 # `_async_record_backhaul_aliases`. It is gone: let the next
-                # census record the alias.
+                # census record the alias. Pending purges are shared across
+                # entries: the updater doing the cleanup need not be the one
+                # whose earlier census cached the collision.
                 self._backhaul_alias_skipped.discard(mac)
+                for integration in integrations.values():
+                    updater = integration.get(UPDATER)
+                    if isinstance(updater, LuciUpdater):
+                        updater._backhaul_alias_skipped.discard(mac)
             _remember_mesh_node_macs(self.hass, {mac}, MESH_NODE_PURGED)
 
     def _forget_mesh_node(self, mac: str, integrations: dict[str, dict]) -> None:
