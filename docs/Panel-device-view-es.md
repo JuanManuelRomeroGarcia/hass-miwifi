@@ -1,14 +1,14 @@
 # Vista de dispositivos y revisión móvil del panel
 
-Preparación local, todavía sin publicar. No cambia la versión de MiWiFi ni añade
-consultas al router. El #357 propone una tabla con columnas configurables.
+Disponible desde **v3.11.0**. Las vistas no añaden consultas al router. El #357
+propone la tabla de dispositivos con columnas configurables.
 
 En **Estado**, el selector **Tarjetas / Lista** cambia la presentación de sistema,
 Internet (incluido WAN2 cuando está activado) y contadores del principal y los nodos.
-La lista usa dos columnas, Dato y Valor, con ajuste de texto también en móvil.
+La lista usa dos columnas, Datos y Valor, con ajuste de texto también en móvil.
 Las tarjetas ajustan IP y textos largos a su anchura. Esta preferencia se guarda
 por separado de la vista de dispositivos y solo contiene el tipo de vista.
-Los datos de WAN2 proceden del #358, ya incorporado a main y a esta rama local.
+Los datos de WAN2 proceden del #358, incluido en la misma versión.
 
 En **Dispositivos MiWiFi** puedes elegir Tarjetas o Tabla, buscar por nombre, IP,
 MAC, nodo o conexión y ordenar pulsando el encabezado de una columna. El selector
@@ -28,7 +28,12 @@ sus nodos en varias filas en móvil. El diálogo de puertos cabe en ventanas peq
 permite desplazarse verticalmente, tiene Cancelar y admite Escape y navegación con
 Tab. Las etiquetas nuevas están en los ocho idiomas del panel.
 
-## Probar antes de publicar
+## Instalación y comprobaciones
+
+La instalación normal se realiza mediante HACS: actualiza a 3.11.0, reinicia HA
+y refresca el panel. No necesitas instalar un frontend aparte. El mantenedor ha
+confirmado las vistas combinadas en su HA real, tanto en escritorio como en móvil.
+Para probar manualmente una compilación de desarrollo:
 
 1. Conserva una copia de la carpeta `custom_components/miwifi/www` instalada y copia
    la carpeta `www` local completa por SFTP. No necesitas copiar `tools` ni `docs` a HA.
@@ -37,7 +42,8 @@ Tab. Las etiquetas nuevas están en los ocho idiomas del panel.
    `www` por sí sola no instala el soporte de WAN2 del backend.
 2. Recarga el panel evitando la caché. En escritorio puedes usar Ctrl+F5. Si sigue
    apareciendo la vista anterior en la app móvil, comprueba su caché del frontend.
-   La versión continúa siendo 3.10.0 durante esta preparación local.
+   Comprueba que la compilación y todos los archivos del panel corresponden a la
+   misma versión; los archivos de esta publicación usan 3.11.0.
 3. Comprueba las ocho páginas en escritorio, tableta y móvil. Prueba nombres largos,
    varios nodos y temas claro/oscuro. En la tabla, desliza horizontalmente y confirma
    que el nombre permanece visible; abre Columnas visibles y cambia la selección.
@@ -62,5 +68,6 @@ Para ver las páginas reales con respuestas ficticias, ejecuta
 idioma, tema y permisos. Las operaciones de esa vista previa no llegan a HA ni al router.
 Se ha revisado el diseño a 320, 390, 768 y 1280 píxeles; estas pruebas no sustituyen
 la comprobación pendiente en la app de HA y en un teléfono real.
-La vista Lista de Estado añadida después de esa revisión tiene pruebas automáticas
-de datos y preferencias, pero su nueva presentación aún requiere revisión visual.
+La vista Lista de Estado también tiene pruebas automáticas de datos y preferencias.
+El mantenedor ha confirmado su presentación en escritorio y móvil en HA real;
+esto no acredita todos los navegadores, temas o modelos de teléfono.

@@ -1,10 +1,11 @@
 # BE6500 Pro / RD08 compatibility (PR #358)
 
-These changes are under review and are not included in v3.10.0.
+Available from **v3.11.0**, merged through PR #358. Not included in v3.10.0.
 They use the responses supplied for RD08 firmware 1.1.96 in issues
 [#355](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/issues/355) and
 [#356](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/issues/356).
-Hardware confirmation of the revised integration is still required.
+The reporter confirmed corrected client categories and WAN2 display on the real
+RD08 after installing the test build and refreshing the frontend session.
 
 ## Client connections
 
@@ -33,8 +34,9 @@ Enabling or disabling dual WAN may take up to five minutes to appear.
 No WAN policy or port configuration is changed. Configured bandwidth and
 weights are not transfer rates, so no WAN2 upload/download speed is invented.
 Failover and load-balancing behavior are not inferred from the policy's
-numeric mode. Test enabled, disconnected, disabled and reconnected states on
-real hardware before merging; confirm ordinary WAN1 and mesh client updates.
+numeric mode. When checking a new firmware, compare enabled, disconnected,
+disabled and reconnected states and confirm ordinary WAN1 and mesh client updates.
+The reporter's general confirmation does not establish every failover scenario.
 
 ## Memory
 

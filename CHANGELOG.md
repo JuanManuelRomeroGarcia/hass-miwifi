@@ -1,5 +1,28 @@
 # Changelog
 
+## 3.11.0 — 2026-10-16
+
+### Panel views and mobile layout
+
+- Add optional Cards / Table views for the device list (#357). Search by name, IP, MAC, serving node or connection, sort columns, choose visible columns and keep the name column visible while scrolling horizontally on mobile. Preserve administrator-only Internet access controls in Cards, with pending/error feedback.
+- Add Cards / List views for system, Internet/WAN and main/mesh client counters. Both views show the same live values; long IP addresses and text wrap within their cards or table cells. Store view/column/sort preferences in the browser, without storing device readings or search text.
+- Improve narrow-screen navigation, controls, topology wrapping, DHCP/private-MAC settings and port-forwarding dialogs. Support keyboard focus, Cancel/Escape and scrolling within small dialogs. Translate the added controls into all eight panel languages.
+
+### Router compatibility and Wi-Fi
+
+- Correct BE6500 Pro / RD08 firmware 1.1.96 connection codes: LAN=1, 2.4 GHz=2, 5 GHz=3, Guest=7 and IoT=9. Preserve the reporting router's interpretation across mixed-model mesh nodes and keep other models' existing schemas (#358, resolves #356).
+- Read RD08 main-router WAN2 configuration, IP, type, physical link and connection status. Expose a separate WAN2 IP address sensor with status attributes and show WAN2 in the panel when enabled. Cache capability checks for five minutes, bound requests and clear stale WAN2 values on failures without changing WAN1 status or stopping client polling (#358, resolves the dual-WAN part of #355).
+- Do not infer WAN2 traffic from configured bandwidth/weights or change WAN policies. RAM continues to display the firmware's reported 256 MB; no verified alternate physical-memory API was supplied.
+- Recover Wi-Fi channel options after transient failures with bounded retry backoff. Preserve router-reported selections, verify writes, distinguish refused writes from unanswered requests, and expose later mesh-controller reversions through the pending requested option (#327, thanks to @brembygit).
+- Resolve mesh nodes through their backhaul MAC aliases and expose `connected_via_router_device_mac` / `connected_via_router_name` for dashboard filtering while retaining the existing router MAC attribute (#354, thanks to @brembygit).
+
+### Maintenance, validation and upgrade
+
+- Restore CodeQL scanning for Python and frontend code, remove private client identifiers from roaming logs, document vendor authentication constraints and update CI actions to Node 24 releases (#351, #352, #353). Complete the README gallery of all 74 recognized model codes without claiming universal firmware/feature support.
+- Keep the HACS Home Assistant minimum at 2025.8.0. Validate with maintained suites on HA 2026.10.0 and 2026.9.3, the full 2026.10.0 legacy suite, standalone regressions and frontend behavior/packaging checks. The existing registry-version skip remains on 2026.9.3.
+- The maintainer confirmed the combined panel on real HA in desktop and mobile views. @MaximSN confirmed corrected RD08 network labels and WAN2 display after refreshing the frontend session. #333's router-sensor setup race, #334's wireless force-load case and the unmerged role/mesh-cleanup proposals are not claimed resolved.
+- Update through HACS, restart HA and refresh the panel. Integration, bundled assets and translation cache references now use 3.11.0; no separate frontend install is needed. Existing private-MAC rules, DHCP safeguards and client/purge behavior are preserved.
+
 ## 3.10.0 — 2026-10-14
 
 - Add an administrator-only DHCP panel page with explicit router selection, reservation reads and verified incremental add/edit/delete. Initial writes are limited to the tested BE10000 / RC01 firmware 1.1.56 profile; other compatible responses remain read-only (#314).

@@ -4,16 +4,19 @@ The Status page offers **Cards / List** for system, Internet (including WAN2 whe
 enabled) and main/mesh client counters. The list uses Field/Value columns that wrap
 on mobile. Long addresses also wrap inside cards. This browser-only preference is
 separate from the device table preference and stores no readings. WAN2 comes from
-merged PR #358, included in this local trial branch. Check both views show the same
-values, survive updates/reloads and remain readable before publication.
-Its automated data/preference checks pass, but this newly added status presentation
-still needs visual review. Earlier viewport checks covered the prior panel layout.
+merged PR #358, included in the same release. Both views use the same data and
+preserve the selected presentation when readings change.
+Available from **v3.11.0**. Automated data/preference checks pass and the maintainer
+confirmed the combined status and device views in real HA on desktop and mobile.
+Earlier viewport checks covered the prior panel layout; these confirmations do not
+establish every browser/theme/phone combination.
 If HA does not yet run main with #358, back up and copy the complete
 `custom_components/miwifi` folder and restart HA; copying `www` alone only updates
 the frontend and cannot install WAN2 backend support.
 
-Local preparation, not a published release. Implements the device-table proposal
-in #357 without adding router queries or changing the integration version.
+Implements the device-table proposal in #357 without adding router queries for
+these views. Upgrade through HACS, restart HA and refresh the panel; no separate
+frontend installation is required. Bundled cache references use 3.11.0.
 
 The Devices page offers Cards and Table views, search by name/IP/MAC/node/connection,
 sortable headings and selectable columns. The name column stays visible while the
@@ -41,7 +44,7 @@ it does not replace a real HA companion-app/phone check.
 
 Back up the installed `custom_components/miwifi/www` folder and copy the complete
 local `www` folder over SFTP. Do not copy preview tools into HA. Force-refresh the
-frontend cache after copying; the version remains 3.10.0 during local preparation.
+frontend cache after copying; the release's integration and frontend use 3.11.0.
 Check all pages, long names, multiple nodes, table scrolling, column selection,
 search, sorting, offline devices, preference restore and a non-admin user. Confirm
 that real state/IP/connection changes are reflected during normal HA use and after
