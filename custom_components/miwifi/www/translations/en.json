@@ -297,5 +297,9 @@
   "dhcp_error_unsupported": "Read only: writes are currently verified for BE10000 / RC01 firmware 1.1.56. Other firmware needs verification.",
   "dhcp_error_conflict": "This IP belongs to a different reservation or known client.",
   "dhcp_error_unverified": "The change could not be verified. It may have applied: refresh the list and check it before trying again.",
-  "dhcp_error_not_main": "Only the main router can manage DHCP reservations. Refresh the list once its main role is confirmed."
+  "dhcp_error_not_main": "Only the main router can manage DHCP reservations. Refresh the list once its main role is confirmed.",
+  "label_wan2_ip": "WAN2 IP",
+  "label_wan2_type": "WAN2 type",
+  "label_wan2_link": "WAN2 physical link",
+  "label_wan2_state": "WAN2 connection"
 }

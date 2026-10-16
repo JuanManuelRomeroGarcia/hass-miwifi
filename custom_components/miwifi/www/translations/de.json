@@ -297,5 +297,9 @@
   "dhcp_error_unsupported": "Nur Lesen: Schreibzugriffe sind derzeit für BE10000 / RC01 mit Firmware 1.1.56 bestätigt. Andere Firmware muss geprüft werden.",
   "dhcp_error_conflict": "Diese IP gehört zu einer anderen Reservierung oder einem bekannten Client.",
   "dhcp_error_unverified": "Die Änderung konnte nicht bestätigt werden. Sie könnte angewendet worden sein: Aktualisiere und prüfe die Liste vor einem neuen Versuch.",
-  "dhcp_error_not_main": "Nur der Hauptrouter kann DHCP-Reservierungen verwalten. Aktualisiere die Liste, sobald seine Rolle bestätigt ist."
+  "dhcp_error_not_main": "Nur der Hauptrouter kann DHCP-Reservierungen verwalten. Aktualisiere die Liste, sobald seine Rolle bestätigt ist.",
+  "label_wan2_ip": "WAN2-IP",
+  "label_wan2_type": "WAN2-Typ",
+  "label_wan2_link": "Physische WAN2-Verbindung",
+  "label_wan2_state": "WAN2-Verbindung"
 }

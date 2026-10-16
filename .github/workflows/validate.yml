@@ -22,6 +22,7 @@ jobs:
       - run: python -B tools/check_frontend_packaging.py
       - run: node tools/test_mac_replacement_ui.mjs
       - run: node tools/test_dhcp_ui.mjs
+      - run: node tools/test_status_wan_ui.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:

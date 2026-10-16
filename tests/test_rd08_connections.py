@@ -50,6 +50,8 @@ def _updater(hass, model=Model.RD08, *, force=False):
     (1, Connection.LAN), (2, Connection.WIFI_2_4),
     (3, Connection.WIFI_5_0), ("1", Connection.LAN),
     ("2", Connection.WIFI_2_4), ("3", Connection.WIFI_5_0),
+    (7, Connection.GUEST), ("7", Connection.GUEST),
+    (9, Connection.WIFI_IOT), ("9", Connection.WIFI_IOT),
 ])
 def test_rd08_native_types_reach_client_attributes(hass, raw, expected):
     updater = _updater(hass)
@@ -97,17 +99,18 @@ async def test_rd08_client_counters_follow_the_correct_bands(hass):
     blocked = AsyncMock(return_value=False)
     with patch("custom_components.miwifi.updater.get_purged_clients") as purge:
         purge.return_value.async_blocked = blocked
-        for index, code in enumerate((1, 1, 2, 3), start=10):
+        for index, code in enumerate((1, 1, 2, 3, 7, 9), start=10):
             await updater.add_device({
                 "mac": f"02:00:00:00:00:{index:02X}",
                 "entry_id": updater._entry_id, "type": code,
             })
 
-    assert updater.data["devices"] == 4
+    assert updater.data["devices"] == 6
     assert updater.data["devices_lan"] == 2
     assert updater.data["devices_2_4"] == 1
     assert updater.data["devices_5_0"] == 1
-    assert updater.data["devices_guest"] == 0
+    assert updater.data["devices_guest"] == 1
+    assert updater.data["devices_iot"] == 1
     assert all("_miwifi_connection" not in row for row in updater.devices.values())
 
 
@@ -115,6 +118,8 @@ async def test_rd08_client_counters_follow_the_correct_bands(hass):
     (Model.RD08, Model.RC01, 1, Connection.LAN),
     (Model.RD08, Model.RC01, 2, Connection.WIFI_2_4),
     (Model.RD08, Model.RC01, 3, Connection.WIFI_5_0),
+    (Model.RD08, Model.RC01, 7, Connection.GUEST),
+    (Model.RD08, Model.RC01, 9, Connection.WIFI_IOT),
     (Model.RC01, Model.RD08, 1, Connection.WIFI_2_4),
     (Model.RC01, Model.RD08, 3, Connection.GUEST),
     (Model.R3600, Model.RD08, 5, None),

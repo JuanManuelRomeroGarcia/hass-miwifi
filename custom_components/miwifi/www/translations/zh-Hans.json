@@ -298,5 +298,9 @@
   "dhcp_error_unsupported": "只读：目前已验证 BE10000 / RC01 固件 1.1.56 的写入操作。其他固件需要验证。",
   "dhcp_error_conflict": "此 IP 属于其他地址保留或已知客户端。",
   "dhcp_error_unverified": "无法验证更改。更改可能已生效：重试前请刷新并检查列表。",
-  "dhcp_error_not_main": "只有主路由器可以管理 DHCP 地址保留。确认其主路由角色后，请刷新列表。"
+  "dhcp_error_not_main": "只有主路由器可以管理 DHCP 地址保留。确认其主路由角色后，请刷新列表。",
+  "label_wan2_ip": "WAN2 IP 地址",
+  "label_wan2_type": "WAN2 类型",
+  "label_wan2_link": "WAN2 物理链路",
+  "label_wan2_state": "WAN2 连接"
 }

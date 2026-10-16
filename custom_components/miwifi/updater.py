@@ -135,6 +135,7 @@ PREPARE_METHODS: Final = (
     "mode",
     "cpe_mobile",
     "wan",
+    "multiwan",
     "led",
     "wifi",
     "channels",
@@ -670,11 +671,13 @@ class LuciUpdater(DataUpdateCoordinator):
         if model == Model.RD08.value or device_model == "xiaomi.router.rd08":
             # RD08 1.1.96 devicelist uses 1=LAN, 2=2.4 GHz, 3=5 GHz.
             # Verified against the native UI and wifi_connect_devices in #356.
-            # Do not shift other codes: guest/IoT codes need their own evidence.
+            # Guest=7 and IoT=9 were verified with connected clients in #356.
             rd08_connections = {
                 1: Connection.LAN,
                 2: Connection.WIFI_2_4,
                 3: Connection.WIFI_5_0,
+                7: Connection.GUEST,
+                9: Connection.WIFI_IOT,
             }
             if raw_type_int in rd08_connections:
                 return rd08_connections[raw_type_int]
@@ -1375,6 +1378,44 @@ class LuciUpdater(DataUpdateCoordinator):
                     data[ATTR_BINARY_SENSOR_WAN_LINK] = True
                     data[ATTR_SENSOR_WAN_IP] = mobile_ip.strip()
                     data[ATTR_SENSOR_WAN_TYPE] = "mobile"
+
+    async def _async_prepare_multiwan(self, data: dict) -> None:
+        """Read RD08 WAN2 independently of the primary WAN and client census."""
+        from .multiwan import is_rd08, parse_service, parse_wan2
+
+        data["multiwan"] = {}
+        if not is_rd08(data) or self.is_repeater:
+            self._multiwan_enabled = None
+            self._multiwan_next_try = 0
+            return
+
+        now = monotonic()
+        enabled = getattr(self, "_multiwan_enabled", None)
+        if now >= getattr(self, "_multiwan_next_try", 0):
+            # Cache capability checks, including failures, to avoid repeatedly
+            # probing restricted endpoints. WAN2 itself refreshes every cycle.
+            self._multiwan_next_try = now + 300
+            try:
+                enabled = parse_service(await asyncio.wait_for(
+                    self.luci.multiwan_info(), timeout=6,
+                ))
+            except (Exception, LuciError):
+                enabled = None
+            self._multiwan_enabled = enabled
+
+        if enabled is None:
+            return
+        data["multiwan"] = {"enabled": enabled, "wan2": None}
+        if not enabled:
+            return
+        try:
+            data["multiwan"]["wan2"] = parse_wan2(await asyncio.wait_for(
+                self.luci.wan_info("WAN2"), timeout=6,
+            ))
+        except (Exception, LuciError):
+            # Do not retain an old address/status or mark WAN1 offline.
+            # Deliberately do not log response bodies or session URLs.
+            return
 
     async def _async_prepare_led(self, data: dict) -> None:
         """Prepare led.
