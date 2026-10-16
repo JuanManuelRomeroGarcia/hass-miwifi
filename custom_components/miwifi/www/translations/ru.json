@@ -309,5 +309,9 @@
   "devices_no_results": "Нет устройств для этого представления.",
   "devices_wan_error": "Не удалось изменить доступ к Интернету. Обновите данные и проверьте состояние перед повторной попыткой.",
   "devices_column_upload": "Отдача",
-  "devices_column_download": "Загрузка"
+  "devices_column_download": "Загрузка",
+  "label_wan2_ip": "IP WAN2",
+  "label_wan2_type": "Тип WAN2",
+  "label_wan2_link": "Физическое соединение WAN2",
+  "label_wan2_state": "Подключение WAN2"
 }

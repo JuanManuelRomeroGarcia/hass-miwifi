@@ -309,5 +309,9 @@
   "devices_no_results": "Keine Geräte entsprechen dieser Ansicht.",
   "devices_wan_error": "Der Internetzugang konnte nicht geändert werden. Vor einem erneuten Versuch aktualisieren und den Gerätestatus prüfen.",
   "devices_column_upload": "Upload",
-  "devices_column_download": "Download"
+  "devices_column_download": "Download",
+  "label_wan2_ip": "WAN2-IP",
+  "label_wan2_type": "WAN2-Typ",
+  "label_wan2_link": "Physische WAN2-Verbindung",
+  "label_wan2_state": "WAN2-Verbindung"
 }

@@ -309,5 +309,9 @@
   "devices_no_results": "No hay dispositivos que coincidan con esta vista.",
   "devices_wan_error": "No se pudo cambiar el acceso a Internet. Actualiza y comprueba el estado antes de reintentarlo.",
   "devices_column_upload": "Subida",
-  "devices_column_download": "Descarga"
+  "devices_column_download": "Descarga",
+  "label_wan2_ip": "IP de WAN2",
+  "label_wan2_type": "Tipo de WAN2",
+  "label_wan2_link": "Enlace físico de WAN2",
+  "label_wan2_state": "Conexión de WAN2"
 }

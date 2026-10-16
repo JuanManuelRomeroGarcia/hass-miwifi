@@ -309,5 +309,9 @@
   "devices_no_results": "No devices match this view.",
   "devices_wan_error": "Could not change Internet access. Refresh and check the device state before retrying.",
   "devices_column_upload": "Upload",
-  "devices_column_download": "Download"
+  "devices_column_download": "Download",
+  "label_wan2_ip": "WAN2 IP",
+  "label_wan2_type": "WAN2 type",
+  "label_wan2_link": "WAN2 physical link",
+  "label_wan2_state": "WAN2 connection"
 }

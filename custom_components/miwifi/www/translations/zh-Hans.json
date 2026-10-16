@@ -310,5 +310,9 @@
   "devices_no_results": "没有符合此视图的设备。",
   "devices_wan_error": "无法更改互联网访问权限。请刷新并检查设备状态后重试。",
   "devices_column_upload": "上传",
-  "devices_column_download": "下载"
+  "devices_column_download": "下载",
+  "label_wan2_ip": "WAN2 IP 地址",
+  "label_wan2_type": "WAN2 类型",
+  "label_wan2_link": "WAN2 物理链路",
+  "label_wan2_state": "WAN2 连接"
 }

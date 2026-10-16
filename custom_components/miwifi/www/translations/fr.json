@@ -310,5 +310,9 @@
   "devices_no_results": "Aucun appareil ne correspond à cette vue.",
   "devices_wan_error": "Impossible de modifier l’accès Internet. Actualisez et vérifiez l’état avant de réessayer.",
   "devices_column_upload": "Envoi",
-  "devices_column_download": "Réception"
+  "devices_column_download": "Réception",
+  "label_wan2_ip": "IP WAN2",
+  "label_wan2_type": "Type WAN2",
+  "label_wan2_link": "Liaison physique WAN2",
+  "label_wan2_state": "Connexion WAN2"
 }
