@@ -298,6 +298,10 @@
   "dhcp_error_conflict": "Diese IP gehört zu einer anderen Reservierung oder einem bekannten Client.",
   "dhcp_error_unverified": "Die Änderung konnte nicht bestätigt werden. Sie könnte angewendet worden sein: Aktualisiere und prüfe die Liste vor einem neuen Versuch.",
   "dhcp_error_not_main": "Nur der Hauptrouter kann DHCP-Reservierungen verwalten. Aktualisiere die Liste, sobald seine Rolle bestätigt ist.",
+  "label_wan2_ip": "WAN2-IP",
+  "label_wan2_type": "WAN2-Typ",
+  "label_wan2_link": "Physische WAN2-Verbindung",
+  "label_wan2_state": "WAN2-Verbindung",
   "devices_column_node": "Router / Knoten",
   "devices_column_connection": "Verbindung",
   "devices_view": "Geräteansicht",
@@ -310,8 +314,8 @@
   "devices_wan_error": "Der Internetzugang konnte nicht geändert werden. Vor einem erneuten Versuch aktualisieren und den Gerätestatus prüfen.",
   "devices_column_upload": "Upload",
   "devices_column_download": "Download",
-  "label_wan2_ip": "WAN2-IP",
-  "label_wan2_type": "WAN2-Typ",
-  "label_wan2_link": "Physische WAN2-Verbindung",
-  "label_wan2_state": "WAN2-Verbindung"
+  "status_view": "Statusansicht",
+  "status_view_list": "Liste",
+  "status_column_field": "Feld",
+  "status_column_value": "Wert"
 }

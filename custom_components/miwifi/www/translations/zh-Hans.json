@@ -299,6 +299,10 @@
   "dhcp_error_conflict": "此 IP 属于其他地址保留或已知客户端。",
   "dhcp_error_unverified": "无法验证更改。更改可能已生效：重试前请刷新并检查列表。",
   "dhcp_error_not_main": "只有主路由器可以管理 DHCP 地址保留。确认其主路由角色后，请刷新列表。",
+  "label_wan2_ip": "WAN2 IP 地址",
+  "label_wan2_type": "WAN2 类型",
+  "label_wan2_link": "WAN2 物理链路",
+  "label_wan2_state": "WAN2 连接",
   "devices_column_node": "路由器 / 节点",
   "devices_column_connection": "连接",
   "devices_view": "设备视图",
@@ -311,8 +315,8 @@
   "devices_wan_error": "无法更改互联网访问权限。请刷新并检查设备状态后重试。",
   "devices_column_upload": "上传",
   "devices_column_download": "下载",
-  "label_wan2_ip": "WAN2 IP 地址",
-  "label_wan2_type": "WAN2 类型",
-  "label_wan2_link": "WAN2 物理链路",
-  "label_wan2_state": "WAN2 连接"
+  "status_view": "状态视图",
+  "status_view_list": "列表",
+  "status_column_field": "字段",
+  "status_column_value": "值"
 }

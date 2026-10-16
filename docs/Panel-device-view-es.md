@@ -3,6 +3,13 @@
 Preparación local, todavía sin publicar. No cambia la versión de MiWiFi ni añade
 consultas al router. El #357 propone una tabla con columnas configurables.
 
+En **Estado**, el selector **Tarjetas / Lista** cambia la presentación de sistema,
+Internet (incluido WAN2 cuando está activado) y contadores del principal y los nodos.
+La lista usa dos columnas, Dato y Valor, con ajuste de texto también en móvil.
+Las tarjetas ajustan IP y textos largos a su anchura. Esta preferencia se guarda
+por separado de la vista de dispositivos y solo contiene el tipo de vista.
+Los datos de WAN2 proceden del #358, ya incorporado a main y a esta rama local.
+
 En **Dispositivos MiWiFi** puedes elegir Tarjetas o Tabla, buscar por nombre, IP,
 MAC, nodo o conexión y ordenar pulsando el encabezado de una columna. El selector
 **Columnas visibles** permite mostrar los campos necesarios. El nombre permanece
@@ -25,6 +32,9 @@ Tab. Las etiquetas nuevas están en los ocho idiomas del panel.
 
 1. Conserva una copia de la carpeta `custom_components/miwifi/www` instalada y copia
    la carpeta `www` local completa por SFTP. No necesitas copiar `tools` ni `docs` a HA.
+   Si el backend instalado aún no incluye main con #358, conserva una copia de toda
+   la integración, copia `custom_components/miwifi` completa y reinicia HA. La carpeta
+   `www` por sí sola no instala el soporte de WAN2 del backend.
 2. Recarga el panel evitando la caché. En escritorio puedes usar Ctrl+F5. Si sigue
    apareciendo la vista anterior en la app móvil, comprueba su caché del frontend.
    La versión continúa siendo 3.10.0 durante esta preparación local.
@@ -33,6 +43,8 @@ Tab. Las etiquetas nuevas están en los ocho idiomas del panel.
    que el nombre permanece visible; abre Columnas visibles y cambia la selección.
 4. Busca un cliente por nombre/IP/nodo, ordena, muestra desconectados y recarga:
    vista, columnas y orden deben conservarse; la búsqueda debe quedar vacía.
+   En Estado, alterna Tarjetas/Lista y confirma que ambas muestran los mismos datos,
+   que WAN2 aparece solo si está activado y que una actualización conserva la vista.
 5. Comprueba que un cambio real de estado/IP/conexión se refleja durante el uso
    normal de HA y al volver a la página. Valida también con un usuario no administrador.
 6. Abre y cancela el diálogo de puertos sin guardar. Para comprobar cambios de acceso
@@ -50,3 +62,5 @@ Para ver las páginas reales con respuestas ficticias, ejecuta
 idioma, tema y permisos. Las operaciones de esa vista previa no llegan a HA ni al router.
 Se ha revisado el diseño a 320, 390, 768 y 1280 píxeles; estas pruebas no sustituyen
 la comprobación pendiente en la app de HA y en un teléfono real.
+La vista Lista de Estado añadida después de esa revisión tiene pruebas automáticas
+de datos y preferencias, pero su nueva presentación aún requiere revisión visual.

@@ -298,6 +298,10 @@
   "dhcp_error_conflict": "Этот IP принадлежит другому резервированию или известному клиенту.",
   "dhcp_error_unverified": "Не удалось проверить изменение. Оно могло примениться: обновите и проверьте список перед повторной попыткой.",
   "dhcp_error_not_main": "Только главный роутер может управлять резервированиями DHCP. Обновите список после подтверждения его роли.",
+  "label_wan2_ip": "IP WAN2",
+  "label_wan2_type": "Тип WAN2",
+  "label_wan2_link": "Физическое соединение WAN2",
+  "label_wan2_state": "Подключение WAN2",
   "devices_column_node": "Маршрутизатор / узел",
   "devices_column_connection": "Подключение",
   "devices_view": "Вид устройств",
@@ -310,8 +314,8 @@
   "devices_wan_error": "Не удалось изменить доступ к Интернету. Обновите данные и проверьте состояние перед повторной попыткой.",
   "devices_column_upload": "Отдача",
   "devices_column_download": "Загрузка",
-  "label_wan2_ip": "IP WAN2",
-  "label_wan2_type": "Тип WAN2",
-  "label_wan2_link": "Физическое соединение WAN2",
-  "label_wan2_state": "Подключение WAN2"
+  "status_view": "Вид состояния",
+  "status_view_list": "Список",
+  "status_column_field": "Поле",
+  "status_column_value": "Значение"
 }

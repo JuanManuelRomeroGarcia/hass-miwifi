@@ -51,6 +51,7 @@ if (!params.has('frame')) {
     add(`light.${prefix}_led`, 'on', { friendly_name: 'LED' });
     add(`button.${prefix}_reboot`, 'unknown', { friendly_name: 'Reiniciar' });
   }
+  add('sensor.miwifi_02_00_00_00_00_01_wan2_ip_address', '203.0.113.254', { enabled: true, type: 'dhcp', link: true, connected: true });
   ['Portátil de prueba con un nombre largo para comprobar el ajuste', 'Reloj de prueba', 'Televisor', 'Cámara', 'Sin conexión', 'No disponible'].forEach((name, i) => {
     add(`device_tracker.miwifi_demo_${i}`, i < 4 ? 'home' : i === 4 ? 'not_home' : 'unavailable', {
       friendly_name: name, mac: `02:00:00:00:00:${20+i}`, ip: `192.0.2.${20+i}`,

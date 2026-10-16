@@ -1,5 +1,17 @@
 # Device table and mobile panel review
 
+The Status page offers **Cards / List** for system, Internet (including WAN2 when
+enabled) and main/mesh client counters. The list uses Field/Value columns that wrap
+on mobile. Long addresses also wrap inside cards. This browser-only preference is
+separate from the device table preference and stores no readings. WAN2 comes from
+merged PR #358, included in this local trial branch. Check both views show the same
+values, survive updates/reloads and remain readable before publication.
+Its automated data/preference checks pass, but this newly added status presentation
+still needs visual review. Earlier viewport checks covered the prior panel layout.
+If HA does not yet run main with #358, back up and copy the complete
+`custom_components/miwifi` folder and restart HA; copying `www` alone only updates
+the frontend and cannot install WAN2 backend support.
+
 Local preparation, not a published release. Implements the device-table proposal
 in #357 without adding router queries or changing the integration version.
 

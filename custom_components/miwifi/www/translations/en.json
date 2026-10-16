@@ -298,6 +298,10 @@
   "dhcp_error_conflict": "This IP belongs to a different reservation or known client.",
   "dhcp_error_unverified": "The change could not be verified. It may have applied: refresh the list and check it before trying again.",
   "dhcp_error_not_main": "Only the main router can manage DHCP reservations. Refresh the list once its main role is confirmed.",
+  "label_wan2_ip": "WAN2 IP",
+  "label_wan2_type": "WAN2 type",
+  "label_wan2_link": "WAN2 physical link",
+  "label_wan2_state": "WAN2 connection",
   "devices_column_node": "Router / node",
   "devices_column_connection": "Connection",
   "devices_view": "Device view",
@@ -310,8 +314,8 @@
   "devices_wan_error": "Could not change Internet access. Refresh and check the device state before retrying.",
   "devices_column_upload": "Upload",
   "devices_column_download": "Download",
-  "label_wan2_ip": "WAN2 IP",
-  "label_wan2_type": "WAN2 type",
-  "label_wan2_link": "WAN2 physical link",
-  "label_wan2_state": "WAN2 connection"
+  "status_view": "Status view",
+  "status_view_list": "List",
+  "status_column_field": "Field",
+  "status_column_value": "Value"
 }
