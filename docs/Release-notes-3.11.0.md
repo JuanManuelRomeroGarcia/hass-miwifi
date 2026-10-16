@@ -52,6 +52,8 @@ that API value remains displayed rather than hardcoding an assumed total.
   from roaming logs, document authentication constraints and refresh CI actions.
 - Complete the README gallery of 74 recognized models. Recognition does not imply
   that every firmware implements every feature.
+- Harden the local preview's iframe URL construction with predefined choices and
+  encoded query parameters, covered by an additional preview regression check.
 
 Thanks to **@brembygit** for Wi-Fi/mesh contributions and cross-model evidence,
 **@MaximSN** for the RD08 diagnostic and hardware verification, and everyone who

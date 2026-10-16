@@ -10,6 +10,9 @@ body { margin: 0; font: 15px system-ui, sans-serif; background: #e8eef5; }
 #layout-report { margin: 0; padding: 8px; background: #fff; font-size: 12px; }
 </style>
 <script type="module">
+const languages = ['es','en','de','fr','pt-BR','ru','tr','zh-Hans'];
+const pages = ['status','miwifi-devices','topologia','mesh','portforwarding','dhcp','settings','error'];
+const widths = [320, 390, 768, 1280];
 const params = new URLSearchParams(location.search);
 if (!params.has('frame')) {
   document.body.innerHTML = `<div class="preview-tools"><b>Datos ficticios · Sin conexión a HA ni al router</b>
@@ -22,8 +25,16 @@ if (!params.has('frame')) {
   document.querySelector('#width').value = params.get('width') || '390';
   document.querySelector('#page').value = params.get('page') || 'miwifi-devices';
   const update = () => {
-    frame.style.width = document.querySelector('#width').value + 'px';
-    frame.src = `/?frame=1&lang=${document.querySelector('#language').value}&page=${document.querySelector('#page').value}&dark=${document.querySelector('#theme').checked}&viewer=${document.querySelector('#viewer').checked}`;
+    // Select only predefined values; never reinterpret DOM text as an iframe URL.
+    frame.style.width = (widths[document.querySelector('#width').selectedIndex] || 390) + 'px';
+    const query = new URLSearchParams({
+      frame: '1',
+      lang: languages[document.querySelector('#language').selectedIndex] || 'es',
+      page: pages[document.querySelector('#page').selectedIndex] || 'status',
+      dark: String(document.querySelector('#theme').checked === true),
+      viewer: String(document.querySelector('#viewer').checked === true),
+    });
+    frame.src = '/?' + query.toString();
   };
   document.querySelectorAll('select,input').forEach(control => control.addEventListener('change', update));
   update();

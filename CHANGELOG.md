@@ -19,6 +19,7 @@
 ### Maintenance, validation and upgrade
 
 - Restore CodeQL scanning for Python and frontend code, remove private client identifiers from roaming logs, document vendor authentication constraints and update CI actions to Node 24 releases (#351, #352, #353). Complete the README gallery of all 74 recognized model codes without claiming universal firmware/feature support.
+- Build the local preview iframe URL from predefined route/language choices and encoded query parameters instead of DOM text; add a regression check for invalid selections and injected parameters.
 - Keep the HACS Home Assistant minimum at 2025.8.0. Validate with maintained suites on HA 2026.10.0 and 2026.9.3, the full 2026.10.0 legacy suite, standalone regressions and frontend behavior/packaging checks. The existing registry-version skip remains on 2026.9.3.
 - The maintainer confirmed the combined panel on real HA in desktop and mobile views. @MaximSN confirmed corrected RD08 network labels and WAN2 display after refreshing the frontend session. #333's router-sensor setup race, #334's wireless force-load case and the unmerged role/mesh-cleanup proposals are not claimed resolved.
 - Update through HACS, restart HA and refresh the panel. Integration, bundled assets and translation cache references now use 3.11.0; no separate frontend install is needed. Existing private-MAC rules, DHCP safeguards and client/purge behavior are preserved.
