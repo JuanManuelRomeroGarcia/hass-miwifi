@@ -297,5 +297,17 @@
   "dhcp_error_unsupported": "Read only: writes are currently verified for BE10000 / RC01 firmware 1.1.56. Other firmware needs verification.",
   "dhcp_error_conflict": "This IP belongs to a different reservation or known client.",
   "dhcp_error_unverified": "The change could not be verified. It may have applied: refresh the list and check it before trying again.",
-  "dhcp_error_not_main": "Only the main router can manage DHCP reservations. Refresh the list once its main role is confirmed."
+  "dhcp_error_not_main": "Only the main router can manage DHCP reservations. Refresh the list once its main role is confirmed.",
+  "devices_column_node": "Router / node",
+  "devices_column_connection": "Connection",
+  "devices_view": "Device view",
+  "devices_view_cards": "Cards",
+  "devices_view_table": "Table",
+  "devices_search": "Search devices",
+  "devices_columns": "Visible columns",
+  "devices_table_hint": "Scroll sideways to see more columns. Select a heading to sort.",
+  "devices_no_results": "No devices match this view.",
+  "devices_wan_error": "Could not change Internet access. Refresh and check the device state before retrying.",
+  "devices_column_upload": "Upload",
+  "devices_column_download": "Download"
 }

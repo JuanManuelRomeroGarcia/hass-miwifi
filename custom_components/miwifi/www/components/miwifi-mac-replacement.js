@@ -20,7 +20,9 @@ export class MiWiFiMacReplacement extends LitElement {
     textarea { resize: vertical; }
     .actions { justify-content: flex-end; margin-top: 16px; }
     .hint { font-size: .9em; color: var(--secondary-text-color, #555); }
-    @media (max-width: 480px) { :host { padding: 14px; } .row { gap: 8px; } button { max-width: 100%; } }
+    button { min-height: 44px; } textarea, select { font-size: 16px; }
+    button:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--primary-color, #03a9f4); outline-offset: 2px; }
+    @media (max-width: 480px) { :host { padding: 14px; } .row { gap: 8px; flex-wrap: wrap; } button { max-width: 100%; } }
     button { padding: 9px 14px; font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--divider-color, #ccc); background: var(--card-background-color, white); color: inherit; }
     button.primary { background: var(--primary-color, #03a9f4); color: var(--text-primary-color, white); }
     button:disabled { opacity: .5; cursor: default; }

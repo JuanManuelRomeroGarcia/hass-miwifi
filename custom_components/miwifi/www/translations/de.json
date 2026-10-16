@@ -297,5 +297,17 @@
   "dhcp_error_unsupported": "Nur Lesen: Schreibzugriffe sind derzeit für BE10000 / RC01 mit Firmware 1.1.56 bestätigt. Andere Firmware muss geprüft werden.",
   "dhcp_error_conflict": "Diese IP gehört zu einer anderen Reservierung oder einem bekannten Client.",
   "dhcp_error_unverified": "Die Änderung konnte nicht bestätigt werden. Sie könnte angewendet worden sein: Aktualisiere und prüfe die Liste vor einem neuen Versuch.",
-  "dhcp_error_not_main": "Nur der Hauptrouter kann DHCP-Reservierungen verwalten. Aktualisiere die Liste, sobald seine Rolle bestätigt ist."
+  "dhcp_error_not_main": "Nur der Hauptrouter kann DHCP-Reservierungen verwalten. Aktualisiere die Liste, sobald seine Rolle bestätigt ist.",
+  "devices_column_node": "Router / Knoten",
+  "devices_column_connection": "Verbindung",
+  "devices_view": "Geräteansicht",
+  "devices_view_cards": "Karten",
+  "devices_view_table": "Tabelle",
+  "devices_search": "Geräte suchen",
+  "devices_columns": "Sichtbare Spalten",
+  "devices_table_hint": "Seitlich scrollen, um weitere Spalten zu sehen. Zum Sortieren eine Überschrift auswählen.",
+  "devices_no_results": "Keine Geräte entsprechen dieser Ansicht.",
+  "devices_wan_error": "Der Internetzugang konnte nicht geändert werden. Vor einem erneuten Versuch aktualisieren und den Gerätestatus prüfen.",
+  "devices_column_upload": "Upload",
+  "devices_column_download": "Download"
 }

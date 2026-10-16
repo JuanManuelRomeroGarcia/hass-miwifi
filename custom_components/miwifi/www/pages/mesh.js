@@ -134,7 +134,7 @@ export async function renderMesh(hass) {
                 <div class="mesh-info">
                   ${localize("ip")}: ${leaf.ip}<br />
                   ${localize("modelo")}: ${leaf.hardware}<br />
-                  ${localize("estado")}: ${localize("🟢 status_connected")}
+                  ${localize("estado")}: ${localize("status_connected")}
                 </div>
 
                 ${mac

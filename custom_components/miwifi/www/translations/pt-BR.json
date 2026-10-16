@@ -298,5 +298,17 @@
   "dhcp_error_unsupported": "Somente leitura: as gravações foram verificadas para BE10000 / RC01 com firmware 1.1.56. Outros firmwares precisam de verificação.",
   "dhcp_error_conflict": "Este IP pertence a outra reserva ou a outro cliente conhecido.",
   "dhcp_error_unverified": "Não foi possível verificar a alteração. Ela pode ter sido aplicada: atualize e confira a lista antes de tentar novamente.",
-  "dhcp_error_not_main": "Somente o roteador principal pode gerenciar reservas DHCP. Atualize a lista quando seu papel for confirmado."
+  "dhcp_error_not_main": "Somente o roteador principal pode gerenciar reservas DHCP. Atualize a lista quando seu papel for confirmado.",
+  "devices_column_node": "Roteador / nó",
+  "devices_column_connection": "Conexão",
+  "devices_view": "Visualização dos dispositivos",
+  "devices_view_cards": "Cartões",
+  "devices_view_table": "Tabela",
+  "devices_search": "Buscar dispositivos",
+  "devices_columns": "Colunas visíveis",
+  "devices_table_hint": "Deslize horizontalmente para ver mais colunas. Selecione um cabeçalho para ordenar.",
+  "devices_no_results": "Nenhum dispositivo corresponde a esta visualização.",
+  "devices_wan_error": "Não foi possível alterar o acesso à Internet. Atualize e verifique o estado antes de tentar novamente.",
+  "devices_column_upload": "Envio",
+  "devices_column_download": "Download"
 }

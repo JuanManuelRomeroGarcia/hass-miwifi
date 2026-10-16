@@ -298,5 +298,17 @@
   "dhcp_error_unsupported": "Salt okunur: yazma işlemleri BE10000 / RC01 ve 1.1.56 ürün yazılımında doğrulandı. Diğer sürümlerin doğrulanması gerekir.",
   "dhcp_error_conflict": "Bu IP başka bir rezervasyona veya bilinen istemciye ait.",
   "dhcp_error_unverified": "Değişiklik doğrulanamadı. Uygulanmış olabilir: yeniden denemeden önce listeyi yenileyip kontrol edin.",
-  "dhcp_error_not_main": "DHCP rezervasyonlarını yalnızca ana yönlendirici yönetebilir. Ana rolü doğrulandığında listeyi yenileyin."
+  "dhcp_error_not_main": "DHCP rezervasyonlarını yalnızca ana yönlendirici yönetebilir. Ana rolü doğrulandığında listeyi yenileyin.",
+  "devices_column_node": "Yönlendirici / düğüm",
+  "devices_column_connection": "Bağlantı",
+  "devices_view": "Cihaz görünümü",
+  "devices_view_cards": "Kartlar",
+  "devices_view_table": "Tablo",
+  "devices_search": "Cihaz ara",
+  "devices_columns": "Görünür sütunlar",
+  "devices_table_hint": "Diğer sütunlar için yatay kaydırın. Sıralamak için bir başlık seçin.",
+  "devices_no_results": "Bu görünüme uyan cihaz yok.",
+  "devices_wan_error": "İnternet erişimi değiştirilemedi. Yeniden denemeden önce yenileyip cihaz durumunu kontrol edin.",
+  "devices_column_upload": "Gönderme",
+  "devices_column_download": "İndirme"
 }

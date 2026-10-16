@@ -254,18 +254,18 @@ _startAutoRefresh() {
 
         <div slot="content" class="content">
         ${this._renderVersionWarning()}
-          <div class="miwifi-button-group">
-            <button class="miwifi-button" @click=${() => this._navigate("/status")}>${localize("nav_status")}</button>
-            <button class="miwifi-button" @click=${() => this._navigate("/topologia")}>${localize("nav_topology")}</button>
-            <button class="miwifi-button" @click=${() => this._navigate("/miwifi-devices")}>${localize("nav_devices")}</button>
+          <div class="miwifi-button-group" role="navigation" aria-label="MiWiFi">
+            <button class="miwifi-button" aria-current=${this._currentPage === "/status" ? "page" : "false"} @click=${() => this._navigate("/status")}>${localize("nav_status")}</button>
+            <button class="miwifi-button" aria-current=${this._currentPage === "/topologia" ? "page" : "false"} @click=${() => this._navigate("/topologia")}>${localize("nav_topology")}</button>
+            <button class="miwifi-button" aria-current=${this._currentPage === "/miwifi-devices" ? "page" : "false"} @click=${() => this._navigate("/miwifi-devices")}>${localize("nav_devices")}</button>
             ${this._hasMesh ? html`
-              <button class="miwifi-button" @click=${() => this._navigate("/mesh")}>
+              <button class="miwifi-button" aria-current=${this._currentPage === "/mesh" ? "page" : "false"} @click=${() => this._navigate("/mesh")}>
                 ${localize("nav_mesh")}
               </button>
             ` : ""}
-            <button class="miwifi-button" @click=${() => this._navigate("/portforwarding")}>${localize("nav_portforwarding")}</button>
-            <button class="miwifi-button" @click=${() => this._navigate("/dhcp")}>${localize("nav_dhcp")}</button>
-            <button class="miwifi-button" @click=${() => this._navigate("/settings")}>${localize("nav_settings")}</button>
+            <button class="miwifi-button" aria-current=${this._currentPage === "/portforwarding" ? "page" : "false"} @click=${() => this._navigate("/portforwarding")}>${localize("nav_portforwarding")}</button>
+            <button class="miwifi-button" aria-current=${this._currentPage === "/dhcp" ? "page" : "false"} @click=${() => this._navigate("/dhcp")}>${localize("nav_dhcp")}</button>
+            <button class="miwifi-button" aria-current=${this._currentPage === "/settings" ? "page" : "false"} @click=${() => this._navigate("/settings")}>${localize("nav_settings")}</button>
           </div>
 
           ${until(this._pagePromise, this.renderLoading(localize("loading_section")))}
@@ -284,6 +284,13 @@ _startAutoRefresh() {
   }
 
   static styles = css`
+  *, *::before, *::after { box-sizing: border-box; }
+  button, input, select, textarea { font: inherit; }
+  button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #ffdf70; outline-offset: 3px; }
+  input:not([type="checkbox"]), select, textarea { min-height: 44px; max-width: 100%; }
+  .row > *, .select-grid > *, .config-grid > *, .mesh-card, .status-card { min-width: 0; }
+  .status-value, .device-info, .mesh-info, .mesh-name, .note { overflow-wrap: anywhere; }
+  .right, .setting-row, .miwifi-issue { flex-wrap: wrap; gap: 10px; }
   :host {
     --miwifi-primary-color: #1a73e8;
     --miwifi-text-color: white;
@@ -454,6 +461,8 @@ _startAutoRefresh() {
     border-radius:12px; 
     max-width:520px; 
     width:95%; 
+    max-height: 85dvh;
+    overflow-y: auto;
   }
 
   .dump-grid{ 
@@ -529,6 +538,7 @@ _startAutoRefresh() {
     transform: translateY(-2px);
     box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.25);
   }
+  .miwifi-button[aria-current="page"] { background: white; color: #155ba7; box-shadow: inset 0 -3px #155ba7; }
 
   .miwifi-button:active {
     transform: scale(0.98);
@@ -664,7 +674,7 @@ _startAutoRefresh() {
 
   .status-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
     gap: 16px;
     padding: 16px;
   }
@@ -982,7 +992,7 @@ _startAutoRefresh() {
       box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
     }
 
-    .content { padding-top: 82px; }
+    .content[slot="content"] { padding-top: 82px; }
   }
 
   @media (max-width: 768px) {
@@ -995,14 +1005,18 @@ _startAutoRefresh() {
 
     .section { padding: 12px; margin: 20px 0; }
 
-    .select-grid { flex-direction: column; align-items: stretch; }
+    .select-grid { grid-template-columns: 1fr; }
 
     .select-block { max-width: 100%; width: 100%; }
 
     .status-grid, .device-grid { grid-template-columns: 1fr !important; padding: 8px; }
     .status-card, .device-card { width: auto; }
 
-    .miwifi-button-group { gap: 8px; flex-direction: row; }
+    .miwifi-button-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .header-content { gap: 6px; padding: 10px 8px; }
+    .header-content .center { min-width: 0; font-size: 16px; overflow-wrap: anywhere; }
+    .header-content .logo { height: 28px; width: auto; margin-right: 0; }
+    .version-badge { margin-left: auto; white-space: nowrap; padding: 4px 6px; }
 
     .config-header h2 { font-size: 18px; }
 
@@ -1049,6 +1063,11 @@ _startAutoRefresh() {
 
     .wifi-block .header{ gap:6px; }
     mw-input input, mw-input select{ font-size:16px; }
+    .dump-grid { grid-template-columns: 1fr; }
+    .miwifi-button { min-height: 44px; overflow-wrap: anywhere; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 `;
 }

@@ -1,15 +1,172 @@
 import { LitElement, html, css } from "../vendor/lit.js?v=3.10.0";
 import { localize } from "../translations/localize.js?v=3.10.0";
 
+const COLUMNS = [
+  ["name", "label_name"], ["state", "nav_status"], ["ip", "ip"],
+  ["mac", "mac_address"], ["node", "devices_column_node"],
+  ["connection", "devices_column_connection"], ["signal", "signal"],
+  ["up", "devices_column_upload"], ["down", "devices_column_download"],
+  ["last", "last_activity"], ["wan", "wan_access"],
+];
+const DEFAULT_COLUMNS = ["name", "state", "ip", "node", "connection"];
+const PREFERENCE_KEY = "miwifi.device-view.v1";
+
 class MiWiFiDeviceCards extends LitElement {
   static properties = {
     hass: {},
     _showOffline: { state: true },
+    _view: { state: true },
+    _columns: { state: true },
+    _search: { state: true },
+    _sort: { state: true },
+    _descending: { state: true },
+    _wanPending: { state: true },
+    _wanError: { state: true },
   };
 
   constructor() {
     super();
     this._showOffline = false;
+    this._view = "cards";
+    this._columns = [...DEFAULT_COLUMNS];
+    this._search = "";
+    this._sort = "name";
+    this._descending = false;
+    this._wanPending = new Set();
+    this._wanError = "";
+    try {
+      const saved = JSON.parse(localStorage.getItem(PREFERENCE_KEY));
+      if (saved && typeof saved === "object") {
+        this._view = saved.view === "table" ? "table" : "cards";
+        if (Array.isArray(saved.columns)) {
+          this._columns = COLUMNS.map(([key]) => key).filter(
+            key => key === "name" || saved.columns.includes(key)
+          );
+        }
+        if (COLUMNS.some(([key]) => key === saved.sort)) this._sort = saved.sort;
+        this._descending = saved.descending === true;
+      }
+    } catch { /* Storage may be disabled or contain an older invalid value. */ }
+  }
+
+  _savePreferences() {
+    try {
+      localStorage.setItem(PREFERENCE_KEY, JSON.stringify({
+        view: this._view, columns: this._columns,
+        sort: this._sort, descending: this._descending,
+      }));
+    } catch { /* The view remains usable without browser storage. */ }
+  }
+
+  _setView(view) {
+    this._view = view === "table" ? "table" : "cards";
+    this._savePreferences();
+  }
+
+  _setColumn(key, checked) {
+    if (key === "name" || !COLUMNS.some(([column]) => column === key)) return;
+    this._columns = COLUMNS.map(([column]) => column).filter(
+      column => column === "name" || (column === key ? checked : this._columns.includes(column))
+    );
+    this._savePreferences();
+  }
+
+  _sortBy(key) {
+    this._descending = this._sort === key ? !this._descending : false;
+    this._sort = key;
+    this._savePreferences();
+  }
+
+  _cellValue(device, key, topo) {
+    const a = device.attributes || {};
+    switch (key) {
+      case "name": return a.friendly_name || device.entity_id;
+      case "state": return localize(device.state === "home" ? "status_connected"
+        : device.state === "not_home" ? "status_disconnected" : "status_unavailable");
+      case "node": return a.connected_via_router_name || topo.routersByMac[this._getViaMac(device)] || this._getViaMac(device) || "—";
+      case "connection": return this._getConnectionTitle(this._getConnectionKey(a.connection));
+      case "signal": return this._getConnectionKey(a.connection) === "lan" ? "—" : a.signal ?? "—";
+      case "up": return a.up_speed ?? "—";
+      case "down": return a.down_speed ?? "—";
+      case "last": return a.last_activity || "—";
+      case "wan": return localize(a.internet_blocked ? "wan_blocked" : "wan_allowed");
+      default: return a[key] || "—";
+    }
+  }
+
+  _visibleDevices(devices, topo) {
+    const query = this._search.trim().toLocaleLowerCase();
+    const filtered = query ? devices.filter(device =>
+      ["name", "ip", "mac", "node", "connection"].some(key =>
+        String(this._cellValue(device, key, topo)).toLocaleLowerCase().includes(query)
+      )
+    ) : [...devices];
+    const collator = new Intl.Collator(this.hass?.language || undefined, { numeric: true, sensitivity: "base" });
+    return filtered.sort((a, b) => {
+      const av = this._sortValue(a, topo), bv = this._sortValue(b, topo);
+      const comparison = typeof av === "number" && typeof bv === "number"
+        ? av - bv : collator.compare(String(av), String(bv));
+      return (comparison || collator.compare(a.entity_id, b.entity_id)) * (this._descending ? -1 : 1);
+    });
+  }
+
+  _sortValue(device, topo) {
+    const value = this._cellValue(device, this._sort, topo);
+    if (["up", "down"].includes(this._sort)) {
+      const match = String(value).match(/^([\d.]+)\s*([KMGT]?)B\/s$/i);
+      if (match && Number.isFinite(Number(match[1]))) {
+        return Number(match[1]) * 1024 ** (" KMGT".indexOf(match[2].toUpperCase() || " "));
+      }
+    }
+    return value;
+  }
+
+  _renderToolbar() {
+    return html`
+      <div class="toolbar">
+        <div class="view-buttons" role="group" aria-label=${localize("devices_view")}>
+          <button aria-pressed=${this._view === "cards"} @click=${() => this._setView("cards")}>${localize("devices_view_cards")}</button>
+          <button aria-pressed=${this._view === "table"} @click=${() => this._setView("table")}>${localize("devices_view_table")}</button>
+        </div>
+        <label class="search">${localize("devices_search")}
+          <input type="search" .value=${this._search} @input=${event => { this._search = event.target.value; }}>
+        </label>
+      </div>
+      ${this._view === "table" ? html`
+        <details class="column-picker">
+          <summary>${localize("devices_columns")}</summary>
+          <div class="column-options">${COLUMNS.map(([key, label]) => html`
+            <label><input type="checkbox" .checked=${this._columns.includes(key)} ?disabled=${key === "name"}
+              @change=${event => this._setColumn(key, event.target.checked)}>${localize(label)}</label>
+          `)}</div>
+        </details>
+        <p class="table-hint">${localize("devices_table_hint")}</p>
+      ` : ""}
+      ${this._wanError ? html`<p role="alert">${this._wanError}</p>` : ""}
+    `;
+  }
+
+  _renderTable(devices, topo) {
+    const columns = COLUMNS.filter(([key]) => this._columns.includes(key));
+    return html`
+      <div class="table-scroll" role="region" tabindex="0" aria-label=${localize("devices_view_table")}>
+        <table>
+          <caption class="sr-only">${localize("devices_connected_title")}</caption>
+          <thead><tr>${columns.map(([key, label]) => html`
+            <th scope="col" aria-sort=${this._sort === key ? (this._descending ? "descending" : "ascending") : "none"}>
+              <button @click=${() => this._sortBy(key)}>${localize(label)}${this._sort === key ? (this._descending ? " ↓" : " ↑") : ""}</button>
+            </th>
+          `)}</tr></thead>
+          <tbody>${devices.map(device => html`
+            <tr class=${device.state === "home" ? "" : "disconnected"}>
+              ${columns.map(([key]) => key === "name"
+                ? html`<th scope="row">${this._cellValue(device, key, topo)}</th>`
+                : html`<td>${this._cellValue(device, key, topo)}</td>`)}
+            </tr>
+          `)}</tbody>
+        </table>
+      </div>
+    `;
   }
 
   render() {
@@ -18,11 +175,11 @@ class MiWiFiDeviceCards extends LitElement {
     );
 
     const st = (d) => String(d.state || "").toLowerCase();
-    const disconnected = all.filter((d) => ["not_home", "unknown", "unavailable"].includes(st(d)));
-    const connected = all.filter((d) => st(d) === "home");
-
     const topo = this._getTopologyInfo();
-    const breakdown = this._buildNodeBreakdown(connected, topo);
+    const visible = this._visibleDevices(all, topo);
+    const disconnected = visible.filter((d) => st(d) !== "home");
+    const connected = visible.filter((d) => st(d) === "home");
+    const breakdown = this._buildNodeBreakdown(all.filter(d => st(d) === "home"), topo);
 
     // Agrupar SOLO conectados por tipo de conexión
     const grouped = {};
@@ -37,7 +194,7 @@ class MiWiFiDeviceCards extends LitElement {
       .join(" | ");
 
     const totalDevices = all.length;
-    const totalConnected = connected.length;
+    const totalConnected = all.filter(d => st(d) === "home").length;
 
     return html`
       <div class="content">
@@ -52,7 +209,12 @@ class MiWiFiDeviceCards extends LitElement {
 
         ${breakdownText ? html`<div class="counts-sub">${breakdownText}</div>` : ""}
 
-        ${Object.entries(grouped).map(([key, devs]) =>
+        ${this._renderToolbar()}
+        ${!connected.length && !(this._showOffline && disconnected.length)
+          ? html`<p role="status">${localize("devices_no_results")}</p>` : ""}
+
+        ${this._view === "table" ? this._renderTable(this._showOffline ? visible : connected, topo)
+          : Object.entries(grouped).map(([key, devs]) =>
           this._renderGroup(key, devs, topo, breakdown)
         )}
 
@@ -65,7 +227,7 @@ class MiWiFiDeviceCards extends LitElement {
           </button>
         </div>
 
-        ${this._showOffline && disconnected.length
+        ${this._view === "cards" && this._showOffline && disconnected.length
           ? html`
               <div class="section-title" style="margin-top: 18px;">
                  ${localize("status_disconnected") || localize("toggle_offline_show") || "Offline devices"}
@@ -189,7 +351,7 @@ class MiWiFiDeviceCards extends LitElement {
 
   _getViaMac(device) {
     const a = device?.attributes || {};
-    return this._normalizeMac(a.connected_via_router_mac || a.router_mac || "");
+    return this._normalizeMac(a.connected_via_router_device_mac || a.connected_via_router_mac || a.router_mac || "");
   }
 
   _getViaEntryId(device) {
@@ -290,7 +452,7 @@ class MiWiFiDeviceCards extends LitElement {
   }
 
   _renderCard(device, topo, breakdown) {
-    const isOffline = String(device.state).toLowerCase() === "not_home";
+    const isOffline = String(device.state).toLowerCase() !== "home";
     const a = device.attributes || {};
 
     const viaMac = this._getViaMac(device);
@@ -327,7 +489,7 @@ class MiWiFiDeviceCards extends LitElement {
         ${viaLabel ? html`<div class="device-info">${viaLabel}</div>` : ""}
 
         <div class="device-status ${isOffline ? "offline" : ""}">
-          ${isOffline ? (localize("status_disconnected") || "Disconnected") : (localize("status_connected") || "Connected")}
+          ${this._cellValue(device, "state", topo)}
         </div>
 
         ${String(a.connection || "").toLowerCase() !== "lan"
@@ -352,7 +514,13 @@ class MiWiFiDeviceCards extends LitElement {
           <span>${localize("wan_unblock_button")}</span>
           <ha-switch
             .checked=${a.internet_blocked}
-            @change=${(ev) => this._toggleWAN(device, ev.target.checked)}
+            ?disabled=${!this.hass?.user?.is_admin || this._wanPending.has(device.entity_id)}
+            aria-label=${localize("wan_access")}
+            @change=${async (ev) => {
+              const control = ev.target;
+              await this._toggleWAN(device, control.checked);
+              control.checked = Boolean(this.hass?.states?.[device.entity_id]?.attributes?.internet_blocked ?? a.internet_blocked);
+            }}
           ></ha-switch>
           <span>${localize("wan_block_button")}</span>
         </div>
@@ -361,6 +529,9 @@ class MiWiFiDeviceCards extends LitElement {
   }
 
   async _toggleWAN(device, checked) {
+    if (!this.hass?.user?.is_admin || !device?.entity_id || this._wanPending.has(device.entity_id)) return;
+    this._wanPending = new Set([...this._wanPending, device.entity_id]);
+    this._wanError = "";
     try {
       if (!device?.entity_id) {
         // eslint-disable-next-line no-console
@@ -373,18 +544,59 @@ class MiWiFiDeviceCards extends LitElement {
         allow: !checked,
       });
     } catch (err) {
+      this._wanError = localize("devices_wan_error");
       // eslint-disable-next-line no-console
       console.error("[MiWiFi] Failed toggling WAN:", err);
+    } finally {
+      this._wanPending = new Set([...this._wanPending].filter(id => id !== device.entity_id));
+      this.requestUpdate();
     }
   }
 
 
   static styles = css`
-    .content { text-align: center; }
+    :host { display: block; min-width: 0; }
+    * { box-sizing: border-box; }
+    .content { text-align: center; min-width: 0; }
+    button, input { font: inherit; }
+    button { min-height: 44px; padding: 8px 14px; cursor: pointer; color: inherit; background: rgba(0,0,0,.15); border: 1px solid rgba(255,255,255,.45); border-radius: 8px; }
+    button:focus-visible, input:focus-visible, summary:focus-visible, .table-scroll:focus-visible { outline: 3px solid #ffdf70; outline-offset: 3px; }
+    button[aria-pressed="true"] { color: #123a62; background: #fff; }
+    .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; margin: 24px 0 12px; text-align: left; }
+    .view-buttons { display: flex; gap: 6px; }
+    .search { display: grid; gap: 6px; flex: 1 1 220px; max-width: 420px; }
+    .search input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--divider-color, #ccc); border-radius: 8px; padding: 10px; color: var(--primary-text-color, #212121); background: var(--card-background-color, white); }
+    .column-picker { text-align: left; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 10px 14px; }
+    .column-picker summary { cursor: pointer; min-height: 28px; }
+    .column-options { display: flex; flex-wrap: wrap; gap: 8px 24px; padding-top: 12px; }
+    .column-options label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+    .column-options input { width: 20px; height: 20px; }
+    .table-hint { text-align: left; font-size: 13px; opacity: .9; }
+    .table-scroll { overflow: auto; max-width: 100%; border: 1px solid rgba(255,255,255,.35); border-radius: 10px; margin-top: 14px; }
+    table { border-collapse: separate; border-spacing: 0; width: 100%; text-align: left; }
+    th, td { padding: 12px; min-width: 120px; max-width: 280px; overflow-wrap: anywhere; border-bottom: 1px solid rgba(255,255,255,.22); }
+    thead th { background: #155ba7; white-space: nowrap; }
+    thead button { border: 0; background: none; padding: 0; text-align: left; width: 100%; }
+    tbody th { font-weight: 600; background: #1b68c5; }
+    th:first-child { position: sticky; left: 0; z-index: 1; min-width: 150px; }
+    tbody tr:nth-child(even) td { background: rgba(0,0,0,.08); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    @media (max-width: 600px) {
+      .toolbar { align-items: stretch; gap: 12px; }
+      .search { max-width: none; flex-basis: 100%; }
+      .view-buttons { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+      th:first-child { min-width: 125px; max-width: 145px; }
+      th, td { padding: 10px; }
+      .counts, .counts-sub { white-space: normal !important; overflow-wrap: anywhere; line-height: 1.7; }
+      .device-info-wan { flex-wrap: wrap; }
+      .device-name { font-size: 19px; }
+      .card-header { flex-wrap: wrap; }
+      .device-name { white-space: normal; overflow-wrap: anywhere; }
+    }
 
     .device-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
       gap: 18px;
       margin-top: 14px;
     }
@@ -447,6 +659,7 @@ class MiWiFiDeviceCards extends LitElement {
     .badge.mesh { background: rgba(0,0,0,0.18); }
 
     .device-info {
+      overflow-wrap: anywhere;
       font-size: 14px;
       margin-top: 6px;
       line-height: 1.2;
@@ -466,9 +679,8 @@ class MiWiFiDeviceCards extends LitElement {
       margin-top: 8px;
       opacity: 0.95;
       font-size: 14px;
-      white-space: nowrap; /* ✅ una línea */
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .counts strong { font-weight: 800; }
@@ -477,9 +689,8 @@ class MiWiFiDeviceCards extends LitElement {
       margin-top: 4px;
       opacity: 0.9;
       font-size: 13px;
-      white-space: nowrap; /* ✅ una línea */
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .offline-toggle { margin-top: 12px; }

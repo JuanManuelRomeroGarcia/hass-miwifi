@@ -286,15 +286,15 @@ export class MiwifiTopologia extends LitElement {
     }
     @media (max-width: 600px) {
       .tree ul {
-        flex-wrap: nowrap;
-        overflow-x: auto;
+        flex-wrap: wrap;
         padding-left: 0;
         margin: 0;
         gap: 0;
       }
       .topo-box {
         margin: 0.5rem;
-        transform: scale(0.85);
+        max-width: calc(100vw - 64px);
+        overflow-wrap: anywhere;
       }
     }
   `;

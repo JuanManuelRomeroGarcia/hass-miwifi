@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MiWiFi — prueba local del panel</title>
+<style>
+body { margin: 0; font: 15px system-ui, sans-serif; background: #e8eef5; }
+.preview-tools { padding: 10px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.preview-tools select { padding: 8px; } iframe { display: block; border: 1px solid #bbc; margin: auto; background: #1a73e8; height: 1100px; max-width: 100%; }
+.dark { --primary-text-color: #eee; --secondary-text-color: #bbb; --card-background-color: #202329; --divider-color: #555; --primary-color: #03a9f4; --text-primary-color: #fff; }
+#layout-report { margin: 0; padding: 8px; background: #fff; font-size: 12px; }
+</style>
+<script type="module">
+const params = new URLSearchParams(location.search);
+if (!params.has('frame')) {
+  document.body.innerHTML = `<div class="preview-tools"><b>Datos ficticios · Sin conexión a HA ni al router</b>
+    <label>Ancho <select id="width"><option>320</option><option>390</option><option>768</option><option>1280</option></select></label>
+    <label>Idioma <select id="language">${['es','en','de','fr','pt-BR','ru','tr','zh-Hans'].map(x=>`<option>${x}</option>`).join('')}</select></label>
+    <label><input id="theme" type="checkbox"> Oscuro</label>
+    <label><input id="viewer" type="checkbox"> Sin permisos de administrador</label>
+    <label>Página <select id="page">${['status','miwifi-devices','topologia','mesh','portforwarding','dhcp','settings','error'].map(x=>`<option>${x}</option>`).join('')}</select></label></div><iframe title="Panel de prueba"></iframe>`;
+  const frame = document.querySelector('iframe');
+  document.querySelector('#width').value = params.get('width') || '390';
+  document.querySelector('#page').value = params.get('page') || 'miwifi-devices';
+  const update = () => {
+    frame.style.width = document.querySelector('#width').value + 'px';
+    frame.src = `/?frame=1&lang=${document.querySelector('#language').value}&page=${document.querySelector('#page').value}&dark=${document.querySelector('#theme').checked}&viewer=${document.querySelector('#viewer').checked}`;
+  };
+  document.querySelectorAll('select,input').forEach(control => control.addEventListener('change', update));
+  update();
+} else {
+  if (params.get('dark') === 'true') document.body.classList.add('dark');
+  document.documentElement.lang = params.get('lang') || 'es';
+  const main = '02:00:00:00:00:01', node = '02:00:00:00:00:02';
+  const graph = { is_main: true, mode: 0, name: 'Router principal de prueba', mac: main, ip: '192.0.2.1', hardware: 'RC01',
+    leafs: [
+      { name: 'Nodo del salón con un nombre especialmente largo', mac: node, ip: '192.0.2.2', hardware: 'RA82', mode: 3 },
+      { name: 'Nodo de la planta superior', mac: '02:00:00:00:00:03', ip: '192.0.2.3', hardware: 'RD28', mode: 3 },
+      { name: 'Nodo del estudio', mac: '02:00:00:00:00:04', ip: '192.0.2.4', hardware: 'RA82', mode: 3 },
+    ] };
+  const states = {};
+  const add = (entity_id, state, attributes = {}) => { states[entity_id] = { entity_id, state: String(state), attributes }; };
+  add('sensor.miwifi_topology_main', 'online', { graph });
+  for (const leaf of graph.leafs) add('sensor.miwifi_topology_'+leaf.ip.split('.').at(-1), 'online', { graph: { ...leaf, is_main: false, leafs: [] } });
+  for (const [mac, ip] of [[main, '192.0.2.1'], ...graph.leafs.map(leaf => [leaf.mac, leaf.ip])]) {
+    const prefix = `miwifi_${mac.replaceAll(':','_')}`;
+    for (const [key, value] of Object.entries({ temperature: 41, memory_usage: 34, memory_total: 1024, uptime: '2 days, 04:12:00', vpn_uptime: '0:00:00', mode: 'Mesh', wan_ip_address: '192.0.2.254', wan_type: 'DHCP', wan_download_speed: '12 MB/s', wan_upload_speed: '2 MB/s', devices: 3, devices_lan: 1, devices_2_4g: 1, devices_5g: 1, devices_guest: 0, devices_iot: 0, devices_5g_game: 0 })) add(`sensor.${prefix}_${key}`, value);
+    for (const band of ['2_4g', '5g']) {
+      add(`switch.${prefix}_wifi_${band}`, 'on', { friendly_name: `WiFi ${band}` });
+      add(`select.${prefix}_wifi_${band}_channel`, '6', { friendly_name: `Canal WiFi ${band}`, options: ['1','6','11'] });
+    }
+    add(`light.${prefix}_led`, 'on', { friendly_name: 'LED' });
+    add(`button.${prefix}_reboot`, 'unknown', { friendly_name: 'Reiniciar' });
+  }
+  ['Portátil de prueba con un nombre largo para comprobar el ajuste', 'Reloj de prueba', 'Televisor', 'Cámara', 'Sin conexión', 'No disponible'].forEach((name, i) => {
+    add(`device_tracker.miwifi_demo_${i}`, i < 4 ? 'home' : i === 4 ? 'not_home' : 'unavailable', {
+      friendly_name: name, mac: `02:00:00:00:00:${20+i}`, ip: `192.0.2.${20+i}`,
+      connection: ['Lan','2.4G','5G','Guest'][i%4], router_mac: i%2 ? node : main,
+      connected_via_router_device_mac: i%2 ? node : main,
+      connected_via_router_name: i%2 ? graph.leafs[0].name : graph.name,
+      signal: 74-i*9, signal_quality: 'strong', up_speed: '512 B/s', down_speed: '1.2 MB/s',
+      internet_blocked: i===3, last_activity: '2026-10-16T10:15:00',
+    });
+  });
+  add('sensor.miwifi_config', 'ready', { panel_active: true, speed_unit: 'Mbps', log_level: 'info' });
+  add('sensor.miwifi_nat_rules', '2', { total: 2, source: 'preview', ftype_1: [{ name: 'Servicio local de prueba con nombre largo', destip: '192.0.2.20', proto: 1, srcport: '8080', destport: '80' }], ftype_2: [{ name: 'Rango de prueba', destip: '192.0.2.21', proto: 1, srcport: { f: '9000', t: '9010' } }] });
+  const bindings = [{ name: 'Reserva de prueba con nombre largo', mac: '02:00:00:00:00:20', ip: '192.0.2.20' }];
+  const hass = { states, language: params.get('lang') || 'es', user: { is_admin: params.get('viewer') !== 'true' }, connection: { connected: true },
+    async callService() { /* Preview writes never leave this fixture. */ },
+    async callWS(payload) {
+      if (payload.type === 'miwifi/dhcp_routers') return { routers: [{ entry_id: 'main', name: graph.name, ip: graph.ip }] };
+      if (payload.type.startsWith('miwifi/dhcp_')) return { bindings, clients: bindings, revision: 'preview', writable: true, enabled: true, model: 'RC01', firmware: '1.1.56', subnet: '192.0.2.0/24' };
+      if (payload.type === 'miwifi/get_mac_replacement') return { clients: { watch: ['Reloj de prueba', 'Watch'] }, available_names: ['Reloj de prueba', 'Portátil de prueba'] };
+      if (payload.type === 'miwifi/get_wifis') return { wifis: { '2g': { ssid: 'Red de prueba', channel: 6 }, '5g': { ssid: 'Red de prueba 5G', channel: 36 }, guest: { enabled: false, ssid: 'Invitados', encryption: 'psk2' } } };
+      throw new Error('Unsupported preview request');
+    },
+  };
+  await import('/miwifi_static/panel-frontend.js?v=3.10.0');
+  const { navigate } = await import('/miwifi_static/router.js?v=3.10.0');
+  navigate('/' + (params.get('page') || 'miwifi-devices'));
+  const panel = document.createElement('miwifi-panel'); panel.hass = hass;
+  document.body.append(panel);
+  const report = document.createElement('p'); report.id = 'layout-report'; document.body.prepend(report);
+  setInterval(() => {
+    const overflow = document.documentElement.scrollWidth > innerWidth + 1;
+    report.textContent = `${innerWidth}px · ${overflow ? 'DESBORDAMIENTO' : 'Sin desbordamiento de página'} · Datos ficticios`;
+  }, 500);
+}
+</script>
+</html>

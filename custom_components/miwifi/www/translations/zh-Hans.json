@@ -298,5 +298,17 @@
   "dhcp_error_unsupported": "只读：目前已验证 BE10000 / RC01 固件 1.1.56 的写入操作。其他固件需要验证。",
   "dhcp_error_conflict": "此 IP 属于其他地址保留或已知客户端。",
   "dhcp_error_unverified": "无法验证更改。更改可能已生效：重试前请刷新并检查列表。",
-  "dhcp_error_not_main": "只有主路由器可以管理 DHCP 地址保留。确认其主路由角色后，请刷新列表。"
+  "dhcp_error_not_main": "只有主路由器可以管理 DHCP 地址保留。确认其主路由角色后，请刷新列表。",
+  "devices_column_node": "路由器 / 节点",
+  "devices_column_connection": "连接",
+  "devices_view": "设备视图",
+  "devices_view_cards": "卡片",
+  "devices_view_table": "表格",
+  "devices_search": "搜索设备",
+  "devices_columns": "可见列",
+  "devices_table_hint": "水平滚动以查看更多列。选择列标题可排序。",
+  "devices_no_results": "没有符合此视图的设备。",
+  "devices_wan_error": "无法更改互联网访问权限。请刷新并检查设备状态后重试。",
+  "devices_column_upload": "上传",
+  "devices_column_download": "下载"
 }
