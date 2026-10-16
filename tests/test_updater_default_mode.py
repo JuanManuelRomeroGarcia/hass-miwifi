@@ -727,8 +727,14 @@ async def test_updater_default_mode_auto_remove(hass: HomeAssistant) -> None:
 
 
 @pytest.mark.asyncio
-async def test_updater_default_mode_auto_remove_incorrect(hass: HomeAssistant) -> None:
+async def test_updater_default_mode_auto_remove_incorrect(
+    hass: HomeAssistant, legacy_clock
+) -> None:
     """Test updater.
+
+    Freeze wall time while invalid stored activity values are repaired. Clients
+    processed either side of a real second boundary must not make this snapshot
+    depend on how quickly the mocked refresh runs.
 
     :param hass: HomeAssistant
     """
