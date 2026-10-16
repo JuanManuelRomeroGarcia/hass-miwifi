@@ -544,13 +544,19 @@ class LuciClient:
 
         return await self.get(self._api_paths["avaliable_channels"], {"wifiIndex": index})
 
-    async def wan_info(self) -> dict:
+    async def wan_info(self, wan_name: str | None = None) -> dict:
         """xqnetwork/wan_info method.
 
         :return dict: dict with api data.
         """
 
+        if wan_name is not None:
+            return await self.get(self._api_paths["wan_info"], {"wan_name": wan_name})
         return await self.get(self._api_paths["wan_info"])
+
+    async def multiwan_info(self) -> dict:
+        """Read the multi-WAN service configuration; never change its policy."""
+        return await self.get("misystem/get_ps_service", {"service": "multiwan"})
 
     async def reboot(self) -> dict:
         """xqsystem/reboot method.

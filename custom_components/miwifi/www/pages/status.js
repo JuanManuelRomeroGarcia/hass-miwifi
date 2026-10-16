@@ -144,6 +144,22 @@ export async function renderStatus(hass) {
     { label: localize("label_signal_5g_game"), value: formatSignal(getSelectValue("wifi_5g_game_signal_strength")) },
   ];
 
+  // Separate WAN2 status from the existing WAN traffic sensors: configured
+  // bandwidth/weights are not measured transfer rates.
+  const wan2 = hass.states[`sensor.miwifi_${mac}_wan2_ip_address`];
+  if (wan2?.attributes?.enabled === true) {
+    const available = wan2.state !== "unavailable";
+    const unknown = localize("status_unavailable");
+    const state = (value) => available && typeof value === "boolean"
+      ? localize(value ? "status_connected" : "status_disconnected") : unknown;
+    internetItems.splice(4, 0,
+      { label: localize("label_wan2_ip"), value: available && wan2.state !== "unknown" ? wan2.state : unknown },
+      { label: localize("label_wan2_type"), value: available ? (wan2.attributes.type || unknown) : unknown },
+      { label: localize("label_wan2_link"), value: state(wan2.attributes.link) },
+      { label: localize("label_wan2_state"), value: state(wan2.attributes.connected) },
+    );
+  }
+
   const renderSection = (title, items) => html`
     <div class="section-title">${title}</div>
     <div class="status-grid">

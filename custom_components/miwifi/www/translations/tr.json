@@ -298,5 +298,9 @@
   "dhcp_error_unsupported": "Salt okunur: yazma işlemleri BE10000 / RC01 ve 1.1.56 ürün yazılımında doğrulandı. Diğer sürümlerin doğrulanması gerekir.",
   "dhcp_error_conflict": "Bu IP başka bir rezervasyona veya bilinen istemciye ait.",
   "dhcp_error_unverified": "Değişiklik doğrulanamadı. Uygulanmış olabilir: yeniden denemeden önce listeyi yenileyip kontrol edin.",
-  "dhcp_error_not_main": "DHCP rezervasyonlarını yalnızca ana yönlendirici yönetebilir. Ana rolü doğrulandığında listeyi yenileyin."
+  "dhcp_error_not_main": "DHCP rezervasyonlarını yalnızca ana yönlendirici yönetebilir. Ana rolü doğrulandığında listeyi yenileyin.",
+  "label_wan2_ip": "WAN2 IP adresi",
+  "label_wan2_type": "WAN2 türü",
+  "label_wan2_link": "WAN2 fiziksel bağlantısı",
+  "label_wan2_state": "WAN2 bağlantısı"
 }
