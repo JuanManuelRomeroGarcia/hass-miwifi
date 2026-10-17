@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 import voluptuous as vol
-from homeassistant import data_entry_flow
+from homeassistant import config_entries, data_entry_flow
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
@@ -358,3 +358,19 @@ async def test_node_save_keeps_the_legacy_client_sensor_vote(
     assert node.options[CONF_ENABLE_DEVICE_SENSORS] is True
     assert get_mesh_device_sensors_enabled(hass)
     assert [call.args[0] for call in reload.await_args_list] == [node.entry_id]
+
+
+async def test_setup_asks_for_client_sensors_until_the_global_setting_is_saved(
+    hass: HomeAssistant,
+) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert CONF_ENABLE_DEVICE_SENSORS in _defaults(result)
+
+    # Once saved, the global value decides and a new entry's vote is unused.
+    _entry(hass, {CONF_ENABLE_DEVICE_SENSORS: False, CONF_DEVICE_SENSORS_GLOBAL: 1})
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert CONF_ENABLE_DEVICE_SENSORS not in _defaults(result)

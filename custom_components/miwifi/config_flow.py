@@ -157,9 +157,13 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
-            vol.Optional(CONF_ENABLE_DEVICE_SENSORS, default=DEFAULT_ENABLE_DEVICE_SENSORS): cv.boolean,
-            
         }
+
+        # Until the global options step is saved, every entry still votes for
+        # the mesh-wide client sensors. After that the saved value decides and
+        # this field would change nothing.
+        if not get_mesh_device_sensors_save(self.hass):
+            schema_dict[vol.Optional(CONF_ENABLE_DEVICE_SENSORS, default=DEFAULT_ENABLE_DEVICE_SENSORS)] = cv.boolean
 
         if step_id == "discovery_confirm":
             schema_dict[vol.Optional(CONF_ENABLE_PANEL, default=panel_state)] = cv.boolean
