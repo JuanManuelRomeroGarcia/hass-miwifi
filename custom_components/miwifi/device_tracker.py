@@ -552,6 +552,10 @@ async def async_setup_entry(
         finally:
             creating.discard(unique_id)
 
+        # A client restored from a store is known, and away: not a new device.
+        if new_device.get(ATTR_TRACKER_IS_RESTORED):
+            return
+
         # New-device notifier (kept as you had it)
         hass.data[DOMAIN].setdefault("notified_macs_store", {})
 
