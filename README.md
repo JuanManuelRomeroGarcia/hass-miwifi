@@ -47,6 +47,10 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/DHCP-reservations-es)
 - [Authentication security and CodeQL findings](docs/Authentication-security.md)
   - [Guía en español](docs/Authentication-security-es.md)
+- [Panel cards, lists and configurable device tables](docs/Panel-device-view.md) (v3.11.0)
+  - [Guía en español](docs/Panel-device-view-es.md)
+- [BE6500 Pro / RD08 client categories and dual WAN](docs/BE6500-Pro.md) (v3.11.0)
+  - [Guía en español](docs/BE6500-Pro-es.md)
 
 
 ## Supported routers
