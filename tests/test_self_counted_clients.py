@@ -168,6 +168,7 @@ class Mesh:
         updater._scan_interval = 20
         updater.timeout = 20
         updater._build_device = lambda device, integrations=None: dict(device)
+        updater._resolve_connection = lambda device: device.get("connection")
         updater._mass_update_device = lambda device, integrations: False
         updater._has_dedicated_iot_wifi = lambda: False
         self.integrations[ip] = {const.UPDATER: updater}

@@ -1,6 +1,6 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.10.0";
-import { localize } from "../translations/localize.js?v=3.10.0";
-import { logToBackend } from "../pages/utils.js?v=3.10.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.11.0";
+import { localize } from "../translations/localize.js?v=3.11.0";
+import { logToBackend } from "../pages/utils.js?v=3.11.0";
 
 
 class MiWiFiPortForwarding extends LitElement {
@@ -88,12 +88,24 @@ class MiWiFiPortForwarding extends LitElement {
   }
 
   _openModal(type) {
+    this._returnFocus = this.shadowRoot?.activeElement;
     this.modalType = type;
     this.showModal = true;
+    this.updateComplete.then(() => this.shadowRoot?.querySelector(".modal input")?.focus());
   }
 
   _closeModal() {
     this.showModal = false;
+    this._returnFocus?.focus();
+  }
+
+  _modalKey(event) {
+    if (event.key === "Escape") { this._closeModal(); return; }
+    if (event.key !== "Tab") return;
+    const fields = [...this.shadowRoot.querySelectorAll(".modal input, .modal select, .modal button")].filter(field => !field.disabled);
+    const first = fields[0], last = fields.at(-1), active = this.shadowRoot.activeElement;
+    if (event.shiftKey && active === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && active === last) { event.preventDefault(); first?.focus(); }
   }
 
   _refreshRules() {
@@ -115,7 +127,7 @@ class MiWiFiPortForwarding extends LitElement {
       <div class="content">
         ${this.sensor ? html`
           <div class="nat-summary">
-            <b>📊 Reglas NAT:</b><br />
+            <b>${localize("service_fields.dump_router_data.nat_rules")}</b><br />
             ${localize("state_attributes.total") || "Total"}: ${this.sensor.attributes.total || 0} |
             ${localize("state_attributes.ftype_1") || "Individuals"}: ${this.sensor.attributes.ftype_1?.length || 0} |
             ${localize("state_attributes.ftype_2") || "By range"}: ${this.sensor.attributes.ftype_2?.length || 0}<br />
@@ -194,11 +206,11 @@ class MiWiFiPortForwarding extends LitElement {
 
         ${this.showModal ? html`
           <div class="overlay" @click=${this._closeModal}></div>
-          <div class="modal">
-            <h3>${this.modalType === 1 ? localize("portforwarding.create_individual") : localize("portforwarding.create_range")}</h3>
+          <div class="modal" role="dialog" aria-modal="true" aria-labelledby="nat-dialog-title" @keydown=${this._modalKey}>
+            <h3 id="nat-dialog-title">${this.modalType === 1 ? localize("portforwarding.create_individual") : localize("portforwarding.create_range")}</h3>
             <div class="modal-form">
               <input placeholder="${localize("portforwarding.column_name")}" .value=${f.name} @input=${e => f.name = e.target.value} />
-              <select @change=${e => f.proto = parseInt(e.target.value)}>
+              <select aria-label=${localize("portforwarding.column_proto")} @change=${e => f.proto = parseInt(e.target.value)}>
                 <option value="1" ?selected=${f.proto === 1}>TCP</option>
                 <option value="2" ?selected=${f.proto === 2}>UDP</option>
                 <option value="3" ?selected=${f.proto === 3}>TCP/UDP</option>
@@ -212,6 +224,7 @@ class MiWiFiPortForwarding extends LitElement {
               `}
               <input placeholder="${localize("portforwarding.target_ip")}" .value=${f.ip} @input=${e => f.ip = e.target.value} />
               <button class="miwifi-button" @click=${() => this._addRule()}>${localize("portforwarding.confirm_add")}</button>
+              <button class="miwifi-button" @click=${this._closeModal}>${localize("ui_cancel")}</button>
             </div>
           </div>
         ` : ""}
@@ -304,7 +317,10 @@ class MiWiFiPortForwarding extends LitElement {
         padding: 20px;
         border-radius: 12px;
         z-index: 1000;
-        width: 320px;
+        width: min(420px, calc(100% - 24px));
+        box-sizing: border-box;
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         animation: fadeIn 0.3s ease;
     }
@@ -446,20 +462,33 @@ class MiWiFiPortForwarding extends LitElement {
         padding: 20px;
         border-radius: 12px;
         z-index: 1000;
-        width: 80%;
+        width: calc(100% - 24px);
         box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         animation: fadeIn 0.3s ease;
       }
 
       .modal-form input, .modal-form select {
           display: block;
-          width: 90%;
+          width: 100%;
+          box-sizing: border-box;
           margin-bottom: 12px;
           padding: 10px;
           border: 1px solid #ccc;
           border-radius: 6px;
           font-size: 14px;
       }
+    :host { display: block; min-width: 0; }
+    .modal { animation: none; }
+    .modal-form button:last-child { margin-top: 8px; background: #eee; color: #222; }
+    *, *::before, *::after { box-sizing: border-box; }
+    button, input, select { min-height: 44px; }
+    input, select { font-size: 16px !important; }
+    td { overflow-wrap: anywhere; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #ffbf47; outline-offset: 3px; }
+    @media (max-width: 768px) {
+      .rules-table td { padding: 8px; }
+      .miwifi-button.small { margin: 8px 0 0; }
+    }
   `;
 }
 

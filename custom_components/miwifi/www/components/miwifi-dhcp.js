@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.10.0";
-import { localize } from "../translations/localize.js?v=3.10.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.11.0";
+import { localize } from "../translations/localize.js?v=3.11.0";
 
 export class MiWiFiDhcp extends LitElement {
   static properties = {
@@ -12,7 +12,8 @@ export class MiWiFiDhcp extends LitElement {
     h3 { margin: 0 0 12px; } p { line-height: 1.5; }
     label { display: block; margin: 10px 0; }
     input, select { width: 100%; box-sizing: border-box; padding: 10px; margin-top: 6px; font: inherit; color: inherit; background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #ccc); border-radius: 6px; }
-    button { padding: 9px 14px; font: inherit; color: inherit; background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #ccc); border-radius: 6px; cursor: pointer; }
+    button { min-height: 44px; max-width: 100%; padding: 9px 14px; font: inherit; color: inherit; background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #ccc); border-radius: 6px; cursor: pointer; }
+    input, select { font-size: 16px; } button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--primary-color, #03a9f4); outline-offset: 2px; }
     button.primary { background: var(--primary-color, #03a9f4); color: var(--text-primary-color, #fff); }
     button:disabled { opacity: .5; cursor: default; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
