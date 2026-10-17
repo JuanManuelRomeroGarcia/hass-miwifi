@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Exclude positively identified mesh nodes from client tracking/restoration, clean up legacy client entities across MiWiFi entries while preserving router/foreign entities, and retry freed backhaul aliases across loaded nodes (#331, thanks to @brembygit and the maintainer follow-up). IP-only matches do not authorize registry deletion.
+- Separate global mesh settings from per-device options, preserve legacy client-sensor behavior until explicitly saving the global setting, and keep force-load visible when enabled (#359, thanks to @brembygit).
+- Add an opt-in manual AP/mesh role for nodes behind another gateway, skipping gateway mode/WAN/MAC-filter reads while retaining client updates and status-provided WAN speeds (#326, thanks to @brembygit). Keep the option off by default and translate it in the new per-device form in all eight languages.
 - Add an opt-in fresh router API diagnostic export for all loaded main/mesh entries. Include request paths, parameters, timings, responses, errors and explicit skips from a fixed read-only catalogue, with time/size limits and partial results. Keep administrator-only private ZIP downloads and reject concurrent dumps.
 - Always hide passwords, keys and known tokens. Optionally replace IP/MAC addresses and identifying names with distinct, consistent aliases across an archive. Use verified Wi-Fi readers instead of calling setters with empty parameters.
 - Translate private dump/log download notices, automatic MAC replacement configuration and the purge preview title into all eight languages. Add notification and export regressions.

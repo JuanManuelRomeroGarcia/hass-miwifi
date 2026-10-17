@@ -26,7 +26,8 @@
           "log_level": "Log-Level (global)",
           "enable_panel": "Steuerungs-Panel aktivieren",
           "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
-          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren"
+          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
+          "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte überspringen)"
         }
       }
     }
@@ -73,7 +74,8 @@
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
           "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
           "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
-          "protocol": "Protokoll"
+          "protocol": "Protokoll",
+          "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte überspringen)"
         }
       }
     }

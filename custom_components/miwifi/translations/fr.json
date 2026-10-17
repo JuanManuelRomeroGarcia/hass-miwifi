@@ -26,7 +26,8 @@
           "log_level": "Niveau de log (global)",
           "enable_panel": "Activer le panneau de contrôle",
           "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
-          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil"
+          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
+          "is_ap_mode": "Point d'accès / nœud maillé (ignorer les points de terminaison WAN et passerelle)"
         }
       }
     }
@@ -73,7 +74,8 @@
           "wan_speed_unit": "Unité de vitesse WAN",
           "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
           "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
-          "protocol": "Protocole"
+          "protocol": "Protocole",
+          "is_ap_mode": "Point d'accès / nœud maillé (ignorer les points de terminaison WAN et passerelle)"
         }
       }
     }

@@ -28,6 +28,7 @@ from custom_components.miwifi.const import (
     CONF_ENABLE_PORT_PROBE,
     CONF_ENCRYPTION_ALGORITHM,
     CONF_IS_FORCE_LOAD,
+    CONF_IS_AP_MODE,
     CONF_IS_TRACK_DEVICES,
     CONF_LOG_LEVEL,
     CONF_PROTOCOL,
@@ -275,6 +276,7 @@ async def test_global_save_reloads_the_mesh_only_when_client_sensors_change(
 
 
 NODE_OPTIONS = {
+    CONF_IS_AP_MODE: False,
     CONF_IP_ADDRESS: NODE_IP,
     CONF_PASSWORD: "x",
     CONF_ENCRYPTION_ALGORITHM: "sha256",
@@ -374,3 +376,30 @@ async def test_setup_asks_for_client_sensors_until_the_global_setting_is_saved(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
     assert CONF_ENABLE_DEVICE_SENSORS not in _defaults(result)
+
+
+async def test_ap_override_node_save_preserves_global_sensor_choice(
+    hass: HomeAssistant, reload: AsyncMock
+) -> None:
+    """Combining #326/#359 must not turn a node option into a mesh-wide change."""
+    main = _entry(hass, {CONF_ENABLE_DEVICE_SENSORS: True, CONF_DEVICE_SENSORS_GLOBAL: 1})
+    node = _entry(hass, dict(NODE_OPTIONS), ip=NODE_IP)
+    _load(hass, main, "main")
+    _load(hass, node, "repeater")
+    _listen(hass, main, node)
+    main_options = dict(main.options)
+
+    global_form = await _open(hass, main, "global_settings")
+    assert CONF_IS_AP_MODE not in _defaults(global_form)
+    node_form = await _open(hass, node, "device_settings")
+    assert _defaults(node_form)[CONF_IS_AP_MODE] is False
+
+    await _save_node(hass, node, **{CONF_IS_AP_MODE: True})
+    await hass.async_block_till_done()
+
+    assert node.options[CONF_IS_AP_MODE] is True
+    assert node.options[CONF_DEVICE_SENSORS_GLOBAL] == NODE_OPTIONS[CONF_DEVICE_SENSORS_GLOBAL]
+    assert node.options[CONF_ENABLE_DEVICE_SENSORS] is True
+    assert main.options == main_options
+    assert get_mesh_device_sensors_enabled(hass)
+    assert [call.args[0] for call in reload.await_args_list] == [node.entry_id]

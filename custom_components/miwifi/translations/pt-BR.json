@@ -26,7 +26,8 @@
           "log_level": "Nível de log (global)",
           "enable_panel": "Ativar painel de controle",
           "enable_device_sensors": "Criar sensores de dispositivo (clientes)",
-          "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo"
+          "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo",
+          "is_ap_mode": "Ponto de acesso / nó mesh (ignorar endpoints WAN e de gateway)"
         }
       }
     }
@@ -73,7 +74,8 @@
           "wan_speed_unit": "Unidade de velocidade WAN",
           "is_force_load": "Forçar carregamento de dispositivos em modo repetidor [PRO]",
           "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo",
-          "protocol": "Protocolo"
+          "protocol": "Protocolo",
+          "is_ap_mode": "Ponto de acesso / nó mesh (ignorar endpoints WAN e de gateway)"
         }
       }
     }

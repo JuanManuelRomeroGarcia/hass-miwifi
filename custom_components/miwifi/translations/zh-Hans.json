@@ -26,7 +26,8 @@
           "log_level": "日志级别（全局）",
           "enable_panel": "启用控制面板",
           "enable_device_sensors": "创建设备传感器（客户端）",
-          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL"
+          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
+          "is_ap_mode": "接入点 / Mesh 节点（跳过 WAN 和网关端点）"
         }
       }
     }
@@ -73,7 +74,8 @@
           "wan_speed_unit": "WAN 速度单位",
           "is_force_load": "在中继模式下强制加载设备 [PRO]",
           "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
-          "protocol": "协议"
+          "protocol": "协议",
+          "is_ap_mode": "接入点 / Mesh 节点（跳过 WAN 和网关端点）"
         }
       }
     }
