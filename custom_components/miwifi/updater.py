@@ -270,6 +270,7 @@ class LuciUpdater(DataUpdateCoordinator):
     _activity_days: int
     _is_only_login: bool = False
     _is_reauthorization: bool = True
+    _status_has_wan_speed: bool = False
 
     def __init__(
         self,
@@ -609,8 +610,15 @@ class LuciUpdater(DataUpdateCoordinator):
     def supports_wan(self) -> bool:
         """Is supports wan
 
+        With the AP option wan_info is never asked, so there is no WAN state to
+        go by. The speed sensors read misystem/status, which an access point
+        still answers, so they follow its WAN counters instead.
+
         :return bool
         """
+
+        if self.is_ap_mode:
+            return self._status_has_wan_speed
 
         return self.data.get(ATTR_BINARY_SENSOR_WAN_STATE, False)
     
@@ -956,6 +964,7 @@ class LuciUpdater(DataUpdateCoordinator):
             data[ATTR_SENSOR_TEMPERATURE] = temp
 
         wan = response.get("wan") if isinstance(response.get("wan"), dict) else {}
+        self._status_has_wan_speed = "downspeed" in wan or "upspeed" in wan
         if isinstance(wan, dict):
             data[ATTR_SENSOR_WAN_DOWNLOAD_SPEED] = _to_float(wan.get("downspeed"), 0.0) or 0.0
             data[ATTR_SENSOR_WAN_UPLOAD_SPEED] = _to_float(wan.get("upspeed"), 0.0) or 0.0
@@ -1286,6 +1295,13 @@ class LuciUpdater(DataUpdateCoordinator):
             return None
 
         if self.is_ap_mode:
+            # wan_info is not asked, so what only it tells is unknown, not a
+            # WAN that is down. The speed sensors read misystem/status instead
+            # (see supports_wan).
+            data[ATTR_BINARY_SENSOR_WAN_STATE] = None
+            data[ATTR_BINARY_SENSOR_WAN_LINK] = None
+            data[ATTR_SENSOR_WAN_IP] = None
+            data[ATTR_SENSOR_WAN_TYPE] = None
             await self.hass.async_add_executor_job(
                 _LOGGER.debug, "[MiWiFi] AP mode: skipping 'wan'"
             )

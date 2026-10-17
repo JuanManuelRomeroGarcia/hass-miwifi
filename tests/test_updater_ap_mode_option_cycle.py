@@ -26,6 +26,8 @@ from custom_components.miwifi.const import (
     ATTR_SENSOR_DEVICES_GUEST,
     ATTR_SENSOR_DEVICES_LAN,
     ATTR_SENSOR_MODE,
+    ATTR_SENSOR_WAN_DOWNLOAD_SPEED,
+    ATTR_SENSOR_WAN_UPLOAD_SPEED,
     ATTR_STATE,
     DOMAIN,
 )
@@ -59,8 +61,8 @@ async def _run_node(hass: HomeAssistant, *, is_ap_mode: bool, topology: bool) ->
     calls it a mesh node, as on a wired-backhaul mesh. Without it, the node's
     graph request fails and no other entry lists it.
 
-    :return dict: the second cycle's mode and data, the client MACs and the
-        router requests it made
+    :return dict: the second cycle's mode and data, whether the node keeps its
+        WAN speed sensors, the client MACs and the router requests it made
     """
 
     with patch("custom_components.miwifi.updater.LuciClient") as client, patch(
@@ -97,6 +99,7 @@ async def _run_node(hass: HomeAssistant, *, is_ap_mode: bool, topology: bool) ->
 
             return {
                 "data": data,
+                "supports_wan": node.supports_wan,
                 "macs": sorted(node.devices),
                 "requests": {
                     name
@@ -150,3 +153,24 @@ async def test_option_skips_only_the_gateway_requests(
     for counter in COUNTERS:
         assert on["data"].get(counter) == off["data"].get(counter), counter
     assert on["data"][ATTR_SENSOR_DEVICES] == len(on["macs"])
+
+
+@pytest.mark.parametrize("topology", [False, True], ids=["no-topology", "topology"])
+async def test_option_keeps_the_wan_speed_sensors(hass: HomeAssistant, topology: bool) -> None:
+    """The WAN speeds come from misystem/status, which the option does not skip.
+
+    Without the option the WAN state from wan_info lets the speed sensors be
+    created; with it, wan_info is never asked and the counters status reports
+    take its place. Either way the node keeps them, with the same values.
+    """
+
+    off = await _run_node(hass, is_ap_mode=False, topology=topology)
+    on = await _run_node(hass, is_ap_mode=True, topology=topology)
+
+    assert "wan_info" in off["requests"]
+    assert "wan_info" not in on["requests"]
+
+    assert off["supports_wan"] is True
+    assert on["supports_wan"] is True
+    for speed in (ATTR_SENSOR_WAN_DOWNLOAD_SPEED, ATTR_SENSOR_WAN_UPLOAD_SPEED):
+        assert on["data"][speed] == off["data"][speed] > 0, speed

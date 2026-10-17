@@ -10,7 +10,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from custom_components.miwifi.const import (
+    ATTR_BINARY_SENSOR_WAN_LINK,
+    ATTR_BINARY_SENSOR_WAN_STATE,
     ATTR_SENSOR_MODE,
+    ATTR_SENSOR_WAN_IP,
+    ATTR_SENSOR_WAN_TYPE,
     CONF_IS_AP_MODE,
     DEFAULT_IS_AP_MODE,
 )
@@ -103,7 +107,10 @@ async def test_mode_probe_still_runs_for_a_gateway() -> None:
 
 @pytest.mark.asyncio
 async def test_wan_info_skipped_in_ap_mode() -> None:
-    """An access point has no WAN, so the endpoint is never asked."""
+    """An access point has no WAN, so the endpoint is never asked.
+
+    What only that endpoint can tell is then unknown, not a WAN that is down.
+    """
 
     updater = _updater(True)
     updater.luci.wan_info = AsyncMock()
@@ -112,7 +119,12 @@ async def test_wan_info_skipped_in_ap_mode() -> None:
     await updater._async_prepare_wan(data)
 
     updater.luci.wan_info.assert_not_awaited()
-    assert data == {}
+    assert data == {
+        ATTR_BINARY_SENSOR_WAN_STATE: None,
+        ATTR_BINARY_SENSOR_WAN_LINK: None,
+        ATTR_SENSOR_WAN_IP: None,
+        ATTR_SENSOR_WAN_TYPE: None,
+    }
 
 
 @pytest.mark.asyncio
@@ -129,6 +141,59 @@ async def test_macfilter_skipped_in_ap_mode() -> None:
     await updater._async_prepare_devices({})
 
     updater.luci.macfilter_info.assert_not_awaited()
+
+
+# The WAN speed sensors are created only where supports_wan is true, and read
+# misystem/status. With the option on, wan_info is never asked and there is no
+# WAN state, so the gate follows the counters status reports instead.
+
+STATUS_WAN: dict = {"wan": {"downspeed": "225064", "upspeed": "19276"}}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        pytest.param(STATUS_WAN, True, id="wan-counters"),
+        pytest.param({}, False, id="no-wan-block"),
+    ],
+)
+async def test_wan_speed_follows_status_with_the_option(status: dict, expected: bool) -> None:
+    """The node keeps its WAN speed sensors when status reports the counters."""
+
+    updater = _updater(True)
+    updater.luci.status = AsyncMock(return_value=status)
+    updater.luci.wan_info = AsyncMock()
+
+    await updater._async_prepare_status(updater.data)
+    await updater._async_prepare_wan(updater.data)
+
+    updater.luci.wan_info.assert_not_awaited()
+    assert updater.supports_wan is expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("wan_info", "expected"),
+    [
+        pytest.param({"info": {"link": 1, "status": 1}}, True, id="wan-up"),
+        pytest.param({"info": {"link": 0, "status": 0}}, False, id="wan-down"),
+    ],
+)
+async def test_wan_speed_follows_the_wan_state_without_the_option(
+    wan_info: dict, expected: bool
+) -> None:
+    """With the option off the gate is unchanged: the WAN state decides."""
+
+    updater = _updater(False)
+    updater.luci.status = AsyncMock(return_value=STATUS_WAN)
+    updater.luci.wan_info = AsyncMock(return_value=wan_info)
+
+    await updater._async_prepare_status(updater.data)
+    await updater._async_prepare_wan(updater.data)
+
+    updater.luci.wan_info.assert_awaited_once()
+    assert updater.supports_wan is expected
 
 
 # How the manual override and the automatic topology role combine. The order in
