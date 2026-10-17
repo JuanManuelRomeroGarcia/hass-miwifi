@@ -120,6 +120,40 @@
           "description": "Queries the known read-only diagnostic blocks on all loaded routers, including errors, skipped queries and timings. Up to 2 minutes. Passwords and session tokens are always hidden. This is a diagnostic catalogue, not every possible firmware API."
         }
       }
+    },
+    "purge_inactive_devices": {
+      "name": "Purge inactive devices",
+      "description": "Removes device_trackers and orphan devices after X days of inactivity.",
+      "fields": {
+        "macs": {
+          "name": "Limit to these MAC addresses",
+          "description": "Optional non-empty list of MAC addresses. With include_orphans, also clean matching client sensors left without a tracker. Inactivity and other safeguards still apply. Omit to check all clients."
+        },
+        "days": {
+          "name": "Inactivity days",
+          "description": "Number of days without activity before considering the purge."
+        },
+        "only_randomized": {
+          "name": "Only randomized MACs",
+          "description": "If enabled, only devices with randomized (private) MACs will be purged."
+        },
+        "include_orphans": {
+          "name": "Include orphan devices",
+          "description": "Also remove devices without associated entities."
+        },
+        "include_orphans_without_age": {
+          "name": "Include orphans without timestamp",
+          "description": "Allows purging even if the last activity date is unknown."
+        },
+        "verbose": {
+          "name": "Detailed mode",
+          "description": "Adds extended log output when executing the purge."
+        },
+        "apply": {
+          "name": "Apply changes",
+          "description": "If disabled, runs as a dry-run (simulation) without deleting anything."
+        }
+      }
     }
   }
 }

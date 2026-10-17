@@ -4,7 +4,9 @@ Preparación: 17 de octubre de 2026. Rama local:
 `prueba-mesh-331-diagnostico`, en `F:\Miwifi_HA\hass-miwifi`.
 Combina el #331 (`37554ae`), nuestro #362 (`7eb4368`), el #359 (`40ecd31`)
 y el #326 (`c63dca9`). Los commits de los autores se conservan.
-No está fusionada en GitHub ni publicada; la versión sigue siendo 3.11.0.
+Este documento conserva el procedimiento de prueba sobre la base 3.11.0.
+Los cambios se incorporan en la versión 3.12.0; no es necesario cambiar de rama
+para instalar esa versión estable.
 
 ## Validación automática y criterio de trabajo
 

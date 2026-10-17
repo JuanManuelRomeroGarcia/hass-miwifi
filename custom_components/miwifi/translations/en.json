@@ -128,6 +128,10 @@
       "name": "Purge inactive devices",
       "description": "Removes device_trackers and orphan devices after X days of inactivity.",
       "fields": {
+        "macs": {
+          "name": "Limit to these MAC addresses",
+          "description": "Optional non-empty list of MAC addresses. With include_orphans, also clean matching client sensors left without a tracker. Inactivity and other safeguards still apply. Omit to check all clients."
+        },
         "days": {
           "name": "Inactivity days",
           "description": "Number of days without activity before considering the purge."

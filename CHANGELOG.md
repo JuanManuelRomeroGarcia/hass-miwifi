@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 3.12.0 — 2026-10-17
 
+- Translate the optional purge MAC-address filter in all eight languages and use a language-neutral day unit; preserve selection, preview defaults and deletion safeguards.
 - Exclude positively identified mesh nodes from client tracking/restoration, clean up legacy client entities across MiWiFi entries while preserving router/foreign entities, and retry freed backhaul aliases across loaded nodes (#331, thanks to @brembygit and the maintainer follow-up). IP-only matches do not authorize registry deletion.
 - Separate global mesh settings from per-device options, preserve legacy client-sensor behavior until explicitly saving the global setting, and keep force-load visible when enabled (#359, thanks to @brembygit).
 - Add an opt-in manual AP/mesh role for nodes behind another gateway, skipping gateway mode/WAN/MAC-filter reads while retaining client updates and status-provided WAN speeds (#326, thanks to @brembygit). Keep the option off by default and translate it in the new per-device form in all eight languages.
@@ -10,7 +11,9 @@
 - Translate private dump/log download notices, automatic MAC replacement configuration and the purge preview title into all eight languages. Add notification and export regressions.
 - Document the diagnostic catalogue, limits and privacy in English and Spanish. Confirm two-router captures and Spanish notifications on real HA 2026.10.1; retain the main NAT/node mode request failures in partial exports rather than hiding them.
 - Add discreet optional PayPal/Wise support links at the bottom of Settings and the README. Keep every feature available without contributing and translate the panel invitation into all eight languages.
-- Keep integration and bundled frontend versions at 3.11.0. These changes await a future release.
+- Update integration, bundled frontend and translation cache references together to 3.12.0. Restart HA and refresh the panel after updating. The HACS minimum remains HA 2025.8.0.
+- Also anonymize init_info hardware serials and room labels while preserving diagnostic query IDs.
+- Real-device coverage includes the maintainer's RC01/RC06 wired mesh on HA 2026.10.1 and the contributor's four-node RD28/RA82 wired mesh. The intermittent router-sensor race (#333) and unconfirmed wireless-backhaul case (#334) have no confirmed hardware reproduction; this release does not claim to prove those cases fixed.
 
 ## 3.11.0 — 2026-10-16
 

@@ -1,6 +1,6 @@
 # Volcado ampliado de consultas API
 
-Preparación local posterior a v3.11.0, todavía sin publicar. Primera prueba real
+Disponible desde v3.12.0. Primera prueba real
 en HA 2026.10.1 completada el 16 de octubre de 2026: principal RC01 y nodo RC06,
 sin errores comunicados en el registro de HA. El archivo conserva tres fallos
 de consulta (NAT en el principal y modo en el nodo), sin impedir el resto de la

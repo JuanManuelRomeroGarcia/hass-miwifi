@@ -1,6 +1,6 @@
 # Fresh router API diagnostic export
 
-Prepared after v3.11.0 on `diagnostico-api-router`; not released.
+Available from v3.12.0.
 The first real HA 2026.10.1 trial completed on 16 October 2026 with an RC01 main
 and RC06 node, with no HA log errors reported. The archive records three failed
 queries (main NAT and node mode), while the remaining capture continued.

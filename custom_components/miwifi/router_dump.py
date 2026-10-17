@@ -181,7 +181,7 @@ BARE_MAC = re.compile(r"(?<![0-9a-z])[0-9a-f]{12}(?![0-9a-z])", re.I)
 IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
 IPV6 = re.compile(r"(?<![\w:])(?:[0-9a-f]{0,4}:){2,}[0-9a-f:.]*(?:%[a-z0-9_.-]+)?(?![\w:])", re.I)
 SECRET_KEY = re.compile(r"password|passwd|pwd|token|stok|cookie|authorization|secret|nonce|privatekey|psk|key$", re.I)
-IDENTIFIER_KEYS = {"name", "hostname", "devicename", "routername", "nickname", "oname", "pushname", "originname", "routerid", "serial", "sn", "uuid", "duid", "deviceid", "clientid", "entryid", "displayname", "devname", "username", "imei"}
+IDENTIFIER_KEYS = {"name", "hostname", "devicename", "routername", "nickname", "oname", "pushname", "originname", "routerid", "serial", "sn", "uuid", "duid", "deviceid", "clientid", "entryid", "displayname", "devname", "username", "imei", "locale"}
 
 
 class DumpRedactor:
@@ -290,7 +290,11 @@ class DumpRedactor:
         if SECRET_KEY.search(normalized) or normalized in {"key", "wifikey"}:
             return "REDACTED"
         if isinstance(value, dict):
-            return {self._text(str(k)): self._walk(v, str(k)) for k, v in value.items()}
+            # init_info calls the hardware serial "id"; diagnostic query IDs
+            # elsewhere are public catalogue keys and must remain readable.
+            init_info = "hardware" in value and "romversion" in value
+            return {self._text(str(k)): self._walk(v, "serial" if init_info and k == "id" else str(k))
+                    for k, v in value.items()}
         if isinstance(value, (list, tuple)):
             return [self._walk(item, key) for item in value]
         if isinstance(value, str):

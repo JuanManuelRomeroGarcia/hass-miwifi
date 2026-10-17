@@ -128,6 +128,10 @@
       "name": "Inaktive Geräte bereinigen",
       "description": "Entfernt device_tracker und verwaiste Geräte nach X Tagen Inaktivität.",
       "fields": {
+        "macs": {
+          "name": "Auf diese MAC-Adressen beschränken",
+          "description": "Optionale Liste mit mindestens einer MAC-Adresse. Ohne Angabe werden alle Clients geprüft. Mit verwaisten Geräten werden auch zugehörige Client-Sensoren ohne Tracker berücksichtigt. Inaktivitätsfristen und alle weiteren Schutzmaßnahmen gelten weiterhin."
+        },
         "days": {
           "name": "Inaktivitätstage",
           "description": "Anzahl der Tage ohne Aktivität vor der Bereinigung."

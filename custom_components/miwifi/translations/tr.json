@@ -128,6 +128,10 @@
       "name": "Etkin olmayan cihazları temizle",
       "description": "X gün boyunca etkin olmayan device_tracker’ları ve yetim cihazları kaldırır.",
       "fields": {
+        "macs": {
+          "name": "Bu MAC adresleriyle sınırla",
+          "description": "İsteğe bağlı, en az bir MAC adresi içeren liste. Belirtilmezse tüm istemciler kontrol edilir. Sahipsiz cihazlar dahil edildiğinde, izleyicisi olmayan ilgili istemci sensörleri de değerlendirilir. Hareketsizlik koşulları ve diğer korumalar geçerliliğini korur."
+        },
         "days": {
           "name": "Etkin olmama günleri",
           "description": "Temizleme yapılmadan önceki etkin olmama gün sayısı."

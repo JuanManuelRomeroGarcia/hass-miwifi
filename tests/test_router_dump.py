@@ -194,3 +194,20 @@ async def test_dump_requires_a_section_and_an_admin(hass):
     with pytest.raises(Unauthorized):
         await hass.services.async_call(DOMAIN, "dump_router_data", {"api_diagnostics": True},
                                        blocking=True, context=Context(user_id=user.id))
+
+
+@pytest.mark.parametrize("hide", [True, False])
+def test_init_info_serial_and_room_are_private_but_query_ids_remain_readable(hide):
+    source = {"id": "init_info", "response": {
+        "hardware": "RC01", "romversion": "1.1.56", "id": "12345/SYNTHETIC-SERIAL",
+        "features": {"locale": "PrivateRoom"}, "routername": "PrivateRoom"}}
+    result = DumpRedactor(hide).redact(source)
+    assert result["id"] == "init_info"
+    assert result["response"]["hardware"] == "RC01"
+    assert result["response"]["romversion"] == "1.1.56"
+    if hide:
+        assert "SYNTHETIC-SERIAL" not in json.dumps(result)
+        assert "PrivateRoom" not in json.dumps(result)
+        assert result["response"]["features"]["locale"] == result["response"]["routername"]
+    else:
+        assert result == source

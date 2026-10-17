@@ -128,6 +128,10 @@
       "name": "Purgar dispositivos inactivos",
       "description": "Elimina device_trackers y dispositivos huérfanos tras X días de inactividad.",
       "fields": {
+        "macs": {
+          "name": "Limitar a estas direcciones MAC",
+          "description": "Lista opcional de una o más direcciones MAC. Si se omite, se revisan todos los clientes. Con «Incluir dispositivos huérfanos», también se revisan sus sensores sin tracker. Se mantienen los requisitos de inactividad y las demás protecciones."
+        },
         "days": {
           "name": "Días de inactividad",
           "description": "Número de días sin actividad antes de considerar la purga."
