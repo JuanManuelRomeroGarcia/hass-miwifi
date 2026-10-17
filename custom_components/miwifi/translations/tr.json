@@ -42,7 +42,25 @@
     "step": {
       "init": {
         "title": "MiWiFi Ayarları",
-        "description": "MiWiFi yönlendiricinizin IP adresini ve parolasını girin",
+        "menu_options": {
+          "global_settings": "Global mesh ayarları",
+          "device_settings": "Bu cihazın ayarları"
+        }
+      },
+      "global_settings": {
+        "title": "Global mesh ayarları",
+        "description": "Tüm mesh cihazları için geçerli global MiWiFi mesh ayarları.",
+        "data": {
+          "enable_panel": "Kontrol panelini etkinleştir",
+          "log_level": "Günlük seviyesi (global)",
+          "auto_purge_every_days": "Otomatik temizleme (her X günde bir, 0 = kapalı) [PRO]",
+          "auto_purge_at": "Otomatik temizleme saati (HH:MM) [PRO]",
+          "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)"
+        }
+      },
+      "device_settings": {
+        "title": "Bu cihazın ayarları",
+        "description": "Bu ayarlar yalnızca bu MiWiFi cihazı için geçerlidir.",
         "data": {
           "ip_address": "IP adresi",
           "password": "Parola",
@@ -50,16 +68,12 @@
           "is_track_devices": "Cihazları izle",
           "stay_online": "Çevrimiçi minimum süre (saniye)",
           "scan_interval": "Tarama aralığı (saniye) [PRO]",
-          "timeout": "İstek zaman aşımı (saniye) [PRO]",
           "activity_days": "Son etkinlikten sonraki izin verilen gün sayısı [PRO]",
-          "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
+          "timeout": "İstek zaman aşımı (saniye) [PRO]",
           "wan_speed_unit": "WAN hız birimi",
-          "log_level": "Günlük seviyesi (global)",
-          "enable_panel": "Kontrol panelini etkinleştir",
-          "auto_purge_every_days": "Otomatik temizleme (her X günde bir, 0 = kapalı) [PRO]",
-          "auto_purge_at": "Otomatik temizleme saati (0–23) [PRO]",
-          "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)",
-          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)"
+          "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
+          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)",
+          "protocol": "Protokol"
         }
       }
     }

@@ -42,7 +42,25 @@
     "step": {
       "init": {
         "title": "MiWiFi Einstellungen",
-        "description": "Geben Sie die IP-Adresse und das Passwort Ihres MiWiFi Routers ein",
+        "menu_options": {
+          "global_settings": "Globale Mesh-Einstellungen",
+          "device_settings": "Einstellungen für dieses Gerät"
+        }
+      },
+      "global_settings": {
+        "title": "Globale Mesh-Einstellungen",
+        "description": "Globale MiWiFi-Mesh-Einstellungen, die für alle Mesh-Geräte gelten.",
+        "data": {
+          "enable_panel": "Steuerungs-Panel aktivieren",
+          "log_level": "Log-Level (global)",
+          "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
+          "auto_purge_at": "Zeit für automatische Bereinigung (HH:MM) [PRO]",
+          "enable_device_sensors": "Gerätesensoren erstellen (Clients)"
+        }
+      },
+      "device_settings": {
+        "title": "Einstellungen für dieses Gerät",
+        "description": "Diese Einstellungen gelten nur für dieses MiWiFi-Gerät.",
         "data": {
           "ip_address": "IP-Adresse",
           "password": "Passwort",
@@ -50,16 +68,12 @@
           "is_track_devices": "Geräte verfolgen",
           "stay_online": "Minimale Online-Zeit (Sekunden)",
           "scan_interval": "Scanintervall (Sekunden) [PRO]",
-          "timeout": "Timeout für Anfragen (Sekunden) [PRO]",
           "activity_days": "Erlaubte Tage nach der letzten Aktivität [PRO]",
-          "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
+          "timeout": "Timeout für Anfragen (Sekunden) [PRO]",
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
-          "log_level": "Log-Level (global)",
-          "enable_panel": "Steuerungs-Panel aktivieren",
-          "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
-          "auto_purge_at": "Zeit für automatische Bereinigung (0–23) [PRO]",
-          "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
-          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren"
+          "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
+          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
+          "protocol": "Protokoll"
         }
       }
     }

@@ -31,6 +31,9 @@ from .const import (
     STORE_AUTO_PURGE,
     DEFAULT_AUTO_PURGE_AT,
     DEFAULT_AUTO_PURGE_EVERY_DAYS,
+    CONF_ENABLE_DEVICE_SENSORS,
+    DEFAULT_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSORS_GLOBAL,
     UPDATER,
     )
 
@@ -49,6 +52,58 @@ def get_config_value(
         config_entry.options.get(param, config_entry.data.get(param, default))
         if config_entry is not None
         else default
+    )
+
+
+def _device_sensors_save(entry: config_entries.ConfigEntry) -> int:
+    """Return the entry's save counter of the global client-sensor setting."""
+    try:
+        return max(int(get_config_value(entry, CONF_DEVICE_SENSORS_GLOBAL, 0) or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def get_mesh_device_sensors_save(hass: HomeAssistant) -> int:
+    """Return the latest save counter of the global client-sensor setting.
+
+    0 means it was never saved, and the legacy per-entry values still apply.
+    """
+    return max(
+        (
+            _device_sensors_save(entry)
+            for entry in hass.config_entries.async_entries(DOMAIN)
+        ),
+        default=0,
+    )
+
+
+def get_mesh_device_sensors_enabled(hass: HomeAssistant) -> bool:
+    """Return the mesh-wide client-sensor setting.
+
+    The global options step stores it with the entry it was saved from, with
+    a save counter: the latest save wins, whichever entry it was made on.
+    Until it is saved, the legacy rule applies: on when any entry enables it.
+    """
+    entries = hass.config_entries.async_entries(DOMAIN)
+    latest = max(entries, key=_device_sensors_save, default=None)
+    if latest is not None and _device_sensors_save(latest):
+        return bool(
+            get_config_value(
+                latest,
+                CONF_ENABLE_DEVICE_SENSORS,
+                DEFAULT_ENABLE_DEVICE_SENSORS,
+            )
+        )
+
+    return any(
+        bool(
+            get_config_value(
+                entry,
+                CONF_ENABLE_DEVICE_SENSORS,
+                DEFAULT_ENABLE_DEVICE_SENSORS,
+            )
+        )
+        for entry in entries
     )
 
 

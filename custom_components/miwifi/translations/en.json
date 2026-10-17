@@ -42,7 +42,25 @@
     "step": {
       "init": {
         "title": "MiWiFi settings",
-        "description": "Enter the IP address and password from your MiWiFi router",
+        "menu_options": {
+          "global_settings": "Global mesh settings",
+          "device_settings": "Settings for this device"
+        }
+      },
+      "global_settings": {
+        "title": "Global mesh settings",
+        "description": "Global MiWiFi mesh settings. These apply to all mesh devices.",
+        "data": {
+          "enable_panel": "Enable control panel",
+          "log_level": "Log level (global)",
+          "auto_purge_every_days": "Auto-purge every X days (0 = disabled) [PRO]",
+          "auto_purge_at": "Daily auto-purge time (HH:MM) [PRO]",
+          "enable_device_sensors": "Create sensors for connected devices (clients)"
+        }
+      },
+      "device_settings": {
+        "title": "Settings for this device",
+        "description": "These settings apply only to this MiWiFi device.",
         "data": {
           "ip_address": "IP address",
           "password": "Password",
@@ -50,16 +68,12 @@
           "is_track_devices": "Track devices",
           "stay_online": "Minimum stay online in seconds",
           "scan_interval": "Scan interval in seconds [PRO]",
-          "timeout": "Timeout of requests in seconds [PRO]",
           "activity_days": "Allowed number of days to wait after the last activity [PRO]",
-          "is_force_load": "Forced booting of devices in repeater mode [PRO]",
+          "timeout": "Timeout of requests in seconds [PRO]",
           "wan_speed_unit": "WAN speed unit",
-          "log_level": "Log level (global)",
-          "enable_panel": "Enable control panel",
-          "auto_purge_every_days": "Auto-purge every X days (0 = disabled) [PRO]",
-          "auto_purge_at": "Auto-purge at hour (0-23) [PRO]",
-          "enable_device_sensors": "Create device sensors (clients)",
-          "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
+          "is_force_load": "Forced booting of devices in repeater mode [PRO]",
+          "enable_port_probe": "Enable port probing (80/443) for device configuration URL",
+          "protocol": "Protocol"
         }
       }
     }

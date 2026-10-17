@@ -65,6 +65,8 @@ DEFAULT_WAN_SPEED_UNIT: Final = "Mbps"
 WAN_SPEED_UNIT_OPTIONS: Final = ["B/s", "Mbps"]
 CONF_ENABLE_DEVICE_SENSORS = "enable_device_sensors"
 DEFAULT_ENABLE_DEVICE_SENSORS = False
+# Save counter of the global client-sensor setting; the highest one wins.
+CONF_DEVICE_SENSORS_GLOBAL: Final = "device_sensors_global"
 CONF_ENABLE_PORT_PROBE: Final = "enable_port_probe"
 DEFAULT_ENABLE_PORT_PROBE: Final = False
 
