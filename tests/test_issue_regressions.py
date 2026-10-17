@@ -41,6 +41,17 @@ def load_function(filename, name, namespace):
     return namespace[name]
 
 
+def mesh_sensor_helpers():
+    """The mesh-wide client-sensor setting as helper.py computes it."""
+    env = {
+        'DOMAIN': 'miwifi', 'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
+        'DEFAULT_ENABLE_DEVICE_SENSORS': False, 'CONF_DEVICE_SENSORS_GLOBAL': 'device_sensors_global',
+    }
+    for name in ('get_config_value', '_device_sensors_save', 'get_mesh_device_sensors_save', 'get_mesh_device_sensors_enabled'):
+        load_function('helper.py', name, env)
+    return env
+
+
 class LuciError(BaseException):
     pass
 
@@ -373,21 +384,25 @@ class MeshSensorTests(unittest.TestCase):
         main = SimpleNamespace(options={'enable_device_sensors': True}, data={})
         leaf = SimpleNamespace(options={'enable_device_sensors': False}, data={})
         hass = SimpleNamespace(config_entries=SimpleNamespace(async_entries=lambda domain: [main, leaf]))
-        env = {
-            'DOMAIN': 'miwifi',
-            'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
-            'DEFAULT_ENABLE_DEVICE_SENSORS': False,
-            'get_config_value': lambda entry, key, default: entry.options.get(key, entry.data.get(key, default)),
-            'get_mesh_device_sensors_enabled': lambda hass: any(
-                bool(entry.options.get('enable_device_sensors', entry.data.get('enable_device_sensors', False)))
-                for entry in hass.config_entries.async_entries('miwifi')
-            ),
-        }
+        env = {'get_mesh_device_sensors_enabled': mesh_sensor_helpers()['get_mesh_device_sensors_enabled']}
         enabled = load_function('sensor.py', '_device_sensors_enabled', env)
 
         self.assertTrue(enabled(hass))
         main.options['enable_device_sensors'] = False
         self.assertFalse(enabled(hass))
+
+    def test_saved_global_setting_overrides_the_legacy_votes(self):
+        main = SimpleNamespace(options={'enable_device_sensors': False}, data={})
+        leaf = SimpleNamespace(options={'enable_device_sensors': True}, data={})
+        hass = SimpleNamespace(config_entries=SimpleNamespace(async_entries=lambda domain: [main, leaf]))
+        enabled = mesh_sensor_helpers()['get_mesh_device_sensors_enabled']
+
+        self.assertTrue(enabled(hass))
+        main.options['device_sensors_global'] = 1
+        self.assertFalse(enabled(hass))
+        # A later save on another entry wins.
+        leaf.options['device_sensors_global'] = 2
+        self.assertTrue(enabled(hass))
 
 
 class ClientSensorOwnerTests(unittest.TestCase):
@@ -516,15 +531,8 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             SimpleNamespace(entry_id='main', options={'enable_device_sensors': True}, data={}),
             SimpleNamespace(entry_id='leaf', options={'enable_device_sensors': False}, data={}),
         ]
-        config_value = load_function('helper.py', 'get_config_value', {})
         enabled = load_function('sensor.py', '_device_sensors_enabled', {
-            'get_config_value': config_value, 'DOMAIN': 'miwifi',
-            'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
-            'DEFAULT_ENABLE_DEVICE_SENSORS': False,
-            'get_mesh_device_sensors_enabled': lambda hass: any(
-                bool(config_value(entry, 'enable_device_sensors', False))
-                for entry in hass.config_entries.async_entries('miwifi')
-            ),
+            'get_mesh_device_sensors_enabled': mesh_sensor_helpers()['get_mesh_device_sensors_enabled'],
         })
         listener, hass, reload = self.listener(entries, sensors_before=True, sensors_now=True)
         listener.__globals__['_device_sensors_enabled'] = enabled
@@ -544,8 +552,8 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
         reload.assert_not_awaited()
 
     async def test_options_flow_keeps_auto_purge_global(self):
-        entry = SimpleNamespace(entry_id='e1', unique_id='192.0.2.2', options={'activity_days': 30})
-        others = [SimpleNamespace(entry_id='e0', options={}), entry]
+        entry = SimpleNamespace(entry_id='e1', unique_id='192.0.2.2', options={'activity_days': 30}, data={})
+        others = [SimpleNamespace(entry_id='e0', options={'device_sensors_global': 4}, data={}), entry]
         update_entry = Mock()
         set_purge = AsyncMock()
         hass = SimpleNamespace(config_entries=SimpleNamespace(
@@ -568,6 +576,8 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             'codes': SimpleNamespace(is_success=lambda code: code == 200),
             'set_global_auto_purge': set_purge,
         }
+        helpers = mesh_sensor_helpers()
+        env.update({name: helpers[name] for name in ('get_mesh_device_sensors_save', 'get_mesh_device_sensors_enabled')})
         cls = load_class(
             'config_flow.py',
             'MiWifiOptionsFlow',
@@ -577,6 +587,7 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
         flow = cls(entry)
         flow.hass = hass
         user_input = {
+            'log_level': 'debug',
             'auto_purge_every_days': 8,
             'auto_purge_at': '01:00',
             'enable_device_sensors': True,
@@ -586,11 +597,9 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result['type'], 'create_entry')
         set_purge.assert_awaited_once_with(hass, every_days=8, at='01:00')
-        self.assertEqual(
-            result['data']['enable_device_sensors'],
-            True,
-        )
-        self.assertTrue(result['data']['device_sensors_global'])
+        # The client-sensor setting is saved after the latest save on e0.
+        self.assertEqual(result['data']['enable_device_sensors'], True)
+        self.assertEqual(result['data']['device_sensors_global'], 5)
         update_entry.assert_not_called()
 
 

@@ -356,7 +356,9 @@ async def test_options_flow(hass: HomeAssistant) -> None:
 
         assert result_init["type"] == data_entry_flow.FlowResultType.MENU
         assert result_init["step_id"] == "init"
-        assert result_init["menu_options"] == ["device_settings"]
+        # No entry is identified as the main, so this one offers the global
+        # settings as well.
+        assert result_init["menu_options"] == ["global_settings", "device_settings"]
 
         result_form = await hass.config_entries.options.async_configure(
             result_init["flow_id"],

@@ -66,6 +66,7 @@ from .helper import (
     get_global_auto_purge,
     set_global_auto_purge,
     get_mesh_device_sensors_enabled,
+    get_mesh_device_sensors_save,
 )
 
 from .updater import LuciUpdater, async_get_updater
@@ -210,20 +211,33 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
         menu_options = ["device_settings"]
-        if self._is_main_router():
+        if self._shows_global_settings():
             menu_options.insert(0, "global_settings")
 
         return self.async_show_menu(step_id="init", menu_options=menu_options)
 
-    def _is_main_router(self) -> bool:
-        """Return whether this entry currently represents the mesh main node."""
-        try:
-            updater: LuciUpdater = async_get_updater(
-                self.hass, self._config_entry.entry_id
-            )
-        except ValueError:
-            return False
+    def _shows_global_settings(self) -> bool:
+        """Return whether this entry offers the mesh-wide settings.
 
+        They belong to the entry whose topology identifies the main node. When
+        no loaded entry is identified as the main (a topology that has not
+        loaded yet, a mesh whose main is not added to Home Assistant), every
+        entry offers them, so they always stay reachable.
+        """
+        mains = set()
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            try:
+                updater: LuciUpdater = async_get_updater(self.hass, entry.entry_id)
+            except ValueError:
+                continue
+            if self._is_main_router(updater):
+                mains.add(entry.entry_id)
+
+        return not mains or self._config_entry.entry_id in mains
+
+    @staticmethod
+    def _is_main_router(updater: LuciUpdater) -> bool:
+        """Return whether the updater's topology identifies the mesh main node."""
         data = updater.data or {}
         topology = data.get("topo_graph") if isinstance(data, dict) else None
         graph = topology.get("graph") if isinstance(topology, dict) else None
@@ -246,7 +260,11 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
             )
 
             options = {**self._config_entry.options, **user_input}
-            options[CONF_DEVICE_SENSORS_GLOBAL] = True
+            # Without an identified main every entry offers this step, so a
+            # save counter rather than a flag tells which save is the latest.
+            options[CONF_DEVICE_SENSORS_GLOBAL] = (
+                get_mesh_device_sensors_save(self.hass) + 1
+            )
             return self.async_create_entry(title="", data=options)
 
         panel_state = await get_global_panel_state(self.hass)
