@@ -259,9 +259,21 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 at=user_input.get(CONF_AUTO_PURGE_AT),
             )
 
-            options = {**self._config_entry.options, **user_input}
-            # Without an identified main every entry offers this step, so a
-            # save counter rather than a flag tells which save is the latest.
+            # The log level and the purge schedule are read from their global
+            # stores only, so they are not copied into the entry. The entry
+            # keeps what is read from it: the panel state its config sensor
+            # shows, and the client-sensor setting with a save counter, so the
+            # latest save wins on whichever entry it was made. The counter also
+            # changes the options on every save, so the update listener still
+            # runs: it applies the panel and reloads this entry, or every entry
+            # when the client-sensor value changed.
+            options = dict(self._config_entry.options)
+            if CONF_ENABLE_PANEL in user_input:
+                options[CONF_ENABLE_PANEL] = user_input[CONF_ENABLE_PANEL]
+            options[CONF_ENABLE_DEVICE_SENSORS] = user_input.get(
+                CONF_ENABLE_DEVICE_SENSORS,
+                get_mesh_device_sensors_enabled(self.hass),
+            )
             options[CONF_DEVICE_SENSORS_GLOBAL] = (
                 get_mesh_device_sensors_save(self.hass) + 1
             )

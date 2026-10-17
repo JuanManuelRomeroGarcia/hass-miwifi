@@ -597,10 +597,18 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result['type'], 'create_entry')
         set_purge.assert_awaited_once_with(hass, every_days=8, at='01:00')
-        # The client-sensor setting is saved after the latest save on e0.
-        self.assertEqual(result['data']['enable_device_sensors'], True)
-        self.assertEqual(result['data']['device_sensors_global'], 5)
+        # The log level and the schedule stay in their global stores only. The
+        # client-sensor setting is saved here, after the latest save on e0.
+        self.assertEqual(result['data'], {
+            'activity_days': 30, 'enable_device_sensors': True, 'device_sensors_global': 5,
+        })
         update_entry.assert_not_called()
+
+    def test_auto_purge_time_with_seconds_is_stored_as_hh_mm(self):
+        normalize = load_function('helper.py', '_normalize_time_str', {'DEFAULT_AUTO_PURGE_AT': '04:10'})
+        self.assertEqual(normalize('01:00:00'), '01:00')
+        self.assertEqual(normalize('7:5'), '07:05')
+        self.assertEqual(normalize(''), '04:10')
 
 
 class CompatibilityTests(unittest.TestCase):

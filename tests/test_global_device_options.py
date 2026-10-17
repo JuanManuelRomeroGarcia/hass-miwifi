@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 import voluptuous as vol
@@ -14,14 +15,23 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.miwifi import helper
+from custom_components.miwifi import async_update_options, helper
 from custom_components.miwifi.const import (
+    CONF_ACTIVITY_DAYS,
+    CONF_AUTO_PURGE_AT,
+    CONF_AUTO_PURGE_EVERY_DAYS,
     CONF_DEVICE_SENSORS_GLOBAL,
     CONF_ENABLE_DEVICE_SENSORS,
+    CONF_ENABLE_PANEL,
+    CONF_LOG_LEVEL,
+    DEVICE_SENSORS_MESH,
     DOMAIN,
     UPDATER,
 )
 from custom_components.miwifi.helper import (
+    get_global_auto_purge,
+    get_global_log_level,
+    get_global_panel_state,
     get_mesh_device_sensors_enabled,
 )
 
@@ -168,3 +178,88 @@ async def test_latest_global_save_wins_on_any_entry(hass: HomeAssistant) -> None
 
     assert first.options[CONF_DEVICE_SENSORS_GLOBAL] == 3
     assert second.options[CONF_DEVICE_SENSORS_GLOBAL] == 2
+
+
+async def test_global_save_keeps_log_level_and_purge_in_their_stores(
+    hass: HomeAssistant,
+) -> None:
+    legacy = {
+        CONF_ACTIVITY_DAYS: 30,
+        CONF_LOG_LEVEL: "debug",
+        CONF_AUTO_PURGE_EVERY_DAYS: 7,
+        CONF_AUTO_PURGE_AT: "00:00",
+        CONF_ENABLE_DEVICE_SENSORS: False,
+    }
+    main = _entry(hass, dict(legacy))
+    node = _entry(hass, {CONF_ENABLE_DEVICE_SENSORS: True}, ip=NODE_IP)
+    _load(hass, main, "main")
+    _load(hass, node, "node")
+
+    result = await _save_global(
+        hass,
+        main,
+        **{
+            CONF_ENABLE_PANEL: False,
+            CONF_LOG_LEVEL: "warning",
+            CONF_AUTO_PURGE_EVERY_DAYS: 3,
+            CONF_AUTO_PURGE_AT: "01:30:00",
+            CONF_ENABLE_DEVICE_SENSORS: False,
+        },
+    )
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    # Nothing reads the log level or the schedule from the entry, so the
+    # entry keeps what it had and only the values read from it change.
+    assert main.options == {
+        **legacy,
+        CONF_ENABLE_PANEL: False,
+        CONF_ENABLE_DEVICE_SENSORS: False,
+        CONF_DEVICE_SENSORS_GLOBAL: 1,
+    }
+    assert node.options == {CONF_ENABLE_DEVICE_SENSORS: True}
+    assert await get_global_log_level(hass) == "warning"
+    assert await get_global_panel_state(hass) is False
+    assert await get_global_auto_purge(hass) == {"every_days": 3, "at": "01:30"}
+    # The node's legacy vote no longer counts once the setting is saved.
+    assert not get_mesh_device_sensors_enabled(hass)
+
+
+@pytest.fixture
+def reload(hass: HomeAssistant):
+    """Run the real update listener without reloading anything."""
+    with (
+        patch.object(hass.config_entries, "async_reload", AsyncMock()) as reload,
+        patch("custom_components.miwifi.async_register_panel", AsyncMock()),
+        patch("custom_components.miwifi.async_remove_miwifi_panel", AsyncMock()),
+        patch("custom_components.miwifi.read_local_version", AsyncMock(return_value="0")),
+    ):
+        yield reload
+
+
+def _listen(hass: HomeAssistant, *entries: MockConfigEntry) -> None:
+    hass.data[DOMAIN][DEVICE_SENSORS_MESH] = get_mesh_device_sensors_enabled(hass)
+    for entry in entries:
+        entry.add_update_listener(async_update_options)
+
+
+async def test_global_save_reloads_the_mesh_only_when_client_sensors_change(
+    hass: HomeAssistant, reload: AsyncMock
+) -> None:
+    main = _entry(hass, {CONF_ENABLE_DEVICE_SENSORS: False})
+    node = _entry(hass, {CONF_ENABLE_DEVICE_SENSORS: True}, ip=NODE_IP)
+    _load(hass, main, "main")
+    _load(hass, node, "node")
+    _listen(hass, main, node)
+
+    # The node's legacy vote has them on, so saving them on changes nothing
+    # for the other entries.
+    await _save_global(hass, main, **{CONF_ENABLE_DEVICE_SENSORS: True})
+    await hass.async_block_till_done()
+    assert [call.args[0] for call in reload.await_args_list] == [main.entry_id]
+
+    reload.reset_mock()
+    await _save_global(hass, main, **{CONF_ENABLE_DEVICE_SENSORS: False})
+    await hass.async_block_till_done()
+    assert sorted(call.args[0] for call in reload.await_args_list) == sorted(
+        [main.entry_id, node.entry_id]
+    )
