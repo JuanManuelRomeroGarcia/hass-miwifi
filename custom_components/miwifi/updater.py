@@ -2339,11 +2339,14 @@ class LuciUpdater(DataUpdateCoordinator):
                     ATTR_TRACKER_ENTRY_ID: self._entry_id,
                 }
 
+            # This runs in the first refresh, before the tracker platform is
+            # set up: the signal goes unheard, and the platform adds the
+            # tracker from self.devices. The flag has to be on the record for
+            # the tracker to start not_home. add_device drops it.
+            device[ATTR_TRACKER_IS_RESTORED] = True
             self.devices[mac] = device
 
-            async_dispatcher_send(
-                self.hass, SIGNAL_NEW_DEVICE, device | {ATTR_TRACKER_IS_RESTORED: True}
-            )
+            async_dispatcher_send(self.hass, SIGNAL_NEW_DEVICE, device)
 
             #await self.hass.async_add_executor_job(_LOGGER.debug, "Restore device: %s, %s", mac, device)
 
@@ -2394,6 +2397,9 @@ class LuciUpdater(DataUpdateCoordinator):
                 }
         else:
             self.devices[device[ATTR_TRACKER_MAC]] = _device
+
+        # Reported again: the record is no longer only what a store held.
+        self.devices[device[ATTR_TRACKER_MAC]].pop(ATTR_TRACKER_IS_RESTORED, None)
             
         # ✅ Keep a mesh-wide latest snapshot so stable device_tracker entities
         # can follow the client even when it moves between main router and leaf nodes.

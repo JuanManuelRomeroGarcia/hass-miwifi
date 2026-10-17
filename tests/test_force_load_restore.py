@@ -200,10 +200,11 @@ async def test_absent_client_is_restored_not_home_and_returns_home(hass, router,
         assert leaf.is_repeater and leaf.is_force_load
         assert set(leaf.devices) == {PRESENT, ABSENT}
         await _setup_trackers(hass, leaf_entry)
-        await _poll(hass, leaf)
-
         absent_id = _tracker(hass, ABSENT)
         assert absent_id
+        assert hass.states.get(absent_id).state == STATE_NOT_HOME
+        await _poll(hass, leaf)
+
         assert hass.states.get(absent_id).state == STATE_NOT_HOME
         assert hass.states.get(_tracker(hass, PRESENT)).state == STATE_HOME
         # A restored client is not online: the node's own count stands.
