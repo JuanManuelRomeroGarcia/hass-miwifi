@@ -43,6 +43,7 @@ def _updater(hass, model=Model.RD08, *, force=False):
     updater.new_device_callback = None
     updater._parent_push_pending = False
     updater._counters_reset_this_cycle = False
+    updater._is_first_update = True
     return updater
 
 

@@ -522,12 +522,13 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 2
     assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -535,7 +536,7 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, set())
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -588,23 +589,6 @@ async def test_updater_ap_mode_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
@@ -689,12 +673,13 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 2
     assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -702,7 +687,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, set())
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -759,23 +744,6 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
         },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
     })
 
     await updater_second.update()
@@ -794,11 +762,12 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 4
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 3
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 4
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 1
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -806,7 +775,7 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, set())
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -876,23 +845,6 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
@@ -970,12 +922,13 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 2
     assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -983,7 +936,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, set())
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1036,23 +989,6 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
@@ -1079,12 +1015,13 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 2
     assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -1092,7 +1029,7 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, set())
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1145,23 +1082,6 @@ async def test_updater_ap_mode_revert_move_force_mode(hass: HomeAssistant) -> No
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
@@ -1253,11 +1173,12 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 2
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -1265,7 +1186,7 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, {"00:00:00:00:00:01"})
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1318,23 +1239,6 @@ async def test_updater_ap_mode_move_force_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
@@ -1429,12 +1333,13 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 4
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 3
     assert "00:00:00:00:00:01" not in updater_second.devices
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -1442,7 +1347,7 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, set())
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04", "00:00:00:00:00:05"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:05"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1510,23 +1415,6 @@ async def test_updater_ap_mode_restore(hass: HomeAssistant) -> None:
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,
@@ -1640,11 +1528,12 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
 
-    assert len(updater_second.devices) == 3
+    assert "00:00:00:00:00:04" not in updater_second.devices
+    assert len(updater_second.devices) == 2
     assert len(updater_second._signals) == 2
 
-    assert updater_second.data[ATTR_SENSOR_DEVICES] == 3
-    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES] == 2
+    assert updater_second.data[ATTR_SENSOR_DEVICES_LAN] == 1
     assert updater_second.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_second.data[ATTR_SENSOR_DEVICES_5_0] == 1
@@ -1652,7 +1541,7 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
     assert updater_second.data[ATTR_STATE]
 
     assert_announced_macs(mock_async_dispatcher_send_first, {"00:00:00:00:00:01"})
-    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03", "00:00:00:00:00:04"})
+    assert_announced_macs(mock_async_dispatcher_send_second, {"00:00:00:00:00:01", "00:00:00:00:00:02", "00:00:00:00:00:03"})
 
     assert_snapshot_contains(updater_first.devices, {
         "00:00:00:00:00:01": {
@@ -1705,23 +1594,6 @@ async def test_updater_ap_mode_restore_force_mode(hass: HomeAssistant) -> None:
             ATTR_TRACKER_UP_SPEED: 0.0,
             ATTR_TRACKER_ONLINE: "8:05:01",
             ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:03"][
-                ATTR_TRACKER_LAST_ACTIVITY
-            ],
-            ATTR_TRACKER_OPTIONAL_MAC: None,
-        },
-        "00:00:00:00:00:04": {
-            ATTR_TRACKER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_UPDATER_ENTRY_ID: config_entry_second.entry_id,
-            ATTR_TRACKER_MAC: "00:00:00:00:00:04",
-            ATTR_TRACKER_ROUTER_MAC_ADDRESS: "00:00:00:00:00:00",
-            ATTR_TRACKER_SIGNAL: None,
-            ATTR_TRACKER_NAME: "Device 4 (Repeater)",
-            ATTR_TRACKER_IP: "192.168.31.100",
-            ATTR_TRACKER_CONNECTION: Connection.LAN,
-            ATTR_TRACKER_DOWN_SPEED: 0.0,
-            ATTR_TRACKER_UP_SPEED: 0.0,
-            ATTR_TRACKER_ONLINE: "8:05:01",
-            ATTR_TRACKER_LAST_ACTIVITY: updater_second.devices["00:00:00:00:00:04"][
                 ATTR_TRACKER_LAST_ACTIVITY
             ],
             ATTR_TRACKER_OPTIONAL_MAC: None,

@@ -102,6 +102,7 @@ from .const import (
 from .entity import MiWifiEntity
 from .enum import Connection, DeviceClass
 from .helper import (
+    async_remove_empty_client_device,
     async_get_serving_node,
     detect_manufacturer,
     get_config_value,
@@ -997,12 +998,19 @@ async def async_setup_entry(
 
         reg = er.async_get(hass)
         base_unique = _device_base_unique_id(mac_u)
+        device_ids: set[str] = set()
 
         for desc in MIWIFI_DEVICE_SENSORS:
             uid = f"{base_unique}-{desc.key}"
             ent_id = reg.async_get_entity_id("sensor", DOMAIN, uid)
             if ent_id:
+                if (entry := reg.async_get(ent_id)) is not None and entry.device_id:
+                    device_ids.add(entry.device_id)
                 reg.async_remove(ent_id)
+
+        # The tracker's purge may have run first and kept the row for these.
+        for device_id in device_ids:
+            async_remove_empty_client_device(hass, device_id)
 
     # Connect signals
     config_entry.async_on_unload(
