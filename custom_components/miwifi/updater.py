@@ -2220,6 +2220,34 @@ class LuciUpdater(DataUpdateCoordinator):
                             source_ip=self.ip, pushed_clients=len(devices))
 
         if isinstance(response.get("list"), list) and response.get("code", 0) == 0:
+            # A node whose counters hold our last push, and that this complete
+            # census routes no client to, gets no push: its last client left,
+            # and nothing else resets a pushed node. Zero its counters, or the
+            # per-band ones keep that push while the total follows the topology
+            # down to 0. Unlike a push this is not stamped as a census: the
+            # total goes back to the topology, which can count clients
+            # devicelist does not list, and has no per-band split to give.
+            routed_ips = set(mac_to_ip.values())
+            for ip, integration in integrations.items():
+                updater = integration.get(UPDATER)
+                # Skipped: a node whose MAC we do not know (its clients could
+                # not be routed to it), one whose counters are not from our
+                # push (by IP, so our push from before a reload still counts),
+                # and one that counts its own clients.
+                if (
+                    ip in add_to
+                    or ip not in routed_ips
+                    or not isinstance(updater, LuciUpdater)
+                    or getattr(updater, "_parent_census_at", None) is None
+                    or getattr(updater._parent_census_source, "ip", None) != self.ip
+                    or updater._counts_own_clients
+                ):
+                    continue
+                updater.reset_counter(is_force=True)
+                trace = getattr(updater, "_mesh_trace", None)
+                if trace is not None:
+                    trace.event("parent_census_empty", updater.data, source_ip=self.ip)
+
             updaters = [row[UPDATER] for row in integrations.values() if row.get(UPDATER)]
             if self not in updaters:
                 updaters.append(self)

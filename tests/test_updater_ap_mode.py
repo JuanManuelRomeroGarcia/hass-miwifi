@@ -754,10 +754,13 @@ async def test_updater_ap_mode_revert_move(hass: HomeAssistant) -> None:
     assert len(updater_first.devices) == 1
     assert len(updater_first._signals) == 1
 
-    assert updater_first.data[ATTR_SENSOR_DEVICES] == 1
+    # Device 1 is the main's client again, and the main counts it. Its
+    # complete census routes no client to the first node, so the counters
+    # of the last push there are zeroed instead of counting Device 1 twice.
+    assert updater_first.data[ATTR_SENSOR_DEVICES] == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_LAN] == 0
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_GUEST, 0) == 0
-    assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 1
+    assert updater_first.data[ATTR_SENSOR_DEVICES_2_4] == 0
     assert updater_first.data[ATTR_SENSOR_DEVICES_5_0] == 0
     assert updater_first.data.get(ATTR_SENSOR_DEVICES_5_0_GAME, 0) == 0
     assert updater_first.data[ATTR_STATE]
