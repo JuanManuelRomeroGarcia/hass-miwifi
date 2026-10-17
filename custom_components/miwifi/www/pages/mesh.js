@@ -1,8 +1,8 @@
-import { getRouterImage } from "./utils.js?v=3.10.0";
-import { html } from "../vendor/lit.js?v=3.10.0";
-import { renderToggle, renderSelects } from "./utils.js?v=3.10.0";
-import { localize } from "../translations/localize.js?v=3.10.0";
-import { logToBackend } from "./utils.js?v=3.10.0";
+import { getRouterImage } from "./utils.js?v=3.11.0";
+import { html } from "../vendor/lit.js?v=3.11.0";
+import { renderToggle, renderSelects } from "./utils.js?v=3.11.0";
+import { localize } from "../translations/localize.js?v=3.11.0";
+import { logToBackend } from "./utils.js?v=3.11.0";
 
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 
@@ -134,7 +134,7 @@ export async function renderMesh(hass) {
                 <div class="mesh-info">
                   ${localize("ip")}: ${leaf.ip}<br />
                   ${localize("modelo")}: ${leaf.hardware}<br />
-                  ${localize("estado")}: ${localize("🟢 status_connected")}
+                  ${localize("estado")}: ${localize("status_connected")}
                 </div>
 
                 ${mac

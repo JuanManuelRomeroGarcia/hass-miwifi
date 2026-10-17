@@ -158,6 +158,8 @@ class Mesh:
         updater.hass.config_entries.async_entries = lambda domain: []
         updater._is_first_update = True
         updater._forget_mesh_node = lambda *args, **kwargs: None
+        # Registry work on the node's device row, not part of the counters.
+        updater._async_record_backhaul_aliases = AsyncMock()
         updater.new_device_callback = None
         updater._entry_id = f"entry-{ip}"
         updater._moved_devices = []
@@ -166,6 +168,7 @@ class Mesh:
         updater._scan_interval = 20
         updater.timeout = 20
         updater._build_device = lambda device, integrations=None: dict(device)
+        updater._resolve_connection = lambda device: device.get("connection")
         updater._mass_update_device = lambda device, integrations: False
         updater._has_dedicated_iot_wifi = lambda: False
         self.integrations[ip] = {const.UPDATER: updater}

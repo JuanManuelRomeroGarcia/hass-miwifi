@@ -9,11 +9,11 @@ jobs:
   regression:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
       - run: python -B tests/test_issue_regressions.py
@@ -22,10 +22,14 @@ jobs:
       - run: python -B tools/check_frontend_packaging.py
       - run: node tools/test_mac_replacement_ui.mjs
       - run: node tools/test_dhcp_ui.mjs
+      - run: node tools/test_devices_ui.mjs
+      - run: node tools/test_status_wan_ui.mjs
+      - run: node tools/test_status_view_ui.mjs
+      - run: node tools/test_panel_preview.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: home-assistant/actions/hassfest@master
   hacs:
     runs-on: ubuntu-latest

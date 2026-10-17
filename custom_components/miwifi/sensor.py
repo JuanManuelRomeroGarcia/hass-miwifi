@@ -101,7 +101,12 @@ from .const import (
 )
 from .entity import MiWifiEntity
 from .enum import Connection, DeviceClass
-from .helper import detect_manufacturer, get_config_value, map_signal_quality
+from .helper import (
+    async_get_serving_node,
+    detect_manufacturer,
+    get_config_value,
+    map_signal_quality,
+)
 from .logger import _LOGGER
 from .updater import LuciUpdater, async_get_updater
 
@@ -671,6 +676,44 @@ class MiWifiSensor(MiWifiEntity, SensorEntity):
         return self.entity_description.native_unit_of_measurement
 
 
+class MiWifiWan2Sensor(MiWifiEntity, SensorEntity):
+    """WAN2 address and allowlisted status; present only on verified RD08 mains."""
+
+    def __init__(self, updater: LuciUpdater, entry_id: str) -> None:
+        super().__init__(
+            f"{entry_id}-wan2_ip", SensorEntityDescription(
+                key="wan2_ip", name="WAN2 IP address", icon="mdi:ip",
+                entity_category=EntityCategory.DIAGNOSTIC,
+            ), updater, ENTITY_ID_FORMAT,
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        return (self._updater.data.get("multiwan", {}).get("wan2") or {}).get("ip")
+
+    @property
+    def available(self) -> bool:
+        multiwan = self._updater.data.get("multiwan", {})
+        return (
+            super().available and multiwan.get("enabled") is True
+            and isinstance(multiwan.get("wan2"), dict)
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        multiwan = self._updater.data.get("multiwan", {})
+        return {
+            "enabled": multiwan.get("enabled"),
+            **{key: (multiwan.get("wan2") or {}).get(key)
+               for key in ("type", "link", "connected")},
+        }
+
+    def _handle_coordinator_update(self) -> None:
+        # Status can change while the address stays identical.
+        self._attr_available = self._updater.data.get(ATTR_STATE, False)
+        self.async_write_ha_state()
+
+
 class MiWifiTopologyGraphSensor(SensorEntity):
     """Sensor to represent the network topology graph."""
 
@@ -805,6 +848,7 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
 
         via_mac = dev.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS)
         via_entry = dev.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        serving_node = async_get_serving_node(self.hass, via_mac)
 
         return {
             # Keep same attribute names as device_tracker
@@ -814,6 +858,8 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
             # Optional duplicates (your custom keys) for backwards compatibility
             "connected_via_router_mac": via_mac,
             "connected_via_entry_id": via_entry,
+            "connected_via_router_device_mac": serving_node[0] if serving_node else None,
+            "connected_via_router_name": serving_node[1] if serving_node else None,
 
             "connection": conn_text,
         }
@@ -1134,6 +1180,11 @@ async def _async_add_all_sensors_later(
         MiWifiTopologyGraphSensor(updater),
         MiWifiConfigSensor(updater),
     ]
+
+    from .multiwan import is_rd08
+    if is_rd08(updater.data) and not updater.is_repeater:
+        # Create even while disabled, so enabling dual WAN needs no HA restart.
+        entities.append(MiWifiWan2Sensor(updater, config_entry.entry_id))
 
     graph = (((updater.data or {}).get("topo_graph") or {}).get("graph") or {})
     if graph.get("is_main", False) and not is_cpe:
