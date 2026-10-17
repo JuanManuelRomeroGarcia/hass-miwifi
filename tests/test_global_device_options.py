@@ -11,6 +11,8 @@ from homeassistant import data_entry_flow
 from homeassistant.const import (
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
+    CONF_SCAN_INTERVAL,
+    CONF_TIMEOUT,
 )
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -23,7 +25,14 @@ from custom_components.miwifi.const import (
     CONF_DEVICE_SENSORS_GLOBAL,
     CONF_ENABLE_DEVICE_SENSORS,
     CONF_ENABLE_PANEL,
+    CONF_ENABLE_PORT_PROBE,
+    CONF_ENCRYPTION_ALGORITHM,
+    CONF_IS_FORCE_LOAD,
+    CONF_IS_TRACK_DEVICES,
     CONF_LOG_LEVEL,
+    CONF_PROTOCOL,
+    CONF_STAY_ONLINE,
+    CONF_WAN_SPEED_UNIT,
     DEVICE_SENSORS_MESH,
     DOMAIN,
     UPDATER,
@@ -263,3 +272,89 @@ async def test_global_save_reloads_the_mesh_only_when_client_sensors_change(
     assert sorted(call.args[0] for call in reload.await_args_list) == sorted(
         [main.entry_id, node.entry_id]
     )
+
+
+NODE_OPTIONS = {
+    CONF_IP_ADDRESS: NODE_IP,
+    CONF_PASSWORD: "x",
+    CONF_ENCRYPTION_ALGORITHM: "sha256",
+    CONF_PROTOCOL: "auto",
+    CONF_IS_TRACK_DEVICES: True,
+    CONF_STAY_ONLINE: 30,
+    CONF_SCAN_INTERVAL: 30,
+    CONF_ACTIVITY_DAYS: 30,
+    CONF_TIMEOUT: 20,
+    CONF_WAN_SPEED_UNIT: "Mbps",
+    CONF_ENABLE_PORT_PROBE: False,
+    # Saved by the single form of earlier releases or by the global step.
+    # The per-node step does not show them.
+    CONF_ENABLE_PANEL: True,
+    CONF_LOG_LEVEL: "debug",
+    CONF_AUTO_PURGE_EVERY_DAYS: 7,
+    CONF_AUTO_PURGE_AT: "00:00",
+    CONF_ENABLE_DEVICE_SENSORS: True,
+    CONF_DEVICE_SENSORS_GLOBAL: 2,
+}
+
+
+async def _save_node(hass: HomeAssistant, entry: MockConfigEntry, **changes) -> dict:
+    form = await _open(hass, entry, "device_settings")
+    with patch(
+        "custom_components.miwifi.config_flow.async_verify_access",
+        AsyncMock(return_value=(200, "")),
+    ):
+        return await hass.config_entries.options.async_configure(
+            form["flow_id"], {**_defaults(form), **changes}
+        )
+
+
+@pytest.mark.parametrize("force_load", [False, True])
+@pytest.mark.parametrize("role", ["repeater", "gateway", "unloaded"])
+async def test_saving_the_node_form_unchanged_changes_no_option(
+    hass: HomeAssistant, role: str, force_load: bool
+) -> None:
+    options = {**NODE_OPTIONS, CONF_IS_FORCE_LOAD: force_load}
+    entry = _entry(hass, dict(options), ip=NODE_IP)
+    _load(hass, entry, role)
+
+    form = await _open(hass, entry, "device_settings")
+    # Force-load is offered on repeaters and wherever it is on. A node that
+    # reads as a gateway for a moment must not hide a force-load in effect.
+    assert (CONF_IS_FORCE_LOAD in _defaults(form)) is (role != "gateway" or force_load)
+
+    result = await _save_node(hass, entry)
+
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert entry.options == options
+
+
+async def test_force_load_left_on_a_gateway_can_be_turned_off(
+    hass: HomeAssistant,
+) -> None:
+    entry = _entry(hass, {**NODE_OPTIONS, CONF_IS_FORCE_LOAD: True}, ip=NODE_IP)
+    _load(hass, entry, "gateway")
+
+    await _save_node(hass, entry, **{CONF_IS_FORCE_LOAD: False})
+
+    assert entry.options[CONF_IS_FORCE_LOAD] is False
+    form = await _open(hass, entry, "device_settings")
+    assert CONF_IS_FORCE_LOAD not in _defaults(form)
+
+
+async def test_node_save_keeps_the_legacy_client_sensor_vote(
+    hass: HomeAssistant, reload: AsyncMock
+) -> None:
+    """Until the global step is saved, a node keeps its vote when it saves."""
+    main = _entry(hass)
+    node = _entry(hass, {**NODE_OPTIONS, CONF_DEVICE_SENSORS_GLOBAL: 0}, ip=NODE_IP)
+    _load(hass, main, "main")
+    _load(hass, node, "repeater")
+    _listen(hass, main, node)
+    assert get_mesh_device_sensors_enabled(hass)
+
+    await _save_node(hass, node, **{CONF_SCAN_INTERVAL: 60})
+    await hass.async_block_till_done()
+
+    assert node.options[CONF_ENABLE_DEVICE_SENSORS] is True
+    assert get_mesh_device_sensors_enabled(hass)
+    assert [call.args[0] for call in reload.await_args_list] == [node.entry_id]

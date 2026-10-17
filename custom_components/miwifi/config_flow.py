@@ -328,6 +328,10 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
             if codes.is_success(code):
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
+                # Only the fields of this form change. The other stored values
+                # stay: the mesh-wide ones this step does not show, and a
+                # per-node value the form may hide for a moment, such as
+                # force-load while the node's mode is not known yet.
                 options = {**self._config_entry.options, **user_input}
                 return self.async_create_entry(
                     title=user_input[CONF_IP_ADDRESS],
@@ -394,13 +398,18 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(CONF_ENABLE_PORT_PROBE, default=get_config_value(self._config_entry, CONF_ENABLE_PORT_PROBE, DEFAULT_ENABLE_PORT_PROBE)): cv.boolean,
             }
 
+            # Force-load is offered on repeaters, and wherever it is on: a node
+            # can read as a non-repeater for a while (before its topology
+            # arrives, or when the mode probe fails), and an option in effect
+            # must stay visible so that it can be turned off.
+            is_force_load = get_config_value(self._config_entry, CONF_IS_FORCE_LOAD, False)
             with contextlib.suppress(ValueError):
                 updater: LuciUpdater = async_get_updater(self.hass, self._config_entry.entry_id)
-                if not updater.is_repeater:
+                if not updater.is_repeater and not is_force_load:
                     return vol.Schema(schema)
 
             schema |= {
-                vol.Optional(CONF_IS_FORCE_LOAD, default=get_config_value(self._config_entry, CONF_IS_FORCE_LOAD, False)): cv.boolean,
+                vol.Optional(CONF_IS_FORCE_LOAD, default=is_force_load): cv.boolean,
             }
 
             return vol.Schema(schema)
