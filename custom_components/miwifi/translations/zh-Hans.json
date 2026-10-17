@@ -43,24 +43,24 @@
       "init": {
         "title": "MiWiFi 设置",
         "menu_options": {
-          "global_settings": "Mesh ????",
-          "device_settings": "??????"
+          "global_settings": "Mesh 全局设置",
+          "device_settings": "此设备的设置"
         }
       },
       "global_settings": {
-        "title": "Mesh ????",
-        "description": "????? mesh ??? MiWiFi ?????",
+        "title": "Mesh 全局设置",
+        "description": "适用于所有 Mesh 设备的 MiWiFi 全局设置。",
         "data": {
           "enable_panel": "启用控制面板",
           "log_level": "日志级别（全局）",
           "auto_purge_every_days": "自动清理（每 X 天，0 = 禁用）[PRO]",
-          "auto_purge_at": "自动清理时间 (0–23) [PRO]",
+          "auto_purge_at": "自动清理时间 (HH:MM) [PRO]",
           "enable_device_sensors": "创建设备传感器（客户端）"
         }
       },
       "device_settings": {
-        "title": "??????",
-        "description": "????????? MiWiFi ???",
+        "title": "此设备的设置",
+        "description": "这些设置仅适用于此 MiWiFi 设备。",
         "data": {
           "ip_address": "IP 地址",
           "password": "密码",
@@ -73,8 +73,7 @@
           "wan_speed_unit": "WAN 速度单位",
           "is_force_load": "在中继模式下强制加载设备 [PRO]",
           "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
-          "protocol": "??",
-          "is_ap_mode": "??? / mesh ????? WAN ??????"
+          "protocol": "协议"
         }
       }
     }

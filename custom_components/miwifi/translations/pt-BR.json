@@ -43,24 +43,24 @@
       "init": {
         "title": "Configurações do MiWiFi",
         "menu_options": {
-          "global_settings": "Configura??es globais da malha",
-          "device_settings": "Configura??es deste dispositivo"
+          "global_settings": "Configurações globais da rede mesh",
+          "device_settings": "Configurações deste dispositivo"
         }
       },
       "global_settings": {
-        "title": "Configura??es globais da malha",
-        "description": "Configura??es globais da malha MiWiFi, aplic?veis a todos os dispositivos.",
+        "title": "Configurações globais da rede mesh",
+        "description": "Configurações globais da rede mesh MiWiFi, aplicáveis a todos os dispositivos mesh.",
         "data": {
           "enable_panel": "Ativar painel de controle",
           "log_level": "Nível de log (global)",
           "auto_purge_every_days": "Limpeza automática a cada X dias (0 = desativado) [PRO]",
-          "auto_purge_at": "Hora da limpeza automática (0–23) [PRO]",
+          "auto_purge_at": "Hora da limpeza automática (HH:MM) [PRO]",
           "enable_device_sensors": "Criar sensores de dispositivo (clientes)"
         }
       },
       "device_settings": {
-        "title": "Configura??es deste dispositivo",
-        "description": "Estas configura??es se aplicam somente a este dispositivo MiWiFi.",
+        "title": "Configurações deste dispositivo",
+        "description": "Estas configurações se aplicam somente a este dispositivo MiWiFi.",
         "data": {
           "ip_address": "Endereço IP",
           "password": "Senha",
@@ -73,8 +73,7 @@
           "wan_speed_unit": "Unidade de velocidade WAN",
           "is_force_load": "Forçar carregamento de dispositivos em modo repetidor [PRO]",
           "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo",
-          "protocol": "Protocolo",
-          "is_ap_mode": "Ponto de acesso / n? mesh (ignorar endpoints WAN e de gateway)"
+          "protocol": "Protocolo"
         }
       }
     }

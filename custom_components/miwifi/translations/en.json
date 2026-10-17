@@ -73,8 +73,7 @@
           "wan_speed_unit": "WAN speed unit",
           "is_force_load": "Forced booting of devices in repeater mode [PRO]",
           "enable_port_probe": "Enable port probing (80/443) for device configuration URL",
-          "protocol": "Protocol",
-          "is_ap_mode": "Access point / mesh node (skip WAN and gateway endpoints)"
+          "protocol": "Protocol"
         }
       }
     }

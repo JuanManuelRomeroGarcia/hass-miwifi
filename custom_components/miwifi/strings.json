@@ -70,7 +70,6 @@
           "timeout": "Timeout of requests in seconds [PRO]",
           "wan_speed_unit": "WAN speed unit",
           "is_force_load": "Forced loading of devices in repeater mode [PRO]",
-          "is_ap_mode": "Access point / mesh node (skip WAN and gateway endpoints)",
           "enable_port_probe": "Enable port probing (80/443) for device configuration URL"
         }
       }

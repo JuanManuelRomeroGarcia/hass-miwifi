@@ -43,24 +43,24 @@
       "init": {
         "title": "MiWiFi Ayarları",
         "menu_options": {
-          "global_settings": "Global mesh ayarlar?",
-          "device_settings": "Bu cihaz?n ayarlar?"
+          "global_settings": "Global mesh ayarları",
+          "device_settings": "Bu cihazın ayarları"
         }
       },
       "global_settings": {
-        "title": "Global mesh ayarlar?",
-        "description": "T?m mesh cihazlar? i?in ge?erli global MiWiFi mesh ayarlar?.",
+        "title": "Global mesh ayarları",
+        "description": "Tüm mesh cihazları için geçerli global MiWiFi mesh ayarları.",
         "data": {
           "enable_panel": "Kontrol panelini etkinleştir",
           "log_level": "Günlük seviyesi (global)",
           "auto_purge_every_days": "Otomatik temizleme (her X günde bir, 0 = kapalı) [PRO]",
-          "auto_purge_at": "Otomatik temizleme saati (0–23) [PRO]",
+          "auto_purge_at": "Otomatik temizleme saati (HH:MM) [PRO]",
           "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)"
         }
       },
       "device_settings": {
-        "title": "Bu cihaz?n ayarlar?",
-        "description": "Bu ayarlar yaln?zca bu MiWiFi cihaz? i?in ge?erlidir.",
+        "title": "Bu cihazın ayarları",
+        "description": "Bu ayarlar yalnızca bu MiWiFi cihazı için geçerlidir.",
         "data": {
           "ip_address": "IP adresi",
           "password": "Parola",
@@ -73,8 +73,7 @@
           "wan_speed_unit": "WAN hız birimi",
           "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
           "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)",
-          "protocol": "Protokol",
-          "is_ap_mode": "Eri?im noktas? / mesh d???m? (WAN ve a? ge?idi u? noktalar?n? atla)"
+          "protocol": "Protokol"
         }
       }
     }

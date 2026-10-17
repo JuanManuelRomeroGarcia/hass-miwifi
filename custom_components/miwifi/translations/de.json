@@ -44,23 +44,23 @@
         "title": "MiWiFi Einstellungen",
         "menu_options": {
           "global_settings": "Globale Mesh-Einstellungen",
-          "device_settings": "Einstellungen f?r dieses Ger?t"
+          "device_settings": "Einstellungen für dieses Gerät"
         }
       },
       "global_settings": {
         "title": "Globale Mesh-Einstellungen",
-        "description": "Globale MiWiFi-Mesh-Einstellungen, die f?r alle Mesh-Ger?te gelten.",
+        "description": "Globale MiWiFi-Mesh-Einstellungen, die für alle Mesh-Geräte gelten.",
         "data": {
           "enable_panel": "Steuerungs-Panel aktivieren",
           "log_level": "Log-Level (global)",
           "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
-          "auto_purge_at": "Zeit für automatische Bereinigung (0–23) [PRO]",
+          "auto_purge_at": "Zeit für automatische Bereinigung (HH:MM) [PRO]",
           "enable_device_sensors": "Gerätesensoren erstellen (Clients)"
         }
       },
       "device_settings": {
-        "title": "Einstellungen f?r dieses Ger?t",
-        "description": "Diese Einstellungen gelten nur f?r dieses MiWiFi-Ger?t.",
+        "title": "Einstellungen für dieses Gerät",
+        "description": "Diese Einstellungen gelten nur für dieses MiWiFi-Gerät.",
         "data": {
           "ip_address": "IP-Adresse",
           "password": "Passwort",
@@ -73,8 +73,7 @@
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
           "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
           "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
-          "protocol": "Protokoll",
-          "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte ?berspringen)"
+          "protocol": "Protokoll"
         }
       }
     }
