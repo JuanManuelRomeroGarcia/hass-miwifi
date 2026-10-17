@@ -254,3 +254,11 @@ The standalone [miwifi-panel-frontend](https://github.com/JuanManuelRomeroGarcia
 
 The panel includes translations for English, Spanish, German, French, Brazilian
 Portuguese, Russian, Turkish and Simplified Chinese.
+
+## Support the project
+
+MiWiFi is free to use. If it helps you, you can support its development with a
+voluntary donation via [PayPal](https://www.paypal.com/donate/?hosted_button_id=UTTD853CXYX8G)
+or [Wise](https://wise.com/pay/me/juanmanuelr175). Donations are optional; all
+features remain available without contributing. Bug reports, translations and
+feedback are also welcome.

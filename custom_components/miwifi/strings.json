@@ -67,5 +67,45 @@
     "info": {
       "version": "Version"
     }
+  },
+  "services": {
+    "dump_router_data": {
+      "name": "Generate router dump",
+      "description": "Generates a JSON file with information from the main router.",
+      "fields": {
+        "system": {
+          "name": "Include system data",
+          "description": "Include general system information."
+        },
+        "network": {
+          "name": "Include network data",
+          "description": "Include WAN, Wi-Fi, and topology details."
+        },
+        "devices": {
+          "name": "Include connected devices",
+          "description": "Include list of connected devices and their information."
+        },
+        "nat_rules": {
+          "name": "Include NAT rules",
+          "description": "Include port forwarding rules."
+        },
+        "qos": {
+          "name": "Include QoS configuration",
+          "description": "Include QoS configuration details."
+        },
+        "wifi_config": {
+          "name": "Include Wi-Fi configuration",
+          "description": "Include Wi-Fi network settings (may contain sensitive data)."
+        },
+        "hide_sensitive": {
+          "name": "Anonymize IP/MAC addresses and names",
+          "description": "Replace IP addresses, MAC addresses and names with consistent aliases within this export. Passwords, keys and known tokens are always hidden, even when this option is off."
+        },
+        "api_diagnostics": {
+          "name": "Fresh API queries and responses (main + nodes)",
+          "description": "Queries the known read-only diagnostic blocks on all loaded routers, including errors, skipped queries and timings. Up to 2 minutes. Passwords and session tokens are always hidden. This is a diagnostic catalogue, not every possible firmware API."
+        }
+      }
+    }
   }
 }

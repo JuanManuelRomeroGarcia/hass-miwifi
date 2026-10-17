@@ -363,7 +363,9 @@ class LuciClient:
             if "code" in _data and errors is not None and _data["code"] in errors:
                 raise LuciError(errors[_data["code"]])
 
-            raise LuciRequestError(_data.get("msg", f"Invalid error code received: {_code}"))
+            raise LuciRequestError(
+                _data.get("msg", f"Invalid error code received: {_code}"), response=_data
+            )
 
         return _data
 

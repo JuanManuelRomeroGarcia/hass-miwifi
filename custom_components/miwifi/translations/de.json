@@ -99,8 +99,12 @@
           "description": "Wi-Fi-Netzwerkeinstellungen einfügen (kann sensible Daten enthalten)."
         },
         "hide_sensitive": {
-          "name": "Sensible Daten ausblenden",
-          "description": "Passwörter und MAC-Adressen ausblenden."
+          "name": "IP-/MAC-Adressen und Namen anonymisieren",
+          "description": "Ersetzt IP-Adressen, MAC-Adressen und Namen durch konsistente Aliasse innerhalb dieses Exports. Passwörter, Schlüssel und bekannte Tokens werden immer verborgen, auch wenn diese Option deaktiviert ist."
+        },
+        "api_diagnostics": {
+          "name": "Neue API-Abfragen und Antworten (Hauptrouter und Knoten)",
+          "description": "Fragt bekannte schreibgeschützte Diagnoseblöcke aller geladenen Router ab, mit Fehlern, ausgelassenen Abfragen und Zeiten. Bis zu 2 Minuten. Passwörter und Sitzungstoken bleiben immer verborgen. Der Katalog enthält nicht alle möglichen Firmware-APIs."
         }
       }
     },

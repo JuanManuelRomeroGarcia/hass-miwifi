@@ -99,8 +99,12 @@
           "description": "Incluir configurações de rede Wi-Fi (pode conter dados sensíveis)."
         },
         "hide_sensitive": {
-          "name": "Ocultar dados sensíveis",
-          "description": "Ocultar senhas e endereços MAC."
+          "name": "Anonimizar endereços IP/MAC e nomes",
+          "description": "Substitui IPs, MACs e nomes por aliases consistentes neste arquivo. Senhas, chaves e tokens conhecidos são sempre ocultados, mesmo quando esta opção está desativada."
+        },
+        "api_diagnostics": {
+          "name": "Novas consultas e respostas da API (principal e nós)",
+          "description": "Consulta os blocos de diagnóstico conhecidos de somente leitura em todos os roteadores carregados, com erros, consultas ignoradas e tempos. Até 2 minutos. Senhas e tokens de sessão sempre ficam ocultos. O catálogo não inclui todas as APIs possíveis do firmware."
         }
       }
     },

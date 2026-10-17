@@ -248,7 +248,7 @@
   "dump_nat_rules": "NAT kuralları",
   "dump_qos": "QoS",
   "dump_wifi_config": "Wi-Fi yapılandırması",
-  "dump_hide_sensitive": "Hassas verileri gizle",
+  "dump_hide_sensitive": "IP/MAC adreslerini ve adları anonimleştir",
 
   "wifi_password": "Şifre",
   "guest_password_hint": "Mevcut, admin iseniz gösterilir.",
@@ -318,5 +318,8 @@
   "status_view": "Durum görünümü",
   "status_view_list": "Liste",
   "status_column_field": "Alan",
-  "status_column_value": "Değer"
+  "status_column_value": "Değer",
+  "dump_api_diagnostics": "Yeni API sorguları ve yanıtları (ana yönlendirici ve düğümler)",
+  "dump_api_diagnostics_hint": "Yüklü yönlendiricilerde bilinen salt okunur tanılama bloklarını sorgular; hataları, atlanan sorguları ve süreleri içerir. En fazla 2 dakika. Parolalar ve oturum belirteçleri her zaman gizlenir. Katalog, aygıt yazılımının tüm olası API'lerini kapsamaz.",
+  "settings_support_optional": "MiWiFi ücretsizdir. İşinize yarıyorsa geliştirilmesini gönüllü bir bağışla destekleyebilirsiniz:"
 }

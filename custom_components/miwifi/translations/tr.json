@@ -99,8 +99,12 @@
           "description": "Wi-Fi ağ ayarlarını ekle (gizli veriler içerebilir)."
         },
         "hide_sensitive": {
-          "name": "Gizli verileri sakla",
-          "description": "Parolaları ve MAC adreslerini gizle."
+          "name": "IP/MAC adreslerini ve adları anonimleştir",
+          "description": "Bu dışa aktarmada IP, MAC ve adları tutarlı takma adlarla değiştirir. Bu seçenek kapalı olsa bile parolalar, anahtarlar ve bilinen belirteçler her zaman gizlenir."
+        },
+        "api_diagnostics": {
+          "name": "Yeni API sorguları ve yanıtları (ana yönlendirici ve düğümler)",
+          "description": "Yüklü yönlendiricilerde bilinen salt okunur tanılama bloklarını sorgular; hataları, atlanan sorguları ve süreleri içerir. En fazla 2 dakika. Parolalar ve oturum belirteçleri her zaman gizlenir. Katalog, aygıt yazılımının tüm olası API'lerini kapsamaz."
         }
       }
     },

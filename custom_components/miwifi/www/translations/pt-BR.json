@@ -248,7 +248,7 @@
   "dump_nat_rules": "Regras NAT",
   "dump_qos": "QoS",
   "dump_wifi_config": "Configuração Wi-Fi",
-  "dump_hide_sensitive": "Ocultar dados sensíveis",
+  "dump_hide_sensitive": "Anonimizar endereços IP/MAC e nomes",
 
   "wifi_password": "Senha",
   "guest_password_hint": "A atual é exibida se você for o administrador.",
@@ -318,5 +318,8 @@
   "status_view": "Visualização de status",
   "status_view_list": "Lista",
   "status_column_field": "Campo",
-  "status_column_value": "Valor"
+  "status_column_value": "Valor",
+  "dump_api_diagnostics": "Novas consultas e respostas da API (principal e nós)",
+  "dump_api_diagnostics_hint": "Consulta os blocos de diagnóstico conhecidos de somente leitura em todos os roteadores carregados, com erros, consultas ignoradas e tempos. Até 2 minutos. Senhas e tokens de sessão sempre ficam ocultos. O catálogo não inclui todas as APIs possíveis do firmware.",
+  "settings_support_optional": "O MiWiFi é gratuito. Se for útil para você, pode apoiar seu desenvolvimento com uma contribuição voluntária:"
 }

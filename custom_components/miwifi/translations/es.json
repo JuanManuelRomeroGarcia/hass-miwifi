@@ -99,8 +99,12 @@
           "description": "Incluye configuración de redes Wi-Fi (puede contener datos sensibles)."
         },
         "hide_sensitive": {
-          "name": "Ocultar datos sensibles",
-          "description": "Oculta contraseñas y direcciones MAC."
+          "name": "Anonimizar IP/MAC y nombres",
+          "description": "Sustituye IP, MAC y nombres por alias coherentes dentro de este volcado. Las contraseñas, claves y tokens conocidos siempre se ocultan, incluso al desactivar esta opción."
+        },
+        "api_diagnostics": {
+          "name": "Consultas API y respuestas nuevas (principal y nodos)",
+          "description": "Consulta los bloques de diagnóstico de solo lectura conocidos en todos los routers cargados, con errores, omisiones y tiempos. Hasta 2 minutos. Las contraseñas y los tokens siempre se ocultan. Es un catálogo de diagnóstico, no todas las API posibles del firmware."
         }
       }
     },

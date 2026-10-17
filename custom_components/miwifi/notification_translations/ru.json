@@ -14,6 +14,11 @@
     "unknown": "Неизвестно"
   },
   "notifications": {
+    "dump_ready_private": "📄 Данные роутера готовы. Откройте панель MiWiFi как администратор, чтобы скачать их.",
+    "logs_ready_private": "📦 Журналы готовы. Откройте панель MiWiFi как администратор, чтобы скачать их.",
+    "mac_replacement_configured": "Автоматическая замена MAC настроена для: {clients}",
+    "none": "нет",
+    "purge_preview_title": "Предпросмотр очистки",
     "new_device_title": "Новое устройство обнаружено в MiWiFi",
     "new_device_message": "📶 Новое устройство подключено: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Соединение: `{conn}`",
     "unsupported_router_title": "Неподдерживаемый роутер",

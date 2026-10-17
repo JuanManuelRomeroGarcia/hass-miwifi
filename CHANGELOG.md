@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Add an opt-in fresh router API diagnostic export for all loaded main/mesh entries. Include request paths, parameters, timings, responses, errors and explicit skips from a fixed read-only catalogue, with time/size limits and partial results. Keep administrator-only private ZIP downloads and reject concurrent dumps.
+- Always hide passwords, keys and known tokens. Optionally replace IP/MAC addresses and identifying names with distinct, consistent aliases across an archive. Use verified Wi-Fi readers instead of calling setters with empty parameters.
+- Translate private dump/log download notices, automatic MAC replacement configuration and the purge preview title into all eight languages. Add notification and export regressions.
+- Document the diagnostic catalogue, limits and privacy in English and Spanish. Confirm two-router captures and Spanish notifications on real HA 2026.10.1; retain the main NAT/node mode request failures in partial exports rather than hiding them.
+- Add discreet optional PayPal/Wise support links at the bottom of Settings and the README. Keep every feature available without contributing and translate the panel invitation into all eight languages.
+- Keep integration and bundled frontend versions at 3.11.0. These changes await a future release.
+
 ## 3.11.0 — 2026-10-16
 
 ### Panel views and mobile layout

@@ -99,8 +99,12 @@
           "description": "Inclure les paramètres des réseaux Wi-Fi (peut contenir des données sensibles)."
         },
         "hide_sensitive": {
-          "name": "Masquer les données sensibles",
-          "description": "Masquer les mots de passe et adresses MAC."
+          "name": "Anonymiser les adresses IP/MAC et les noms",
+          "description": "Remplace les adresses IP et MAC et les noms par des alias cohérents dans cet export. Les mots de passe, clés et jetons connus sont toujours masqués, même si cette option est désactivée."
+        },
+        "api_diagnostics": {
+          "name": "Nouvelles requêtes API et réponses (routeur principal et nœuds)",
+          "description": "Interroge les blocs de diagnostic connus en lecture seule sur tous les routeurs chargés, avec erreurs, requêtes ignorées et durées. Jusqu’à 2 minutes. Les mots de passe et jetons restent toujours masqués. Ce catalogue ne couvre pas toutes les API possibles du micrologiciel."
         }
       }
     },

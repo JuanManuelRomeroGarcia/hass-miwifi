@@ -99,8 +99,12 @@
           "description": "Include Wi-Fi network settings (may contain sensitive data)."
         },
         "hide_sensitive": {
-          "name": "Hide sensitive data",
-          "description": "Hide passwords and MAC addresses."
+          "name": "Anonymize IP/MAC addresses and names",
+          "description": "Replace IP addresses, MAC addresses and names with consistent aliases within this export. Passwords, keys and known tokens are always hidden, even when this option is off."
+        },
+        "api_diagnostics": {
+          "name": "Fresh API queries and responses (main + nodes)",
+          "description": "Queries the known read-only diagnostic blocks on all loaded routers, including errors, skipped queries and timings. Up to 2 minutes. Passwords and session tokens are always hidden. This is a diagnostic catalogue, not every possible firmware API."
         }
       }
     },

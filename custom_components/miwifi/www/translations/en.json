@@ -247,7 +247,7 @@
   "dump_nat_rules": "NAT rules",
   "dump_qos": "QoS",
   "dump_wifi_config": "Wi-Fi config",
-  "dump_hide_sensitive": "Hide sensitive data",
+  "dump_hide_sensitive": "Anonymize IP/MAC addresses and names",
 
   "wifi_password": "Password",
   "guest_password_hint": "Current is shown if you are admin.",
@@ -317,5 +317,8 @@
   "status_view": "Status view",
   "status_view_list": "List",
   "status_column_field": "Field",
-  "status_column_value": "Value"
+  "status_column_value": "Value",
+  "dump_api_diagnostics": "Fresh API queries and responses (main + nodes)",
+  "dump_api_diagnostics_hint": "Queries the known read-only diagnostic blocks on all loaded routers, including errors, skipped queries and timings. Up to 2 minutes. Passwords and session tokens are always hidden. This is a diagnostic catalogue, not every possible firmware API.",
+  "settings_support_optional": "MiWiFi is free to use. If it helps you, you can support its development with a voluntary donation:"
 }
