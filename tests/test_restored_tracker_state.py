@@ -126,7 +126,13 @@ async def test_restored_tracker_starts_not_home_until_reported(hass, router, kin
     try:
         # Restart: the first refresh restores, then the platform is set up.
         await node._async_prepare_device_restore(node.data)
-        platform = await _setup_trackers(hass, entry)
+        with patch(
+            "custom_components.miwifi.update.MiWiFiNewDeviceNotifier.async_notify_new_device",
+            new_callable=AsyncMock,
+        ) as notify:
+            platform = await _setup_trackers(hass, entry)
+        # A client the store knew is not a new device.
+        notify.assert_not_awaited()
 
         entity_id = er.async_get(hass).async_get_entity_id(
             "device_tracker", DOMAIN, f"{DOMAIN}-{CLIENT.lower()}"

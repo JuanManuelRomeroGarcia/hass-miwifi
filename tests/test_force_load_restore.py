@@ -444,3 +444,17 @@ async def test_main_drops_its_restored_copy_once_the_node_lists_the_client(hass,
         assert hass.states.get(_tracker(hass, PRESENT)).state == STATE_HOME
     finally:
         await _stop(leaf, main)
+
+
+async def test_restored_client_is_not_announced_as_new(hass, router):
+    client, notifier = router
+    main_entry, main = _main(hass)
+    leaf_entry, leaf = await _leaf(hass, client)
+    await get_store(hass, LEAF_IP).async_save({ABSENT: _stored(ABSENT, leaf_entry)})
+    try:
+        await _poll(hass, leaf)
+        await _setup_trackers(hass, leaf_entry)
+
+        assert [call.args[1] for call in notifier.await_args_list] == [PRESENT]
+    finally:
+        await _stop(leaf, main)
