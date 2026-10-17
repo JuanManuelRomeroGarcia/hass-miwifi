@@ -14,6 +14,10 @@ A third one, also live: every setup recomputed the deadline from now, so an
 instance restarting more often than `every_days` pushed it forward forever
 and the purge stopped running (last run in August, next_due always a week
 away).
+
+And the runs it did make: every one in that store's history said `ok: false`
+and nothing else. The job swallowed the service's exception without a log
+line or a stored reason, so nothing said why.
 """
 
 # pylint: disable=protected-access
@@ -22,13 +26,20 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import logging
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.util import dt as dt_util
 
 from custom_components.miwifi import auto_purge
@@ -38,6 +49,7 @@ from custom_components.miwifi.auto_purge import (
     DOMAIN,
     schedule_auto_purge,
 )
+from custom_components.miwifi.services import SERVICES
 
 
 def _hass_with_tasks() -> MagicMock:
@@ -412,3 +424,96 @@ async def test_an_overdue_deadline_still_kicks_off_once(rome_time_zone) -> None:
     assert len(env.kicks) == 1
     assert env.armed[-1] == _rome(26, 4, 10)
     assert dt_util.parse_datetime(store["next_due"]) == _rome(26, 4, 10)
+
+
+async def test_a_failed_run_records_why(rome_time_zone, caplog) -> None:
+    """The reason goes to the log and the store; the next good run clears it."""
+
+    store = _pending()
+
+    with _persistent_store(store) as env:
+        env.hass.services.async_call.side_effect = ValueError(
+            "too many values to unpack (expected 2)"
+        )
+        await env.setup(_rome(19, 9))
+        await env.kicks[0][1]()
+
+        assert store["last_ok"] is False
+        assert store["last_error"] == "ValueError: too many values to unpack (expected 2)"
+        assert store["history"][-1]["error"] == store["last_error"]
+        failures = [
+            record
+            for record in caplog.records
+            if record.name == auto_purge.__name__ and record.levelno == logging.ERROR
+        ]
+        assert len(failures) == 1
+        assert failures[0].exc_info is not None
+
+        env.hass.services.async_call.side_effect = None
+        await env.kicks[0][1]()
+
+    assert store["last_ok"] is True
+    assert store["last_error"] is None
+    assert [("error" in run, run["ok"]) for run in store["history"]] == [
+        (True, False),
+        (False, True),
+    ]
+
+
+async def test_the_scheduled_run_completes_on_the_registered_service(hass) -> None:
+    """End to end on a real core, through the service as setup registers it.
+
+    The rest of this file mocks the call. Here the job's parameters go through
+    the admin wrapper, the schema and the service body. The registry holds a
+    device of another integration with a longer identifier tuple: before the
+    fix for #313, one such row made the service raise on every call, so every
+    scheduled run recorded `ok: false`.
+    """
+
+    other = MockConfigEntry(domain="other_hub")
+    other.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    devices.async_get_or_create(
+        config_entry_id=other.entry_id,
+        identifiers={("other_hub", "bridge-1", "zone", "3")},
+    )
+
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    entities = er.async_get(hass)
+    month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
+    trackers = {}
+    for mac in ("02:00:00:00:00:01", "00:00:00:00:00:02"):
+        device = devices.async_get_or_create(
+            config_entry_id=entry.entry_id, identifiers={(DOMAIN, mac.lower())}
+        )
+        tracker = entities.async_get_or_create(
+            "device_tracker",
+            DOMAIN,
+            f"{DOMAIN}-{mac.lower()}",
+            config_entry=entry,
+            device_id=device.id,
+        )
+        hass.states.async_set(
+            tracker.entity_id, "not_home", {"mac": mac, "last_activity": month_ago}
+        )
+        trackers[mac] = tracker.entity_id
+
+    purge = dict(SERVICES)["purge_inactive_devices"]
+    async_register_admin_service(
+        hass, DOMAIN, "purge_inactive_devices", purge(hass).async_call_service, purge.schema
+    )
+
+    # An empty store has never run: the kickoff fires 60 s after setup.
+    schedule_auto_purge(hass, entry, kickoff=True)
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    auto_purge.cancel_auto_purge(hass)
+
+    stored = await auto_purge._load(hass)
+    assert stored["last_error"] is None
+    assert [run["ok"] for run in stored["history"]] == [True]
+    # The conservative parameters: the randomised MAC goes, the stable one stays.
+    assert entities.async_get(trackers["02:00:00:00:00:01"]) is None
+    assert entities.async_get(trackers["00:00:00:00:00:02"]) is not None

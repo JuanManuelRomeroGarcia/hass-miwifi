@@ -231,21 +231,31 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         }
 
         ok = True
+        error = None
         try:
             # Nota: async_call devuelve None; el servicio debe gestionar notificación/resultado internamente.
             await hass.services.async_call(DOMAIN, "purge_inactive_devices", params, blocking=True)
-        except Exception:
+        except Exception as err:
+            # Nobody watches this run. Without the reason the history only
+            # says `ok: false`, and an error that repeats on every run (as the
+            # identifier unpacking of #313 did) goes unnoticed.
             ok = False
+            error = f"{type(err).__name__}: {err}"[:200]
+            _LOGGER.exception("[MiWiFi] Scheduled purge failed")
 
         # 3) Guardar histórico en el store
         sdata = await _load(hass)
         hist = (sdata.get("history") or [])[-29:]
-        hist.append({"at": now.isoformat(), "ok": bool(ok)})
+        run = {"at": now.isoformat(), "ok": bool(ok)}
+        if error:
+            run["error"] = error
+        hist.append(run)
 
         sdata.update(
             {
                 "last_run": now.isoformat(),
                 "last_ok": bool(ok),
+                "last_error": error,
                 "last_params": params,
                 "next_due": next_dt.isoformat(),
                 "next_due_for": {"every_days": every_days, "at": at_str},
