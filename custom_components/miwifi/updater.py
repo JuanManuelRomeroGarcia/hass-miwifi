@@ -2400,6 +2400,19 @@ class LuciUpdater(DataUpdateCoordinator):
 
         # Reported again: the record is no longer only what a store held.
         self.devices[device[ATTR_TRACKER_MAC]].pop(ATTR_TRACKER_IS_RESTORED, None)
+
+        # Another node's copy that only its store held is stale now: the client
+        # is here. Drop it, or a tracker that reads that node's records keeps
+        # the client away until activity_days expires the copy.
+        for integration in async_get_integrations(self.hass).values():
+            other = integration.get(UPDATER)
+            if other is self or not isinstance(other, LuciUpdater):
+                continue
+            row = other.devices.get(device[ATTR_TRACKER_MAC])
+            if isinstance(row, dict) and row.get(ATTR_TRACKER_IS_RESTORED):
+                del other.devices[device[ATTR_TRACKER_MAC]]
+                with contextlib.suppress(ValueError):
+                    other._moved_devices.remove(device[ATTR_TRACKER_MAC])
             
         # ✅ Keep a mesh-wide latest snapshot so stable device_tracker entities
         # can follow the client even when it moves between main router and leaf nodes.

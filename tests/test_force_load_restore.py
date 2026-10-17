@@ -173,10 +173,10 @@ def _tracker(hass, mac):
     return er.async_get(hass).async_get_entity_id("device_tracker", DOMAIN, f"{DOMAIN}-{mac.lower()}")
 
 
-async def _push(hass, main, mac):
-    """The main lists the client as online behind the node."""
+async def _push(hass, main, mac, parent=LEAF_MAC):
+    """The main lists the client as online behind a node."""
     main.luci.device_list = AsyncMock(return_value={"code": 0, "list": [{
-        "mac": mac, "isap": 0, "parent": LEAF_MAC, "online": 1, "type": 1,
+        "mac": mac, "isap": 0, "parent": parent, "online": 1, "type": 1,
         "ip": [{"ip": "192.0.2.66", "active": 1}],
     }]})
     await main._async_prepare_device_list(main.data)
@@ -376,5 +376,71 @@ async def test_main_record_still_lends_the_node_its_name_and_ip(hass, router):
         assert PRESENT not in main.devices
         assert leaf.devices[PRESENT]["name"] == "Client named"
         assert leaf.devices[PRESENT]["ip"] == "192.0.2.77"
+    finally:
+        await _stop(leaf, main)
+
+
+PLAIN_IP, PLAIN_MAC = "192.0.2.3", "02:00:00:00:00:03"
+
+
+def _plain_node(hass, main):
+    """A mesh node without force load: its clients come only from the main's push."""
+    main.data["topo_graph"]["graph"]["leafs"].append({"ip": PLAIN_IP, "mode": 3})
+    entry = _entry(hass, PLAIN_IP)
+    node = LuciUpdater(hass, PLAIN_IP, "test-password", entry_id=entry.entry_id)
+    node.update_interval = None
+    node.luci = Mock()
+    node.data = {ATTR_STATE: True, ATTR_SENSOR_MODE: Mode.MESH_NODE, ATTR_DEVICE_MAC_ADDRESS: PLAIN_MAC}
+    hass.data[DOMAIN][entry.entry_id] = {CONF_IP_ADDRESS: PLAIN_IP, UPDATER: node}
+    return entry, node
+
+
+@pytest.mark.parametrize("platform_first", ["force_load_node", "plain_node"])
+async def test_client_that_moved_to_another_node_while_down_shows_home(
+    hass, router, platform_first
+):
+    """On the force-load node at the stop, behind a plain node at the start."""
+    client, _ = router
+    main_entry, main = _main(hass)
+    leaf_entry, leaf = await _leaf(hass, client)
+    plain_entry, plain = _plain_node(hass, main)
+    await get_store(hass, LEAF_IP).async_save({ABSENT: _stored(ABSENT, leaf_entry)})
+    try:
+        await _poll(hass, leaf)
+        await _push(hass, main, ABSENT, parent=PLAIN_MAC)
+        assert ABSENT in plain.devices
+        assert ABSENT not in leaf.devices
+
+        entries = [leaf_entry, plain_entry]
+        if platform_first == "plain_node":
+            entries.reverse()
+        for entry in entries:
+            await _setup_trackers(hass, entry)
+        await _push(hass, main, ABSENT, parent=PLAIN_MAC)
+        await _poll(hass, leaf)
+
+        assert hass.states.get(_tracker(hass, ABSENT)).state == STATE_HOME
+    finally:
+        await _stop(leaf, main, plain)
+
+
+async def test_main_drops_its_restored_copy_once_the_node_lists_the_client(hass, router):
+    """The main set up first and restored a client the node's radio lists."""
+    client, _ = router
+    main_entry, main = _main(hass)
+    _router_mode(hass, main)
+    leaf_entry, leaf = await _leaf(hass, client)
+    await get_store(hass, MAIN_IP).async_save({PRESENT: _stored(PRESENT, main_entry)})
+    try:
+        await main._async_prepare_device_restore(main.data)
+        assert PRESENT in main.devices
+        await _setup_trackers(hass, main_entry)
+        await _poll(hass, leaf)
+
+        assert PRESENT in leaf.devices
+        assert PRESENT not in main.devices
+        main.async_set_updated_data(main.data)
+        await hass.async_block_till_done()
+        assert hass.states.get(_tracker(hass, PRESENT)).state == STATE_HOME
     finally:
         await _stop(leaf, main)
