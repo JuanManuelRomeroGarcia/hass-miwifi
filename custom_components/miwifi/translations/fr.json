@@ -26,7 +26,8 @@
           "log_level": "Niveau de log (global)",
           "enable_panel": "Activer le panneau de contrôle",
           "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
-          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil"
+          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
+          "is_ap_mode": "Point d'accès / nœud maillé (ignorer les points de terminaison WAN et passerelle)"
         }
       }
     }
@@ -42,7 +43,25 @@
     "step": {
       "init": {
         "title": "Paramètres MiWiFi",
-        "description": "Saisissez l’adresse IP et le mot de passe de votre routeur MiWiFi",
+        "menu_options": {
+          "global_settings": "Paramètres globaux du réseau maillé",
+          "device_settings": "Paramètres de cet appareil"
+        }
+      },
+      "global_settings": {
+        "title": "Paramètres globaux du réseau maillé",
+        "description": "Paramètres globaux du réseau maillé MiWiFi, applicables à tous ses appareils.",
+        "data": {
+          "enable_panel": "Activer le panneau de contrôle",
+          "log_level": "Niveau de log (global)",
+          "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
+          "auto_purge_at": "Heure de purge automatique (HH:MM) [PRO]",
+          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)"
+        }
+      },
+      "device_settings": {
+        "title": "Paramètres de cet appareil",
+        "description": "Ces paramètres s’appliquent uniquement à cet appareil MiWiFi.",
         "data": {
           "ip_address": "Adresse IP",
           "password": "Mot de passe",
@@ -50,16 +69,13 @@
           "is_track_devices": "Suivre les appareils",
           "stay_online": "Temps minimum en ligne (secondes)",
           "scan_interval": "Intervalle d’analyse (secondes) [PRO]",
-          "timeout": "Délai des requêtes (secondes) [PRO]",
           "activity_days": "Nombre de jours autorisés après la dernière activité [PRO]",
-          "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
+          "timeout": "Délai des requêtes (secondes) [PRO]",
           "wan_speed_unit": "Unité de vitesse WAN",
-          "log_level": "Niveau de log (global)",
-          "enable_panel": "Activer le panneau de contrôle",
-          "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
-          "auto_purge_at": "Heure de purge automatique (0–23) [PRO]",
-          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
-          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil"
+          "is_force_load": "Démarrage forcé des appareils en mode répéteur [PRO]",
+          "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
+          "protocol": "Protocole",
+          "is_ap_mode": "Point d'accès / nœud maillé (ignorer les points de terminaison WAN et passerelle)"
         }
       }
     }
@@ -99,8 +115,12 @@
           "description": "Inclure les paramètres des réseaux Wi-Fi (peut contenir des données sensibles)."
         },
         "hide_sensitive": {
-          "name": "Masquer les données sensibles",
-          "description": "Masquer les mots de passe et adresses MAC."
+          "name": "Anonymiser les adresses IP/MAC et les noms",
+          "description": "Remplace les adresses IP et MAC et les noms par des alias cohérents dans cet export. Les mots de passe, clés et jetons connus sont toujours masqués, même si cette option est désactivée."
+        },
+        "api_diagnostics": {
+          "name": "Nouvelles requêtes API et réponses (routeur principal et nœuds)",
+          "description": "Interroge les blocs de diagnostic connus en lecture seule sur tous les routeurs chargés, avec erreurs, requêtes ignorées et durées. Jusqu’à 2 minutes. Les mots de passe et jetons restent toujours masqués. Ce catalogue ne couvre pas toutes les API possibles du micrologiciel."
         }
       }
     },
@@ -108,6 +128,10 @@
       "name": "Purger les appareils inactifs",
       "description": "Supprime les device_trackers et appareils orphelins après X jours d’inactivité.",
       "fields": {
+        "macs": {
+          "name": "Limiter à ces adresses MAC",
+          "description": "Liste facultative contenant au moins une adresse MAC. Sans cette liste, tous les clients sont examinés. Si les appareils orphelins sont inclus, leurs capteurs sans tracker sont également examinés. Les critères d’inactivité et les autres protections restent applicables."
+        },
         "days": {
           "name": "Jours d’inactivité",
           "description": "Nombre de jours sans activité avant de lancer la purge."

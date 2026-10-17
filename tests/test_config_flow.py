@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+from types import SimpleNamespace
 from typing import Final
 from unittest.mock import AsyncMock, patch
 
@@ -353,11 +354,21 @@ async def test_options_flow(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        assert result_init["type"] == data_entry_flow.FlowResultType.FORM
+        assert result_init["type"] == data_entry_flow.FlowResultType.MENU
         assert result_init["step_id"] == "init"
+        # No entry is identified as the main, so this one offers the global
+        # settings as well.
+        assert result_init["menu_options"] == ["global_settings", "device_settings"]
+
+        result_form = await hass.config_entries.options.async_configure(
+            result_init["flow_id"],
+            user_input={"next_step_id": "device_settings"},
+        )
+        assert result_form["type"] == data_entry_flow.FlowResultType.FORM
+        assert result_form["step_id"] == "device_settings"
 
         result_save = await hass.config_entries.options.async_configure(
-            result_init["flow_id"],
+            result_form["flow_id"],
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
@@ -372,6 +383,36 @@ async def test_options_flow(hass: HomeAssistant) -> None:
         == OPTIONS_FLOW_EDIT_DATA[CONF_SCAN_INTERVAL]
     )
     assert len(mock_async_setup_entry.mock_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_main_node_options_menu_exposes_global_and_device_settings(
+    hass: HomeAssistant,
+) -> None:
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data=OPTIONS_FLOW_DATA,
+        options={},
+    )
+    config_entry.add_to_hass(hass)
+
+    updater = SimpleNamespace(data={"topo_graph": {"graph": {"is_main": True}}})
+    with patch(
+        "custom_components.miwifi.config_flow.async_get_updater",
+        return_value=updater,
+    ):
+        result_init = await hass.config_entries.options.async_init(
+            config_entry.entry_id
+        )
+        result_form = await hass.config_entries.options.async_configure(
+            result_init["flow_id"],
+            user_input={"next_step_id": "global_settings"},
+        )
+
+    assert result_init["type"] == data_entry_flow.FlowResultType.MENU
+    assert result_init["menu_options"] == ["global_settings", "device_settings"]
+    assert result_form["type"] == data_entry_flow.FlowResultType.FORM
+    assert result_form["step_id"] == "global_settings"
 
 
 @pytest.mark.asyncio
@@ -408,8 +449,12 @@ async def test_options_flow_ip_error(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        result_save = await hass.config_entries.options.async_configure(
+        result_form = await hass.config_entries.options.async_configure(
             result_init["flow_id"],
+            user_input={"next_step_id": "device_settings"},
+        )
+        result_save = await hass.config_entries.options.async_configure(
+            result_form["flow_id"],
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
@@ -453,8 +498,12 @@ async def test_options_flow_token_error(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        result_save = await hass.config_entries.options.async_configure(
+        result_form = await hass.config_entries.options.async_configure(
             result_init["flow_id"],
+            user_input={"next_step_id": "device_settings"},
+        )
+        result_save = await hass.config_entries.options.async_configure(
+            result_form["flow_id"],
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 
@@ -507,8 +556,12 @@ async def test_options_flow_undefined_router(hass: HomeAssistant) -> None:
             config_entry.entry_id
         )
 
-        result_save = await hass.config_entries.options.async_configure(
+        result_form = await hass.config_entries.options.async_configure(
             result_init["flow_id"],
+            user_input={"next_step_id": "device_settings"},
+        )
+        result_save = await hass.config_entries.options.async_configure(
+            result_form["flow_id"],
             user_input=OPTIONS_FLOW_EDIT_DATA,
         )
 

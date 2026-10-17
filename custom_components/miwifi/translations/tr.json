@@ -26,7 +26,8 @@
           "log_level": "Günlük seviyesi (global)",
           "enable_panel": "Kontrol panelini etkinleştir",
           "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)",
-          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)"
+          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)",
+          "is_ap_mode": "Erişim noktası / mesh düğümü (WAN ve ağ geçidi uç noktalarını atla)"
         }
       }
     }
@@ -42,7 +43,25 @@
     "step": {
       "init": {
         "title": "MiWiFi Ayarları",
-        "description": "MiWiFi yönlendiricinizin IP adresini ve parolasını girin",
+        "menu_options": {
+          "global_settings": "Global mesh ayarları",
+          "device_settings": "Bu cihazın ayarları"
+        }
+      },
+      "global_settings": {
+        "title": "Global mesh ayarları",
+        "description": "Tüm mesh cihazları için geçerli global MiWiFi mesh ayarları.",
+        "data": {
+          "enable_panel": "Kontrol panelini etkinleştir",
+          "log_level": "Günlük seviyesi (global)",
+          "auto_purge_every_days": "Otomatik temizleme (her X günde bir, 0 = kapalı) [PRO]",
+          "auto_purge_at": "Otomatik temizleme saati (HH:MM) [PRO]",
+          "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)"
+        }
+      },
+      "device_settings": {
+        "title": "Bu cihazın ayarları",
+        "description": "Bu ayarlar yalnızca bu MiWiFi cihazı için geçerlidir.",
         "data": {
           "ip_address": "IP adresi",
           "password": "Parola",
@@ -50,16 +69,13 @@
           "is_track_devices": "Cihazları izle",
           "stay_online": "Çevrimiçi minimum süre (saniye)",
           "scan_interval": "Tarama aralığı (saniye) [PRO]",
-          "timeout": "İstek zaman aşımı (saniye) [PRO]",
           "activity_days": "Son etkinlikten sonraki izin verilen gün sayısı [PRO]",
-          "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
+          "timeout": "İstek zaman aşımı (saniye) [PRO]",
           "wan_speed_unit": "WAN hız birimi",
-          "log_level": "Günlük seviyesi (global)",
-          "enable_panel": "Kontrol panelini etkinleştir",
-          "auto_purge_every_days": "Otomatik temizleme (her X günde bir, 0 = kapalı) [PRO]",
-          "auto_purge_at": "Otomatik temizleme saati (0–23) [PRO]",
-          "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)",
-          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)"
+          "is_force_load": "Tekrarlayıcı modunda cihazları zorla yükle [PRO]",
+          "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)",
+          "protocol": "Protokol",
+          "is_ap_mode": "Erişim noktası / mesh düğümü (WAN ve ağ geçidi uç noktalarını atla)"
         }
       }
     }
@@ -99,8 +115,12 @@
           "description": "Wi-Fi ağ ayarlarını ekle (gizli veriler içerebilir)."
         },
         "hide_sensitive": {
-          "name": "Gizli verileri sakla",
-          "description": "Parolaları ve MAC adreslerini gizle."
+          "name": "IP/MAC adreslerini ve adları anonimleştir",
+          "description": "Bu dışa aktarmada IP, MAC ve adları tutarlı takma adlarla değiştirir. Bu seçenek kapalı olsa bile parolalar, anahtarlar ve bilinen belirteçler her zaman gizlenir."
+        },
+        "api_diagnostics": {
+          "name": "Yeni API sorguları ve yanıtları (ana yönlendirici ve düğümler)",
+          "description": "Yüklü yönlendiricilerde bilinen salt okunur tanılama bloklarını sorgular; hataları, atlanan sorguları ve süreleri içerir. En fazla 2 dakika. Parolalar ve oturum belirteçleri her zaman gizlenir. Katalog, aygıt yazılımının tüm olası API'lerini kapsamaz."
         }
       }
     },
@@ -108,6 +128,10 @@
       "name": "Etkin olmayan cihazları temizle",
       "description": "X gün boyunca etkin olmayan device_tracker’ları ve yetim cihazları kaldırır.",
       "fields": {
+        "macs": {
+          "name": "Bu MAC adresleriyle sınırla",
+          "description": "İsteğe bağlı, en az bir MAC adresi içeren liste. Belirtilmezse tüm istemciler kontrol edilir. Sahipsiz cihazlar dahil edildiğinde, izleyicisi olmayan ilgili istemci sensörleri de değerlendirilir. Hareketsizlik koşulları ve diğer korumalar geçerliliğini korur."
+        },
         "days": {
           "name": "Etkin olmama günleri",
           "description": "Temizleme yapılmadan önceki etkin olmama gün sayısı."

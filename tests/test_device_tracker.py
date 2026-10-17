@@ -437,22 +437,14 @@ async def test_init_with_parent(hass: HomeAssistant, legacy_clock) -> None:
     assert state.attributes["up_speed"] == "0 B/s"
     assert state.attributes["attribution"] == ATTRIBUTION
 
+    # The leaf's own entry now holds 192.168.31.100: the node is no longer a
+    # client. Its tracker is left in place - an address alone is no licence to
+    # delete it - but is no longer refreshed.
     state = hass.states.get(_generate_id("00:00:00:00:00:04"))
-    assert state.state == STATE_HOME
+    assert state.state == STATE_NOT_HOME
     assert state.name == "Device 4 (Repeater)"
-    assert state.attributes["icon"] == "mdi:lan-connect"
-    assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
-    assert state.attributes["scanner"] == DOMAIN
-    assert state.attributes["online"] == "8:05:01"
-    assert state.attributes["connection"] == Connection.LAN.phrase  # type: ignore
-    assert state.attributes["router_mac"] == "00:00:00:00:00:00"
-    assert len(state.attributes["signal"]) == 0
-    assert state.attributes["down_speed"] == "0 B/s"
-    assert state.attributes["up_speed"] == "0 B/s"
-    assert state.attributes["attribution"] == ATTRIBUTION
 
 
 @pytest.mark.asyncio
@@ -655,22 +647,14 @@ async def test_init_with_parent_revert(hass: HomeAssistant, legacy_clock) -> Non
     assert state.attributes["up_speed"] == "0 B/s"
     assert state.attributes["attribution"] == ATTRIBUTION
 
+    # The leaf's own entry now holds 192.168.31.100: the node is no longer a
+    # client. Its tracker is left in place - an address alone is no licence to
+    # delete it - but is no longer refreshed.
     state = hass.states.get(_generate_id("00:00:00:00:00:04"))
-    assert state.state == STATE_HOME
+    assert state.state == STATE_NOT_HOME
     assert state.name == "Device 4 (Repeater)"
-    assert state.attributes["icon"] == "mdi:lan-connect"
-    assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
-    assert state.attributes["scanner"] == DOMAIN
-    assert state.attributes["online"] == "8:05:01"
-    assert state.attributes["connection"] == Connection.LAN.phrase  # type: ignore
-    assert state.attributes["router_mac"] == "00:00:00:00:00:00"
-    assert len(state.attributes["signal"]) == 0
-    assert state.attributes["down_speed"] == "0 B/s"
-    assert state.attributes["up_speed"] == "0 B/s"
-    assert state.attributes["attribution"] == ATTRIBUTION
 
     async_advance_time(hass, legacy_clock, utcnow() + timedelta(seconds=DEFAULT_SCAN_INTERVAL + 1)
     )
@@ -727,22 +711,14 @@ async def test_init_with_parent_revert(hass: HomeAssistant, legacy_clock) -> Non
     assert state.attributes["up_speed"] == "0 B/s"
     assert state.attributes["attribution"] == ATTRIBUTION
 
+    # The leaf's own entry now holds 192.168.31.100: the node is no longer a
+    # client. Its tracker is left in place - an address alone is no licence to
+    # delete it - but is no longer refreshed.
     state = hass.states.get(_generate_id("00:00:00:00:00:04"))
-    assert state.state == STATE_HOME
+    assert state.state == STATE_NOT_HOME
     assert state.name == "Device 4 (Repeater)"
-    assert state.attributes["icon"] == "mdi:lan-connect"
-    assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
-    assert state.attributes["scanner"] == DOMAIN
-    assert state.attributes["online"] == "8:05:01"
-    assert state.attributes["connection"] == Connection.LAN.phrase  # type: ignore
-    assert state.attributes["router_mac"] == "00:00:00:00:00:00"
-    assert len(state.attributes["signal"]) == 0
-    assert state.attributes["down_speed"] == "0 B/s"
-    assert state.attributes["up_speed"] == "0 B/s"
-    assert state.attributes["attribution"] == ATTRIBUTION
 
 
 @pytest.mark.asyncio
@@ -1011,22 +987,14 @@ async def test_init_with_force_and_parent(hass: HomeAssistant, legacy_clock) -> 
     assert state.attributes["up_speed"] == "0 B/s"
     assert state.attributes["attribution"] == ATTRIBUTION
 
+    # The leaf's own entry now holds 192.168.31.100: the node is no longer a
+    # client. Its tracker is left in place - an address alone is no licence to
+    # delete it - but is no longer refreshed.
     state = hass.states.get(_generate_id("00:00:00:00:00:04"))
-    assert state.state == STATE_HOME
+    assert state.state == STATE_NOT_HOME
     assert state.name == "Device 4 (Repeater)"
-    assert state.attributes["icon"] == "mdi:lan-connect"
-    assert state.attributes["attribution"] == ATTRIBUTION
-    assert state.attributes["source_type"] == SourceType.ROUTER
     assert state.attributes["ip"] == "192.168.31.100"
     assert state.attributes["mac"] == "00:00:00:00:00:04"
-    assert state.attributes["scanner"] == DOMAIN
-    assert state.attributes["online"] == "8:05:01"
-    assert state.attributes["connection"] == Connection.LAN.phrase  # type: ignore
-    assert state.attributes["router_mac"] == "00:00:00:00:00:00"
-    assert len(state.attributes["signal"]) == 0
-    assert state.attributes["down_speed"] == "0 B/s"
-    assert state.attributes["up_speed"] == "0 B/s"
-    assert state.attributes["attribution"] == ATTRIBUTION
 
 
 @pytest.mark.asyncio

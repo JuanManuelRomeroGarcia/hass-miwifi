@@ -249,7 +249,7 @@
   "dump_nat_rules": "Reglas NAT",
   "dump_qos": "QoS",
   "dump_wifi_config": "Configuración Wi-Fi",
-  "dump_hide_sensitive": "Ocultar datos sensibles",
+  "dump_hide_sensitive": "Anonimizar IP/MAC y nombres",
   "guest_password_hint": "La actual se muestra si eres administrador.",
   "mac_duplicate_names": "Cada nombre del router debe aparecer una sola vez.",
   "mac_reload": "Actualizar lista",
@@ -317,5 +317,8 @@
   "status_view": "Vista de estado",
   "status_view_list": "Lista",
   "status_column_field": "Datos",
-  "status_column_value": "Valor"
+  "status_column_value": "Valor",
+  "dump_api_diagnostics": "Consultas API y respuestas nuevas (principal y nodos)",
+  "dump_api_diagnostics_hint": "Consulta los bloques de diagnóstico de solo lectura conocidos en todos los routers cargados, con errores, omisiones y tiempos. Hasta 2 minutos. Las contraseñas y los tokens siempre se ocultan. Es un catálogo de diagnóstico, no todas las API posibles del firmware.",
+  "settings_support_optional": "MiWiFi es gratuito. Si te resulta útil, puedes apoyar su desarrollo con una aportación voluntaria:"
 }

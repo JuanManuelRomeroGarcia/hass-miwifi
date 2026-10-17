@@ -23,11 +23,13 @@ except Exception:
 from .const import (
     CONF_ACTIVITY_DAYS,
     CONF_ENCRYPTION_ALGORITHM,
+    CONF_IS_AP_MODE,
     CONF_IS_FORCE_LOAD,
     CONF_IS_TRACK_DEVICES,
     CONF_PROTOCOL,
     CONF_STAY_ONLINE,
     DEFAULT_ACTIVITY_DAYS,
+    DEFAULT_IS_AP_MODE,
     DEFAULT_PROTOCOL,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_STAY_ONLINE,
@@ -47,6 +49,7 @@ from .const import (
     PROTOCOL_OPTIONS,
     CONF_ENABLE_DEVICE_SENSORS,
     DEFAULT_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSORS_GLOBAL,
     CONF_ENABLE_PORT_PROBE,
     DEFAULT_ENABLE_PORT_PROBE,
 
@@ -63,7 +66,9 @@ from .helper import (
     get_global_panel_state,
     set_global_panel_state,
     get_global_auto_purge,
-    set_global_auto_purge
+    set_global_auto_purge,
+    get_mesh_device_sensors_enabled,
+    get_mesh_device_sensors_save,
 )
 
 from .updater import LuciUpdater, async_get_updater
@@ -154,9 +159,13 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
-            vol.Optional(CONF_ENABLE_DEVICE_SENSORS, default=DEFAULT_ENABLE_DEVICE_SENSORS): cv.boolean,
-            
         }
+
+        # Until the global options step is saved, every entry still votes for
+        # the mesh-wide client sensors. After that the saved value decides and
+        # this field would change nothing.
+        if not get_mesh_device_sensors_save(self.hass):
+            schema_dict[vol.Optional(CONF_ENABLE_DEVICE_SENSORS, default=DEFAULT_ENABLE_DEVICE_SENSORS)] = cv.boolean
 
         if step_id == "discovery_confirm":
             schema_dict[vol.Optional(CONF_ENABLE_PANEL, default=panel_state)] = cv.boolean
@@ -207,8 +216,42 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
         self._config_entry = config_entry
 
     async def async_step_init(self, user_input: dict | None = None) -> FlowResult:
-        errors: dict[str, str] = {}
+        menu_options = ["device_settings"]
+        if self._shows_global_settings():
+            menu_options.insert(0, "global_settings")
 
+        return self.async_show_menu(step_id="init", menu_options=menu_options)
+
+    def _shows_global_settings(self) -> bool:
+        """Return whether this entry offers the mesh-wide settings.
+
+        They belong to the entry whose topology identifies the main node. When
+        no loaded entry is identified as the main (a topology that has not
+        loaded yet, a mesh whose main is not added to Home Assistant), every
+        entry offers them, so they always stay reachable.
+        """
+        mains = set()
+        for entry in self.hass.config_entries.async_entries(DOMAIN):
+            try:
+                updater: LuciUpdater = async_get_updater(self.hass, entry.entry_id)
+            except ValueError:
+                continue
+            if self._is_main_router(updater):
+                mains.add(entry.entry_id)
+
+        return not mains or self._config_entry.entry_id in mains
+
+    @staticmethod
+    def _is_main_router(updater: LuciUpdater) -> bool:
+        """Return whether the updater's topology identifies the mesh main node."""
+        data = updater.data or {}
+        topology = data.get("topo_graph") if isinstance(data, dict) else None
+        graph = topology.get("graph") if isinstance(topology, dict) else None
+        return isinstance(graph, dict) and bool(graph.get("is_main", False))
+
+    async def async_step_global_settings(
+        self, user_input: dict | None = None
+    ) -> FlowResult:
         if user_input is not None:
             if CONF_LOG_LEVEL in user_input:
                 await set_global_log_level(self.hass, user_input[CONF_LOG_LEVEL])
@@ -216,6 +259,70 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
             if CONF_ENABLE_PANEL in user_input:
                 await set_global_panel_state(self.hass, user_input[CONF_ENABLE_PANEL])
 
+            await set_global_auto_purge(
+                self.hass,
+                every_days=user_input.get(CONF_AUTO_PURGE_EVERY_DAYS),
+                at=user_input.get(CONF_AUTO_PURGE_AT),
+            )
+
+            # The log level and the purge schedule are read from their global
+            # stores only, so they are not copied into the entry. The entry
+            # keeps what is read from it: the panel state its config sensor
+            # shows, and the client-sensor setting with a save counter, so the
+            # latest save wins on whichever entry it was made. The counter also
+            # changes the options on every save, so the update listener still
+            # runs: it applies the panel and reloads this entry, or every entry
+            # when the client-sensor value changed.
+            options = dict(self._config_entry.options)
+            if CONF_ENABLE_PANEL in user_input:
+                options[CONF_ENABLE_PANEL] = user_input[CONF_ENABLE_PANEL]
+            options[CONF_ENABLE_DEVICE_SENSORS] = user_input.get(
+                CONF_ENABLE_DEVICE_SENSORS,
+                get_mesh_device_sensors_enabled(self.hass),
+            )
+            options[CONF_DEVICE_SENSORS_GLOBAL] = (
+                get_mesh_device_sensors_save(self.hass) + 1
+            )
+            return self.async_create_entry(title="", data=options)
+
+        panel_state = await get_global_panel_state(self.hass)
+        log_level = await get_global_log_level(self.hass)
+        global_cfg = await get_global_auto_purge(self.hass)
+        schema = vol.Schema(
+            {
+                vol.Optional(CONF_ENABLE_PANEL, default=panel_state): cv.boolean,
+                vol.Optional(CONF_LOG_LEVEL, default=log_level): vol.In(
+                    LOG_LEVEL_OPTIONS
+                ),
+                vol.Optional(
+                    CONF_AUTO_PURGE_EVERY_DAYS,
+                    default=int(
+                        global_cfg.get(
+                            "every_days", DEFAULT_AUTO_PURGE_EVERY_DAYS
+                        )
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=3650)),
+                vol.Optional(
+                    CONF_AUTO_PURGE_AT,
+                    default=str(global_cfg.get("at", DEFAULT_AUTO_PURGE_AT)),
+                ): str,
+                vol.Optional(
+                    CONF_ENABLE_DEVICE_SENSORS,
+                    default=get_mesh_device_sensors_enabled(self.hass),
+                ): cv.boolean,
+            }
+        )
+        return self.async_show_form(
+            step_id="global_settings",
+            data_schema=schema,
+        )
+
+    async def async_step_device_settings(
+        self, user_input: dict | None = None
+    ) -> FlowResult:
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
             code, reason = await async_verify_access(
                 self.hass,
                 user_input[CONF_IP_ADDRESS],
@@ -226,22 +333,16 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
             )
 
             if codes.is_success(code):
-                at_val = user_input.get(CONF_AUTO_PURGE_AT)
-                if isinstance(at_val, str) and len(at_val) == 8:
-                    at_val = at_val[:5]  # HH:MM:SS -> HH:MM
-
-                await set_global_auto_purge(
-                    self.hass,
-                    every_days=user_input.get(CONF_AUTO_PURGE_EVERY_DAYS),
-                    at=at_val,
-                )
-
-                # The schedule and every entry's form read the global store
-                # above. Copying the values into each entry's options was not
-                # read anywhere, and it reloaded every entry once more.
-
                 await self.async_update_unique_id(user_input[CONF_IP_ADDRESS])
-                return self.async_create_entry(title=user_input[CONF_IP_ADDRESS], data=user_input)
+                # Only the fields of this form change. The other stored values
+                # stay: the mesh-wide ones this step does not show, and a
+                # per-node value the form may hide for a moment, such as
+                # force-load while the node's mode is not known yet.
+                options = {**self._config_entry.options, **user_input}
+                return self.async_create_entry(
+                    title=user_input[CONF_IP_ADDRESS],
+                    data=options,
+                )
 
             await self.hass.async_add_executor_job(
                 _LOGGER.warning,
@@ -267,8 +368,8 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "router.error_with_reason"
 
         return self.async_show_form(
-            step_id="init",
-            data_schema=await self._get_options_schema(),
+            step_id="device_settings",
+            data_schema=await self._get_device_options_schema(),
             errors=errors
         )
 
@@ -282,15 +383,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
         self.hass.config_entries.async_update_entry(self._config_entry, unique_id=unique_id)
 
-    async def _get_options_schema(self) -> vol.Schema:
-        """Generate the schema for the options form."""
+    async def _get_device_options_schema(self) -> vol.Schema:
+        """Generate the schema for per-device options."""
         try:
-            panel_state = await get_global_panel_state(self.hass)
-            log_level = await get_global_log_level(self.hass)
-            global_cfg = await get_global_auto_purge(self.hass)
-            ap_every = int(global_cfg.get("every_days", DEFAULT_AUTO_PURGE_EVERY_DAYS))
-            ap_at = str(global_cfg.get("at", DEFAULT_AUTO_PURGE_AT))
-
             schema: dict = {
                 vol.Required(CONF_IP_ADDRESS, default=get_config_value(self._config_entry, CONF_IP_ADDRESS, "")): str,
                 vol.Required(CONF_PASSWORD, default=get_config_value(self._config_entry, CONF_PASSWORD, "")): str,
@@ -300,30 +395,30 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 vol.Required(CONF_PROTOCOL, default=get_config_value(
                     self._config_entry, CONF_PROTOCOL, DEFAULT_PROTOCOL
                 )): vol.In(PROTOCOL_OPTIONS),
-                vol.Optional(CONF_ENABLE_PANEL, default=panel_state): cv.boolean,
                 vol.Required(CONF_IS_TRACK_DEVICES, default=get_config_value(self._config_entry, CONF_IS_TRACK_DEVICES, True)): cv.boolean,
                 vol.Required(CONF_STAY_ONLINE, default=get_config_value(self._config_entry, CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE)): cv.positive_int,
                 vol.Required(CONF_SCAN_INTERVAL, default=get_config_value(self._config_entry, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)): vol.All(vol.Coerce(int), vol.Range(min=10)),
                 vol.Optional(CONF_ACTIVITY_DAYS, default=get_config_value(self._config_entry, CONF_ACTIVITY_DAYS, DEFAULT_ACTIVITY_DAYS)): cv.positive_int,
                 vol.Optional(CONF_TIMEOUT, default=get_config_value(self._config_entry, CONF_TIMEOUT, DEFAULT_TIMEOUT)): vol.All(vol.Coerce(int), vol.Range(min=10)),
                 vol.Optional(CONF_WAN_SPEED_UNIT, default=get_config_value(self._config_entry, CONF_WAN_SPEED_UNIT, DEFAULT_WAN_SPEED_UNIT)): vol.In(WAN_SPEED_UNIT_OPTIONS),
-                # 0 disables the scheduled purge. It deletes registry rows
-                # unattended, so it has to be possible to turn it off.
-                vol.Optional(CONF_AUTO_PURGE_EVERY_DAYS, default=ap_every): vol.All(vol.Coerce(int), vol.Range(min=0, max=3650)),
-                vol.Optional(CONF_AUTO_PURGE_AT, default=ap_at): str,
-                vol.Optional(CONF_ENABLE_DEVICE_SENSORS,default=get_config_value(self._config_entry,CONF_ENABLE_DEVICE_SENSORS,DEFAULT_ENABLE_DEVICE_SENSORS,),): cv.boolean,
                 vol.Optional(CONF_ENABLE_PORT_PROBE, default=get_config_value(self._config_entry, CONF_ENABLE_PORT_PROBE, DEFAULT_ENABLE_PORT_PROBE)): cv.boolean,
+                # Offered for every node: a leaf behind a foreign gateway often
+                # fails to report its own mode, so it never looks like a repeater.
+                vol.Optional(CONF_IS_AP_MODE, default=get_config_value(self._config_entry, CONF_IS_AP_MODE, DEFAULT_IS_AP_MODE)): cv.boolean,
             }
 
+            # Force-load is offered on repeaters, and wherever it is on: a node
+            # can read as a non-repeater for a while (before its topology
+            # arrives, or when the mode probe fails), and an option in effect
+            # must stay visible so that it can be turned off.
+            is_force_load = get_config_value(self._config_entry, CONF_IS_FORCE_LOAD, False)
             with contextlib.suppress(ValueError):
                 updater: LuciUpdater = async_get_updater(self.hass, self._config_entry.entry_id)
-                if not updater.is_repeater:
-                    schema[vol.Optional(CONF_LOG_LEVEL, default=log_level)] = vol.In(LOG_LEVEL_OPTIONS)
+                if not updater.is_repeater and not is_force_load:
                     return vol.Schema(schema)
 
             schema |= {
-                vol.Optional(CONF_IS_FORCE_LOAD, default=get_config_value(self._config_entry, CONF_IS_FORCE_LOAD, False)): cv.boolean,
-                vol.Optional(CONF_LOG_LEVEL, default=log_level): vol.In(LOG_LEVEL_OPTIONS),
+                vol.Optional(CONF_IS_FORCE_LOAD, default=is_force_load): cv.boolean,
             }
 
             return vol.Schema(schema)

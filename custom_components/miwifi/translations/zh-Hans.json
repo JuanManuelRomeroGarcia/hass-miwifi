@@ -26,7 +26,8 @@
           "log_level": "日志级别（全局）",
           "enable_panel": "启用控制面板",
           "enable_device_sensors": "创建设备传感器（客户端）",
-          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL"
+          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
+          "is_ap_mode": "接入点 / Mesh 节点（跳过 WAN 和网关端点）"
         }
       }
     }
@@ -42,7 +43,25 @@
     "step": {
       "init": {
         "title": "MiWiFi 设置",
-        "description": "请输入您的 MiWiFi 路由器的 IP 地址和密码",
+        "menu_options": {
+          "global_settings": "Mesh 全局设置",
+          "device_settings": "此设备的设置"
+        }
+      },
+      "global_settings": {
+        "title": "Mesh 全局设置",
+        "description": "适用于所有 Mesh 设备的 MiWiFi 全局设置。",
+        "data": {
+          "enable_panel": "启用控制面板",
+          "log_level": "日志级别（全局）",
+          "auto_purge_every_days": "自动清理（每 X 天，0 = 禁用）[PRO]",
+          "auto_purge_at": "自动清理时间 (HH:MM) [PRO]",
+          "enable_device_sensors": "创建设备传感器（客户端）"
+        }
+      },
+      "device_settings": {
+        "title": "此设备的设置",
+        "description": "这些设置仅适用于此 MiWiFi 设备。",
         "data": {
           "ip_address": "IP 地址",
           "password": "密码",
@@ -50,16 +69,13 @@
           "is_track_devices": "跟踪设备",
           "stay_online": "最短在线时间（秒）",
           "scan_interval": "扫描间隔（秒）[PRO]",
-          "timeout": "请求超时（秒）[PRO]",
           "activity_days": "上次活动后的允许天数 [PRO]",
-          "is_force_load": "在中继模式下强制加载设备 [PRO]",
+          "timeout": "请求超时（秒）[PRO]",
           "wan_speed_unit": "WAN 速度单位",
-          "log_level": "日志级别（全局）",
-          "enable_panel": "启用控制面板",
-          "auto_purge_every_days": "自动清理（每 X 天，0 = 禁用）[PRO]",
-          "auto_purge_at": "自动清理时间 (0–23) [PRO]",
-          "enable_device_sensors": "创建设备传感器（客户端）",
-          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL"
+          "is_force_load": "在中继模式下强制加载设备 [PRO]",
+          "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
+          "protocol": "协议",
+          "is_ap_mode": "接入点 / Mesh 节点（跳过 WAN 和网关端点）"
         }
       }
     }
@@ -99,8 +115,12 @@
           "description": "包括 Wi-Fi 网络设置（可能包含敏感数据）。"
         },
         "hide_sensitive": {
-          "name": "隐藏敏感数据",
-          "description": "隐藏密码和 MAC 地址。"
+          "name": "匿名化 IP/MAC 地址和名称",
+          "description": "在本次导出中使用一致的别名替换 IP、MAC 和名称。即使关闭此选项，密码、密钥和已知令牌也始终隐藏。"
+        },
+        "api_diagnostics": {
+          "name": "新的 API 查询及响应（主路由器和节点）",
+          "description": "查询所有已加载路由器的已知只读诊断数据，包含错误、跳过的查询和耗时。最多需要 2 分钟。密码和会话令牌始终隐藏。此诊断目录不包含固件的所有可能 API。"
         }
       }
     },
@@ -108,6 +128,10 @@
       "name": "清理不活跃设备",
       "description": "删除 X 天未活动的 device_tracker 和孤立设备。",
       "fields": {
+        "macs": {
+          "name": "仅限这些 MAC 地址",
+          "description": "可选列表，至少包含一个 MAC 地址。省略时检查所有客户端。启用包含孤立设备后，也会检查这些客户端中没有跟踪器的传感器。非活动时间要求和其他保护措施仍然适用。"
+        },
         "days": {
           "name": "不活跃天数",
           "description": "在清理前的不活跃天数。"

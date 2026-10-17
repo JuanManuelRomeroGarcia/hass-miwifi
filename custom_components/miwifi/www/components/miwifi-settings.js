@@ -1,10 +1,10 @@
-import { getRouterImage } from "../pages/utils.js?v=3.11.0";
-import { LitElement, html } from "../vendor/lit.js?v=3.11.0";
-import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.11.0";
-import { localize } from "../translations/localize.js?v=3.11.0";
-import "./miwifi-mac-replacement.js?v=3.11.0";
+import { getRouterImage } from "../pages/utils.js?v=3.12.0";
+import { LitElement, html } from "../vendor/lit.js?v=3.12.0";
+import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.12.0";
+import { localize } from "../translations/localize.js?v=3.12.0";
+import "./miwifi-mac-replacement.js?v=3.12.0";
 
-const MIWIFI_VERSION = "3.11.0";
+const MIWIFI_VERSION = "3.12.0";
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 
 export class MiWiFiSettingsPanel extends LitElement {
@@ -46,6 +46,7 @@ export class MiWiFiSettingsPanel extends LitElement {
       nat_rules: true,
       qos: true,
       wifi_config: false,
+      api_diagnostics: false,
       hide_sensitive: true,
     };
 
@@ -195,11 +196,13 @@ export class MiWiFiSettingsPanel extends LitElement {
 
   // ------------------ Dump modal ------------------
   _openDumpModal() {
+    if (!this.hass?.user?.is_admin || this.isDumpLoading) return;
     this.showDumpModal = true;
     this.requestUpdate();
   }
 
   _closeDumpModal() {
+    if (this.isDumpLoading) return;
     this.showDumpModal = false;
     this.requestUpdate();
   }
@@ -216,19 +219,22 @@ export class MiWiFiSettingsPanel extends LitElement {
         <div class="dialog">
           <h3>${localize("dump_title") || "Dump router data"}</h3>
           <p>${localize("dump_description") || "Select what to include:"}</p>
+          <p>${localize("dump_api_diagnostics_hint")}</p>
 
           <div class="dump-grid">
             ${Object.entries(this.dumpOptions).map(([k, v]) => html`
               <label class="dump-check">
-                <input type="checkbox" .checked=${!!v} @change=${()=>this._toggleDumpOption(k)} />
+                <input type="checkbox" .checked=${this.dumpOptions.api_diagnostics && !["api_diagnostics", "hide_sensitive"].includes(k) ? true : !!v}
+                  ?disabled=${this.isDumpLoading || (this.dumpOptions.api_diagnostics && !["api_diagnostics", "hide_sensitive"].includes(k))}
+                  @change=${()=>this._toggleDumpOption(k)} />
                 <span>${localize("dump_"+k) || k}</span>
               </label>
             `)}
           </div>
 
           <div class="right" style="margin-top:12px;">
-            <button class="miwifi-button" @click=${()=>this._closeDumpModal()}>${localize("ui_cancel") || "Cancelar"}</button>
-            <button class="miwifi-button" @click=${()=>this._sendDump()}>${localize("ui_apply") || "Aplicar"}</button>
+            <button class="miwifi-button" ?disabled=${this.isDumpLoading} @click=${()=>this._closeDumpModal()}>${localize("ui_cancel") || "Cancelar"}</button>
+            <button class="miwifi-button" ?disabled=${this.isDumpLoading} @click=${()=>this._sendDump()}>${this.isDumpLoading ? localize("settings_dump_in_progress") : localize("ui_apply")}</button>
           </div>
         </div>
       </div>
@@ -236,6 +242,14 @@ export class MiWiFiSettingsPanel extends LitElement {
   }
 
   async _sendDump() {
+    if (!this.hass?.user?.is_admin || this.isDumpLoading) return;
+    if (!Object.entries(this.dumpOptions).some(([key, value]) => key !== "hide_sensitive" && value)) {
+      this.hass.callService("persistent_notification", "create", {
+        title: localize("dump_title"), message: localize("dump_select_one"),
+        notification_id: "miwifi_dump_err",
+      });
+      return;
+    }
     try {
       this.isDumpLoading = true;
       const opts = { ...this.dumpOptions };
@@ -525,6 +539,13 @@ export class MiWiFiSettingsPanel extends LitElement {
         <div class="content" style="text-align:center; margin-top:20px;">
           <p style="font-size: 16px;">❗ ${localize("topology_main_not_found")}</p>
           <p>${localize("nav_topology")}.</p>
+          ${this.hass?.user?.is_admin ? html`
+            <button class="miwifi-button" @click=${() => {
+              this.dumpOptions = {...this.dumpOptions, api_diagnostics: true};
+              this._openDumpModal();
+            }}>${localize("dump_button")}</button>
+            ${this._renderDumpModal()}
+          ` : ""}
         </div>
       `;
     }
@@ -570,11 +591,6 @@ export class MiWiFiSettingsPanel extends LitElement {
     };
 
     const handleDumpService = () => {
-      const selected = Object.entries(this.dumpOptions).filter(([k, v]) => v && k !== "hide_sensitive");
-      if (selected.length === 0) {
-        alert(localize("dump_select_one") || "Select at least one section to include.");
-        return;
-      }
       this._openDumpModal();
     };
 
@@ -794,6 +810,16 @@ export class MiWiFiSettingsPanel extends LitElement {
               💬 ${localize("settings_feedback_button")}
             </a>
           </div>
+          <p class="note" style="margin-top: 20px; line-height: 1.6; overflow-wrap: anywhere;">
+            ${localize("settings_support_optional")}
+            <a href="https://www.paypal.com/donate/?hosted_button_id=UTTD853CXYX8G"
+               target="_blank" rel="noopener noreferrer"
+               style="color: inherit;">PayPal</a>
+            ·
+            <a href="https://wise.com/pay/me/juanmanuelr175"
+               target="_blank" rel="noopener noreferrer"
+               style="color: inherit;">Wise</a>
+          </p>
         </div>
       </div>
     `;

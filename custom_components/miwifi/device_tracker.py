@@ -66,6 +66,7 @@ from .const import (
 
 from .enum import Connection, DeviceClass
 from .helper import (
+    async_remove_empty_client_device,
     async_get_serving_node,
     detect_manufacturer,
     device_config_entry_ids,
@@ -621,13 +622,7 @@ async def async_setup_entry(
             device_id = device_id or (legacy_entry.device_id if legacy_entry else None)
             registry.async_remove(ent_legacy)
 
-        if device_id:
-            dev_reg = dr.async_get(hass)
-            ents = er.async_entries_for_device(
-                registry, device_id, include_disabled_entities=True
-            )
-            if not ents:
-                dev_reg.async_remove_device(device_id)
+        async_remove_empty_client_device(hass, device_id)
 
     async_dispatcher_connect(hass, SIGNAL_PURGE_DEVICE, _handle_purge)
 

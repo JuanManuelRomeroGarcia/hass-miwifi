@@ -31,3 +31,7 @@ Para sustitución de MAC privadas, describe también los alias de nombres config
 Un padre sin correspondencia, un indicador de espacios en una IP o la ausencia de IP activa son pistas, no la explicación completa por sí solos. Una descarga a mitad de actualización puede contener un contador transitorio; compara los eventos de actualización terminada. Que funcione en una instalación no resuelve automáticamente un informe de otro modelo o firmware sin su verificación.
 
 Consulta también la guía de [MAC privadas](Random-MAC-addresses-es.md).
+
+## Volcado API nuevo en desarrollo
+
+El volcado opcional de consultas nuevas de solo lectura, preparado después de v3.11.0, se explica en [Diagnóstico de API del router](Router-API-diagnostics-es.md). Probado en HA 2026.10.1 real con principal RC01 y nodo RC06; aún sin publicar.

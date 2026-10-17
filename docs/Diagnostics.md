@@ -31,3 +31,7 @@ For private-MAC replacement, also describe the configured router-name aliases an
 A missing parent match, a trailing-whitespace flag or an absent active IP is evidence to investigate, not proof of the entire cause. A download made halfway through an update can contain a transient pre-completion count; compare the completed-refresh events. Successful results on one router setup do not close a report from another model or firmware without its user's verification.
 
 For the implementation and collection details, see [mesh support capture](../tests/MESH_SUPPORT.md). For duplicate clients, see [private MAC addresses](Random-MAC-addresses.md).
+
+## Fresh API export in development
+
+For the opt-in, fresh read-only router API capture being prepared after v3.11.0, see [Router API diagnostics](Router-API-diagnostics.md). Tested on real HA 2026.10.1 with an RC01 main and RC06 node; not released yet.

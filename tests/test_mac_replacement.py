@@ -143,6 +143,7 @@ async def test_configuration_and_real_node_censuses_retire_previous_mac(hass):
         config = MiWifiConfigureMacReplacementServiceCall.schema({"clients": {"watch": ["SM-L315F", "Reloj JuanMa"]}})
         with patch("custom_components.miwifi.services.MiWiFiNotifier") as notifier:
             notifier.return_value.notify = AsyncMock()
+            notifier.return_value.get_translations = AsyncMock(return_value={})
             await MiWifiConfigureMacReplacementServiceCall(hass).async_call_service(SimpleNamespace(data=config))
         assert OLD in get_mac_replacement(hass)._groups["watch"]["macs"]
         main.luci.device_list = AsyncMock(return_value={"code": 0, "list": [{

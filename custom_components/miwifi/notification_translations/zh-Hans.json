@@ -14,6 +14,11 @@
     "unknown": "未知"
   },
   "notifications": {
+    "dump_ready_private": "📄 路由器数据已准备好。请以管理员身份打开 MiWiFi 面板下载。",
+    "logs_ready_private": "📦 日志已准备好。请以管理员身份打开 MiWiFi 面板下载。",
+    "mac_replacement_configured": "已为以下客户端配置自动 MAC 替换：{clients}",
+    "none": "无",
+    "purge_preview_title": "清理预览",
     "new_device_title": "MiWiFi 检测到新设备",
     "new_device_message": "📶 新设备已连接: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 连接: `{conn}`",
     "unsupported_router_title": "不支持的路由器",

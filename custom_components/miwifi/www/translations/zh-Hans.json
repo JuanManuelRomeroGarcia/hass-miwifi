@@ -248,7 +248,7 @@
   "dump_nat_rules": "NAT 规则",
   "dump_qos": "QoS",
   "dump_wifi_config": "Wi-Fi 配置",
-  "dump_hide_sensitive": "隐藏敏感数据",
+  "dump_hide_sensitive": "匿名化 IP/MAC 地址和名称",
 
   "wifi_password": "密码",
   "guest_password_hint": "如果您是管理员，则当前密码将显示。",
@@ -318,5 +318,8 @@
   "status_view": "状态视图",
   "status_view_list": "列表",
   "status_column_field": "字段",
-  "status_column_value": "值"
+  "status_column_value": "值",
+  "dump_api_diagnostics": "新的 API 查询及响应（主路由器和节点）",
+  "dump_api_diagnostics_hint": "查询所有已加载路由器的已知只读诊断数据，包含错误、跳过的查询和耗时。最多需要 2 分钟。密码和会话令牌始终隐藏。此诊断目录不包含固件的所有可能 API。",
+  "settings_support_optional": "MiWiFi 免费使用。如果它对您有帮助，欢迎自愿捐助，支持项目开发："
 }

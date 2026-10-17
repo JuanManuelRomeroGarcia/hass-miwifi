@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.11.0";
-import { localize } from "../translations/localize.js?v=3.11.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.12.0";
+import { localize } from "../translations/localize.js?v=3.12.0";
 
 const COLUMNS = [
   ["name", "label_name"], ["state", "nav_status"], ["ip", "ip"],

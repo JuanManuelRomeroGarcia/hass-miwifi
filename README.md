@@ -53,6 +53,12 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Guía en español](docs/BE6500-Pro-es.md)
 
 
+- [Mesh settings, manual AP role and safe node cleanup](docs/Mesh-options.md) (v3.12.0)
+  - [Guía en español](docs/Mesh-options-es.md)
+- [Fresh router API diagnostic export](docs/Router-API-diagnostics.md) (v3.12.0)
+  - [Guía en español](docs/Router-API-diagnostics-es.md)
+
+
 ## Supported routers
 
 
@@ -254,3 +260,11 @@ The standalone [miwifi-panel-frontend](https://github.com/JuanManuelRomeroGarcia
 
 The panel includes translations for English, Spanish, German, French, Brazilian
 Portuguese, Russian, Turkish and Simplified Chinese.
+
+## Support the project
+
+MiWiFi is free to use. If it helps you, you can support its development with a
+voluntary donation via [PayPal](https://www.paypal.com/donate/?hosted_button_id=UTTD853CXYX8G)
+or [Wise](https://wise.com/pay/me/juanmanuelr175). Donations are optional; all
+features remain available without contributing. Bug reports, translations and
+feedback are also welcome.

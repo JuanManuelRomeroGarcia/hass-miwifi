@@ -26,7 +26,8 @@
           "log_level": "Log-Level (global)",
           "enable_panel": "Steuerungs-Panel aktivieren",
           "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
-          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren"
+          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
+          "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte überspringen)"
         }
       }
     }
@@ -42,7 +43,25 @@
     "step": {
       "init": {
         "title": "MiWiFi Einstellungen",
-        "description": "Geben Sie die IP-Adresse und das Passwort Ihres MiWiFi Routers ein",
+        "menu_options": {
+          "global_settings": "Globale Mesh-Einstellungen",
+          "device_settings": "Einstellungen für dieses Gerät"
+        }
+      },
+      "global_settings": {
+        "title": "Globale Mesh-Einstellungen",
+        "description": "Globale MiWiFi-Mesh-Einstellungen, die für alle Mesh-Geräte gelten.",
+        "data": {
+          "enable_panel": "Steuerungs-Panel aktivieren",
+          "log_level": "Log-Level (global)",
+          "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
+          "auto_purge_at": "Zeit für automatische Bereinigung (HH:MM) [PRO]",
+          "enable_device_sensors": "Gerätesensoren erstellen (Clients)"
+        }
+      },
+      "device_settings": {
+        "title": "Einstellungen für dieses Gerät",
+        "description": "Diese Einstellungen gelten nur für dieses MiWiFi-Gerät.",
         "data": {
           "ip_address": "IP-Adresse",
           "password": "Passwort",
@@ -50,16 +69,13 @@
           "is_track_devices": "Geräte verfolgen",
           "stay_online": "Minimale Online-Zeit (Sekunden)",
           "scan_interval": "Scanintervall (Sekunden) [PRO]",
-          "timeout": "Timeout für Anfragen (Sekunden) [PRO]",
           "activity_days": "Erlaubte Tage nach der letzten Aktivität [PRO]",
-          "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
+          "timeout": "Timeout für Anfragen (Sekunden) [PRO]",
           "wan_speed_unit": "WAN-Geschwindigkeitseinheit",
-          "log_level": "Log-Level (global)",
-          "enable_panel": "Steuerungs-Panel aktivieren",
-          "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
-          "auto_purge_at": "Zeit für automatische Bereinigung (0–23) [PRO]",
-          "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
-          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren"
+          "is_force_load": "Geräte im Repeater-Modus erzwingen [PRO]",
+          "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
+          "protocol": "Protokoll",
+          "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte überspringen)"
         }
       }
     }
@@ -99,8 +115,12 @@
           "description": "Wi-Fi-Netzwerkeinstellungen einfügen (kann sensible Daten enthalten)."
         },
         "hide_sensitive": {
-          "name": "Sensible Daten ausblenden",
-          "description": "Passwörter und MAC-Adressen ausblenden."
+          "name": "IP-/MAC-Adressen und Namen anonymisieren",
+          "description": "Ersetzt IP-Adressen, MAC-Adressen und Namen durch konsistente Aliasse innerhalb dieses Exports. Passwörter, Schlüssel und bekannte Tokens werden immer verborgen, auch wenn diese Option deaktiviert ist."
+        },
+        "api_diagnostics": {
+          "name": "Neue API-Abfragen und Antworten (Hauptrouter und Knoten)",
+          "description": "Fragt bekannte schreibgeschützte Diagnoseblöcke aller geladenen Router ab, mit Fehlern, ausgelassenen Abfragen und Zeiten. Bis zu 2 Minuten. Passwörter und Sitzungstoken bleiben immer verborgen. Der Katalog enthält nicht alle möglichen Firmware-APIs."
         }
       }
     },
@@ -108,6 +128,10 @@
       "name": "Inaktive Geräte bereinigen",
       "description": "Entfernt device_tracker und verwaiste Geräte nach X Tagen Inaktivität.",
       "fields": {
+        "macs": {
+          "name": "Auf diese MAC-Adressen beschränken",
+          "description": "Optionale Liste mit mindestens einer MAC-Adresse. Ohne Angabe werden alle Clients geprüft. Mit verwaisten Geräten werden auch zugehörige Client-Sensoren ohne Tracker berücksichtigt. Inaktivitätsfristen und alle weiteren Schutzmaßnahmen gelten weiterhin."
+        },
         "days": {
           "name": "Inaktivitätstage",
           "description": "Anzahl der Tage ohne Aktivität vor der Bereinigung."

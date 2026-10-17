@@ -26,7 +26,8 @@
           "log_level": "Nivel de log (global)",
           "enable_panel": "Habilitar panel de control",
           "enable_device_sensors": "Crear sensores de dispositivos (clientes)",
-          "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo"
+          "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo",
+          "is_ap_mode": "Punto de acceso / nodo mesh (omitir endpoints WAN y de puerta de enlace)"
         }
       }
     }
@@ -42,7 +43,25 @@
     "step": {
       "init": {
         "title": "Configuración de MiWiFi",
-        "description": "Introduce la dirección IP y la contraseña de tu router MiWiFi",
+        "menu_options": {
+          "global_settings": "Ajustes globales de la malla",
+          "device_settings": "Ajustes de este dispositivo"
+        }
+      },
+      "global_settings": {
+        "title": "Ajustes globales de la malla",
+        "description": "Ajustes globales de la malla MiWiFi, aplicables a todos los dispositivos.",
+        "data": {
+          "enable_panel": "Habilitar panel de control",
+          "log_level": "Nivel de log (global)",
+          "auto_purge_every_days": "Autopurga cada X días (0 = desactivada) [PRO]",
+          "auto_purge_at": "Hora diaria de la autopurga (HH:MM)",
+          "enable_device_sensors": "Crear sensores de dispositivos (clientes)"
+        }
+      },
+      "device_settings": {
+        "title": "Ajustes de este dispositivo",
+        "description": "Estos ajustes solo se aplican a este dispositivo MiWiFi.",
         "data": {
           "ip_address": "Dirección IP",
           "password": "Contraseña",
@@ -50,16 +69,13 @@
           "is_track_devices": "Rastrear dispositivos",
           "stay_online": "Permanencia mínima en línea en segundos",
           "scan_interval": "Intervalo de escaneo en segundos [PRO]",
-          "wan_speed_unit": "Unidad de velocidad WAN",
-          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
           "activity_days": "Días permitidos desde la última actividad [PRO]",
           "timeout": "Tiempo de espera de solicitudes en segundos [PRO]",
-          "log_level": "Nivel de log (global)",
-          "enable_panel": "Habilitar panel de control",
-          "auto_purge_every_days": "Autopurga cada X días (0 = desactivada) [PRO]",
-          "auto_purge_at": "Hora diaria de la autopurga (HH:MM)",
-          "enable_device_sensors": "Crear sensores de dispositivos (clientes)",
-          "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo"
+          "wan_speed_unit": "Unidad de velocidad WAN",
+          "is_force_load": "Cargar dispositivos forzosamente en modo repetidor [PRO]",
+          "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo",
+          "protocol": "Protocolo",
+          "is_ap_mode": "Punto de acceso / nodo mesh (omitir endpoints WAN y de puerta de enlace)"
         }
       }
     }
@@ -99,8 +115,12 @@
           "description": "Incluye configuración de redes Wi-Fi (puede contener datos sensibles)."
         },
         "hide_sensitive": {
-          "name": "Ocultar datos sensibles",
-          "description": "Oculta contraseñas y direcciones MAC."
+          "name": "Anonimizar IP/MAC y nombres",
+          "description": "Sustituye IP, MAC y nombres por alias coherentes dentro de este volcado. Las contraseñas, claves y tokens conocidos siempre se ocultan, incluso al desactivar esta opción."
+        },
+        "api_diagnostics": {
+          "name": "Consultas API y respuestas nuevas (principal y nodos)",
+          "description": "Consulta los bloques de diagnóstico de solo lectura conocidos en todos los routers cargados, con errores, omisiones y tiempos. Hasta 2 minutos. Las contraseñas y los tokens siempre se ocultan. Es un catálogo de diagnóstico, no todas las API posibles del firmware."
         }
       }
     },
@@ -108,6 +128,10 @@
       "name": "Purgar dispositivos inactivos",
       "description": "Elimina device_trackers y dispositivos huérfanos tras X días de inactividad.",
       "fields": {
+        "macs": {
+          "name": "Limitar a estas direcciones MAC",
+          "description": "Lista opcional de una o más direcciones MAC. Si se omite, se revisan todos los clientes. Con «Incluir dispositivos huérfanos», también se revisan sus sensores sin tracker. Se mantienen los requisitos de inactividad y las demás protecciones."
+        },
         "days": {
           "name": "Días de inactividad",
           "description": "Número de días sin actividad antes de considerar la purga."

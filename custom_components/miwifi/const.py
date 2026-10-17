@@ -53,6 +53,8 @@ SIGNAL_PURGE_DEVICE: Final = f"{DOMAIN}-device-purge"
 CONF_STAY_ONLINE: Final = "stay_online"
 CONF_IS_TRACK_DEVICES: Final = "is_track_devices"
 CONF_IS_FORCE_LOAD: Final = "is_force_load"
+CONF_IS_AP_MODE: Final = "is_ap_mode"
+DEFAULT_IS_AP_MODE: Final = False
 CONF_ACTIVITY_DAYS: Final = "activity_days"
 CONF_ENCRYPTION_ALGORITHM: Final = "encryption_algorithm"
 CONF_PROTOCOL: Final = "protocol"
@@ -65,6 +67,8 @@ DEFAULT_WAN_SPEED_UNIT: Final = "Mbps"
 WAN_SPEED_UNIT_OPTIONS: Final = ["B/s", "Mbps"]
 CONF_ENABLE_DEVICE_SENSORS = "enable_device_sensors"
 DEFAULT_ENABLE_DEVICE_SENSORS = False
+# Save counter of the global client-sensor setting; the highest one wins.
+CONF_DEVICE_SENSORS_GLOBAL: Final = "device_sensors_global"
 CONF_ENABLE_PORT_PROBE: Final = "enable_port_probe"
 DEFAULT_ENABLE_PORT_PROBE: Final = False
 

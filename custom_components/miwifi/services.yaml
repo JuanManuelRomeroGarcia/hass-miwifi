@@ -127,9 +127,15 @@ dump_router_data:
       default: false
       selector:
         boolean: {}
+    api_diagnostics:
+      name: Fresh API diagnostics (main and nodes)
+      description: Query the fixed read-only diagnostic catalogue for all loaded routers. Includes responses, errors, timings and skipped queries. May take up to two minutes. Credentials are always hidden.
+      default: false
+      selector:
+        boolean: {}
     hide_sensitive:
       name: Hide sensitive data
-      description: Hide passwords and MAC addresses.
+      description: Pseudonymize IP/MAC addresses and identifying names while preserving relationships. Credentials and session tokens are always hidden, even when this option is off.
       default: true
       selector:
         boolean: {}
@@ -277,7 +283,7 @@ purge_inactive_devices:
           min: 1
           max: 365
           mode: box
-          unit_of_measurement: days
+          unit_of_measurement: d
     only_randomized:
       name: Only randomized MACs
       description: Purge only devices with randomized (private) MACs.

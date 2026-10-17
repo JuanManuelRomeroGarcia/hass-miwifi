@@ -26,6 +26,7 @@ jobs:
       - run: node tools/test_status_wan_ui.mjs
       - run: node tools/test_status_view_ui.mjs
       - run: node tools/test_panel_preview.mjs
+      - run: node tools/test_dump_ui.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:

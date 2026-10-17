@@ -14,6 +14,11 @@
     "unknown": "Desconhecido"
   },
   "notifications": {
+    "dump_ready_private": "📄 Os dados do roteador estão prontos. Abra o painel MiWiFi como administrador para baixá-los.",
+    "logs_ready_private": "📦 Os registros estão prontos. Abra o painel MiWiFi como administrador para baixá-los.",
+    "mac_replacement_configured": "Substituição automática de MAC configurada para: {clients}",
+    "none": "nenhum",
+    "purge_preview_title": "Prévia da limpeza",
     "new_device_title": "Novo dispositivo detectado no MiWiFi",
     "new_device_message": "📶 Novo dispositivo conectado: **{name}**\n💻 MAC: `{mac}`\n🌐 IP: `{ip}`\n📡 Conexão: `{conn}`",
     "unsupported_router_title": "Roteador não suportado",
