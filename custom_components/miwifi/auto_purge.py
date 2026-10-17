@@ -58,6 +58,60 @@ def _next_run(now, at: dtime, every_days: int):
     return cand
 
 
+def _kept_deadline(stored: Dict[str, Any], now, at: dtime, every_days: int):
+    """Return the stored next_due if it is still the deadline to honour.
+
+    A setup (restart, reload, options save) used to recompute the deadline
+    from now, which pushes it `every_days` ahead each time: an instance that
+    restarts more often than that never reaches it. The stored deadline is
+    kept only while it is one this schedule could have produced; anything
+    else is recomputed.
+
+    `next_due_for` records the schedule the deadline was computed for. The
+    top-level `every_days`/`at` cannot tell: the options flow overwrites them
+    before the reload that brings us here.
+
+    A store written before `next_due_for` existed has no record. Its deadline
+    is still kept when it passes the checks below (ahead, within one period,
+    on the local time of `at`); recomputing it would postpone the purge one
+    last time on the first restart after an upgrade. If the frequency changed
+    just before that restart, the kept deadline follows the old spacing once,
+    and the window check still keeps it within one period of the new one.
+    """
+
+    due_for = stored.get("next_due_for")
+    if due_for is not None:
+        if not isinstance(due_for, dict) or due_for.get("at") is None:
+            return None
+        try:
+            if int(due_for.get("every_days")) != every_days:
+                return None
+        except (TypeError, ValueError):
+            return None
+        if _parse_hhmm(due_for["at"]) != at:
+            return None
+
+    try:
+        due = dt_util.parse_datetime(str(stored.get("next_due") or ""))
+    except Exception:
+        return None
+    # A naive value cannot be ordered against an aware now.
+    if due is None or due.tzinfo is None:
+        return None
+
+    # Past: overdue, the kickoff handles it. Further ahead than one period
+    # (plus a DST hour): the clock moved back or the value is bogus.
+    if not now < due <= now + timedelta(days=every_days, hours=1):
+        return None
+
+    # A deadline set in another time zone lands at the wrong local hour.
+    local = dt_util.as_local(due)
+    if (local.hour, local.minute, local.second) != (at.hour, at.minute, at.second):
+        return None
+
+    return due
+
+
 async def _load(hass: HomeAssistant) -> Dict[str, Any]:
     return await _store(hass).async_load() or {}
 
@@ -194,6 +248,7 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
                 "last_ok": bool(ok),
                 "last_params": params,
                 "next_due": next_dt.isoformat(),
+                "next_due_for": {"every_days": every_days, "at": at_str},
                 "every_days": every_days,
                 "at": at_str,
                 "owner": entry.entry_id,
@@ -209,15 +264,33 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
 
         if every_days == 0:
             s0 = await _load(hass)
-            s0.update({"next_due": None, "every_days": 0, "at": at_str, "owner": entry.entry_id})
+            s0.update(
+                {
+                    "next_due": None,
+                    "next_due_for": None,
+                    "every_days": 0,
+                    "at": at_str,
+                    "owner": entry.entry_id,
+                }
+            )
             await _save(hass, s0)
             _LOGGER.debug(
                 "[MiWiFi] Scheduled purge is disabled (every_days=0); no run scheduled"
             )
             return
 
-        first = _next_run(now, at_time, every_days)
+        # Keep a pending deadline across setups; recomputing it from now on
+        # every restart postponed the purge indefinitely.
+        first = _kept_deadline(await _load(hass), now, at_time, every_days)
+        kept = first is not None
+        if first is None:
+            first = _next_run(now, at_time, every_days)
         data[AUTO_PURGE_UNSUB] = async_track_point_in_time(hass, _job, first)
+        _LOGGER.debug(
+            "[MiWiFi] Scheduled purge armed for %s (%s deadline)",
+            first.isoformat(),
+            "kept" if kept else "new",
+        )
 
         # Kickoff seguro:
         # - SOLO si kickoff=True
@@ -251,6 +324,7 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         s2.update(
             {
                 "next_due": first.isoformat(),
+                "next_due_for": {"every_days": every_days, "at": at_str},
                 "every_days": every_days,
                 "at": at_str,
                 "owner": entry.entry_id,
