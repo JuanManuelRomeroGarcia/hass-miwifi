@@ -6,6 +6,7 @@ import inspect
 
 import asyncio
 import time
+from collections import Counter
 from datetime import timedelta
 from functools import cached_property
 from typing import Any, Final
@@ -413,8 +414,8 @@ ATTR_CHANGES: Final = (
 CONFIGURATION_PORTS: Final = [80, 443]
 
 # Core saves the last states every 15 minutes and at the stop, each live entity
-# with the time of that save. One older than the newest by more than this was
-# not live at the last save.
+# with the time of that save. One older than the last save by more than this
+# was not live at it.
 RESTORED_STATE_MAX_AGE: Final = timedelta(minutes=20)
 
 # However slowly the mesh polls or sets up, a restored client that was home is
@@ -947,18 +948,24 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         node did not load - for a week, with the time it was saved: that client
         may have left days ago.
 
+        A save gives every live entity the same time, while an entity removed
+        since the start - a reload, a purge - gets the time of its removal, a
+        time of its own: the last save is the newest time that two states or
+        more share, not the newest of all.
+
         :return bool: the tracker was live when the last states were last saved
         """
 
         last_states: dict = async_get_restore_state(self.hass).last_states
-        own = last_states.get(self.entity_id)
-        newest = max((stored.last_seen for stored in last_states.values()), default=None)
+        if (own := last_states.get(self.entity_id)) is None:
+            return False
 
-        return (
-            own is not None
-            and newest is not None
-            and newest - own.last_seen <= RESTORED_STATE_MAX_AGE
+        saved: Counter = Counter(stored.last_seen for stored in last_states.values())
+        last_save = max(
+            (seen for seen, count in saved.items() if count > 1), default=max(saved)
         )
+
+        return last_save - own.last_seen <= RESTORED_STATE_MAX_AGE
 
     def _last_seen(self, device: dict, last_ts: int) -> int:
         """When the client was last seen, for the stay_online window.

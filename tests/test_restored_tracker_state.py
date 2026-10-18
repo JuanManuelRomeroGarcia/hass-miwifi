@@ -30,6 +30,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import State, callback
 from homeassistant.helpers import entity_registry as er, restore_state
+from homeassistant.helpers.restore_state import RestoreEntity
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     MockEntityPlatform,
@@ -160,6 +161,12 @@ async def _poll_without_client(hass, node, seconds):
     with patch.object(device_tracker, "time", SimpleNamespace(time=lambda: now)):
         node.async_set_updated_data(node.data)
         await hass.async_block_till_done()
+
+
+class _OtherEntity(RestoreEntity):
+    """An entity of another integration that restores its state."""
+
+    _attr_should_poll = False
 
 
 def _states(hass):
@@ -320,6 +327,59 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
         await _setup_trackers(hass, entry)
         for seconds in (1, POLL_PERIOD + DEFAULT_STAY_ONLINE + 5):
             await _poll_without_client(hass, node, seconds)
+
+        assert states == shown
+    finally:
+        await node.async_shutdown()
+
+
+@pytest.mark.parametrize(
+    ("saved_before_the_last_save", "shown"),
+    [
+        (timedelta(0), [STATE_HOME]),
+        (timedelta(days=3), [STATE_NOT_HOME, STATE_HOME]),
+    ],
+    ids=["at_the_last_save", "in_an_earlier_run"],
+)
+async def test_removal_since_the_start_does_not_date_the_last_save(
+    hass, router, saved_before_the_last_save, shown
+):
+    """Home Assistant was down for an hour, and has removed an entity since.
+
+    The removal stores that entity's state with the time of the removal, newer
+    than the last save. The client, home at the stop and still there, is
+    reported a few seconds after its tracker is added. A state from an earlier
+    run is still not held.
+    """
+    entry, node = _node(hass, "force_load_node")
+    mock_restore_cache(
+        hass,
+        [
+            State(ENTITY_ID, STATE_HOME),
+            State("sensor.live_at_the_last_save", "1"),
+            State("sensor.also_live_at_the_last_save", "1"),
+        ],
+    )
+    last_states = restore_state.async_get(hass).last_states
+    for stored in last_states.values():
+        stored.last_seen -= timedelta(hours=1)
+    last_states[ENTITY_ID].last_seen -= saved_before_the_last_save
+
+    # Another integration removes one of its entities while starting.
+    other = MockEntityPlatform(hass, domain="sensor", platform_name="other")
+    removed = _OtherEntity()
+    removed.entity_id = "sensor.removed_since_the_start"
+    await other.async_add_entities([removed])
+    await other.async_reset()
+    assert last_states[removed.entity_id].last_seen > last_states[ENTITY_ID].last_seen
+
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    states = _states(hass)
+    try:
+        await _restore(node)
+        await _setup_trackers(hass, entry)
+        await _poll_without_client(hass, node, 1)
+        await _report_client(hass, node, "force_load_node")
 
         assert states == shown
     finally:
