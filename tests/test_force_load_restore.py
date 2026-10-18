@@ -19,12 +19,19 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from homeassistant.const import CONF_IP_ADDRESS, STATE_HOME, STATE_NOT_HOME
+from homeassistant.const import (
+    CONF_IP_ADDRESS,
+    EVENT_STATE_CHANGED,
+    STATE_HOME,
+    STATE_NOT_HOME,
+)
+from homeassistant.core import State, callback
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     MockEntityPlatform,
     load_fixture,
+    mock_restore_cache,
 )
 
 from custom_components.miwifi import device_tracker
@@ -35,6 +42,7 @@ from custom_components.miwifi.const import (
     ATTR_SENSOR_MODE,
     ATTR_STATE,
     ATTR_TRACKER_ENTRY_ID,
+    ATTR_TRACKER_IS_RESTORED,
     ATTR_TRACKER_UPDATER_ENTRY_ID,
     CONF_IS_TRACK_DEVICES,
     DOMAIN,
@@ -173,6 +181,20 @@ def _tracker(hass, mac):
     return er.async_get(hass).async_get_entity_id("device_tracker", DOMAIN, f"{DOMAIN}-{mac.lower()}")
 
 
+def _states(hass, entity_id):
+    """Every state the entity shows from now on, without repeats."""
+    states: list[str] = []
+
+    @callback
+    def _changed(event):
+        new = event.data["new_state"]
+        if event.data["entity_id"] == entity_id and new and states[-1:] != [new.state]:
+            states.append(new.state)
+
+    hass.bus.async_listen(EVENT_STATE_CHANGED, _changed)
+    return states
+
+
 async def _push(hass, main, mac, parent=LEAF_MAC):
     """The main lists the client as online behind a node."""
     main.luci.device_list = AsyncMock(return_value={"code": 0, "list": [{
@@ -230,6 +252,51 @@ async def test_absent_client_is_restored_not_home_and_returns_home(hass, router,
         assert "does not generate unique IDs" not in caplog.text
         assert notifier.await_count == announced
         assert leaf.data[ATTR_SENSOR_DEVICES] == 1
+    finally:
+        await _stop(leaf, main)
+
+
+@pytest.mark.parametrize("reported_by", ["node_second_refresh", "main_push"])
+async def test_client_home_before_and_after_the_restart_does_not_leave(
+    hass, router, reported_by
+):
+    """The node lists the client only after its trackers are set up.
+
+    node_second_refresh: the whole mesh restarts, so the node polls before any
+    node has stored a topology graph. Its first refresh takes the mode probe's
+    answer, default, and does not read its radio list; the next one does.
+    main_push: the node's radio list does not have the client (a wired one), and
+    the main pushes it in.
+    """
+    client, notifier = router
+    main_entry, main = _main(hass)
+    leaf_entry, leaf = await _leaf(hass, client)
+    entity_id = f"device_tracker.{DOMAIN}_{PRESENT.lower().replace(':', '_')}"
+    mock_restore_cache(hass, [State(entity_id, STATE_HOME)])
+    # Saved at the stop, a few minutes before the start.
+    await get_store(hass, LEAF_IP).async_save(
+        {PRESENT: _stored(PRESENT, leaf_entry, days_ago=5 / (24 * 60))}
+    )
+    if reported_by == "node_second_refresh":
+        del main.data["topo_graph"]
+    else:
+        _radio(client)
+    states = _states(hass, entity_id)
+    try:
+        await _poll(hass, leaf)
+        assert leaf.is_repeater is (reported_by == "main_push")
+        assert leaf.devices[PRESENT][ATTR_TRACKER_IS_RESTORED]
+        await _setup_trackers(hass, leaf_entry)
+        assert _tracker(hass, PRESENT) == entity_id
+
+        if reported_by == "main_push":
+            await _push(hass, main, PRESENT)
+        await _poll(hass, leaf)
+
+        assert leaf.is_repeater
+        assert ATTR_TRACKER_IS_RESTORED not in leaf.devices[PRESENT]
+        assert states == [STATE_HOME]
+        notifier.assert_not_awaited()
     finally:
         await _stop(leaf, main)
 

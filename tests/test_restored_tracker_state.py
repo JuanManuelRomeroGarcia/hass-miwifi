@@ -1,10 +1,11 @@
-"""A restored client's tracker starts not_home, until the client is reported again.
+"""A restored client's tracker keeps its last state until the mesh reports it.
 
 The restore step runs in a node's first refresh, before the tracker platform is
 set up, so the platform adds the trackers from the node's records rather than
-from the restore signal. A restored client that is away must not show home
-until the next poll: a presence automation would see an arrival at every
-restart.
+from the restore signal. A restored client shows what it showed when Home
+Assistant stopped until a router reports it, or until every node has polled
+once more: a presence automation would otherwise see an arrival, or a
+departure, at every restart. With no state recorded it starts not_home.
 
 Runs on a real Home Assistant core: a real LuciUpdater over a scripted router
 API, its real device store, and the real device_tracker platform.
@@ -13,13 +14,26 @@ API, its real device store, and the real device_tracker platform.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from homeassistant.const import CONF_IP_ADDRESS, STATE_HOME, STATE_NOT_HOME
+from homeassistant.const import (
+    CONF_IP_ADDRESS,
+    EVENT_STATE_CHANGED,
+    STATE_HOME,
+    STATE_NOT_HOME,
+    STATE_UNAVAILABLE,
+)
+from homeassistant.core import State, callback
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEntityPlatform
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    MockEntityPlatform,
+    mock_restore_cache,
+)
 
 from custom_components.miwifi import device_tracker
 from custom_components.miwifi.const import (
@@ -30,6 +44,9 @@ from custom_components.miwifi.const import (
     ATTR_TRACKER_IS_RESTORED,
     ATTR_TRACKER_UPDATER_ENTRY_ID,
     CONF_IS_TRACK_DEVICES,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_STAY_ONLINE,
+    DEFAULT_TIMEOUT,
     DOMAIN,
     UPDATER,
 )
@@ -39,6 +56,9 @@ from custom_components.miwifi.updater import LuciUpdater
 
 NODE_IP, NODE_MAC = "192.0.2.2", "02:00:00:00:00:02"
 CLIENT = "02:00:00:00:00:42"
+ENTITY_ID = f"device_tracker.{DOMAIN}_{CLIENT.lower().replace(':', '_')}"
+# Within this every node polls once more, one request timing out.
+POLL_PERIOD = DEFAULT_SCAN_INTERVAL + DEFAULT_TIMEOUT
 
 
 @pytest.fixture
@@ -119,8 +139,126 @@ async def _report_client(hass, node, kind):
     await hass.async_block_till_done()
 
 
+async def _poll_without_client(hass, node, seconds):
+    """A poll that does not list the client, this many seconds from now.
+
+    Only the trackers' clock moves: the records keep the time the routers'
+    lists gave them.
+    """
+    now = time.time() + seconds
+    with patch.object(device_tracker, "time", SimpleNamespace(time=lambda: now)):
+        node.async_set_updated_data(node.data)
+        await hass.async_block_till_done()
+
+
+def _states(hass):
+    """Every state the client's tracker shows from now on, without repeats."""
+    states: list[str] = []
+
+    @callback
+    def _changed(event):
+        new = event.data["new_state"]
+        if event.data["entity_id"] == ENTITY_ID and new and states[-1:] != [new.state]:
+            states.append(new.state)
+
+    hass.bus.async_listen(EVENT_STATE_CHANGED, _changed)
+    return states
+
+
+@pytest.mark.parametrize("kind", ["gateway", "force_load_node"])
+@pytest.mark.parametrize(
+    ("last_state", "shown"),
+    [
+        (STATE_HOME, [STATE_HOME, STATE_NOT_HOME]),
+        (STATE_NOT_HOME, [STATE_NOT_HOME]),
+        (STATE_UNAVAILABLE, [STATE_NOT_HOME]),
+        (None, [STATE_NOT_HOME]),
+    ],
+    ids=["home", "not_home", "unavailable", "no_state"],
+)
+async def test_restored_tracker_keeps_its_state_until_every_node_has_polled(
+    hass, router, kind, last_state, shown
+):
+    """A client nobody reports since the start, whatever it was at the stop.
+
+    Home then, it may have left while Home Assistant was down: it stays home
+    until every node has polled once more and the stay_online window has
+    passed, then turns not_home once. Away or unavailable then, or with no
+    state recorded - the first start with this version - it is not_home
+    throughout.
+    """
+    entry, node = _node(hass, kind)
+    if last_state is not None:
+        mock_restore_cache(hass, [State(ENTITY_ID, last_state)])
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    states = _states(hass)
+    try:
+        await node._async_prepare_device_restore(node.data)
+        await _setup_trackers(hass, entry)
+        assert hass.states.get(ENTITY_ID).state == shown[0]
+
+        for seconds in (1, POLL_PERIOD, POLL_PERIOD + DEFAULT_STAY_ONLINE - 5):
+            await _poll_without_client(hass, node, seconds)
+            assert hass.states.get(ENTITY_ID).state == shown[0]
+
+        for seconds in (POLL_PERIOD + DEFAULT_STAY_ONLINE + 5, 10 * POLL_PERIOD):
+            await _poll_without_client(hass, node, seconds)
+            assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME
+
+        assert states == shown
+        assert node.devices[CLIENT][ATTR_TRACKER_IS_RESTORED]
+    finally:
+        await node.async_shutdown()
+
+
+async def test_restored_tracker_waits_for_the_slowest_node(hass, router):
+    """Another node polls every two minutes: it gets its poll too."""
+    entry, node = _node(hass, "force_load_node")
+    slow_scan = 4 * DEFAULT_SCAN_INTERVAL
+    slow = LuciUpdater(hass, "192.0.2.3", "test-password", scan_interval=slow_scan)
+    slow.update_interval = None
+    hass.data[DOMAIN]["slow"] = {CONF_IP_ADDRESS: "192.0.2.3", UPDATER: slow}
+    mock_restore_cache(hass, [State(ENTITY_ID, STATE_HOME)])
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    hold = slow_scan + DEFAULT_TIMEOUT + DEFAULT_STAY_ONLINE
+    try:
+        await node._async_prepare_device_restore(node.data)
+        await _setup_trackers(hass, entry)
+
+        for seconds in (POLL_PERIOD + DEFAULT_STAY_ONLINE + 5, hold - 5):
+            await _poll_without_client(hass, node, seconds)
+            assert hass.states.get(ENTITY_ID).state == STATE_HOME
+        await _poll_without_client(hass, node, hold + 5)
+        assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME
+    finally:
+        await node.async_shutdown()
+        await slow.async_shutdown()
+
+
+@pytest.mark.parametrize("kind", ["gateway", "force_load_node"])
+async def test_client_reported_since_the_restart_ages_as_usual(hass, router, kind):
+    """Once a router reports the client, its last activity counts again."""
+    entry, node = _node(hass, kind)
+    mock_restore_cache(hass, [State(ENTITY_ID, STATE_HOME)])
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    try:
+        await node._async_prepare_device_restore(node.data)
+        await _setup_trackers(hass, entry)
+        assert hass.states.get(ENTITY_ID).state == STATE_HOME
+        await _report_client(hass, node, kind)
+        assert hass.states.get(ENTITY_ID).state == STATE_HOME
+
+        # Not listed again: away once the stay_online window has passed, well
+        # before every node has polled since the start.
+        await _poll_without_client(hass, node, DEFAULT_STAY_ONLINE + 5)
+        assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME
+    finally:
+        await node.async_shutdown()
+
+
 @pytest.mark.parametrize("kind", ["gateway", "force_load_node"])
 async def test_restored_tracker_starts_not_home_until_reported(hass, router, kind):
+    """With no state recorded, as on the first start with this version."""
     entry, node = _node(hass, kind)
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     try:

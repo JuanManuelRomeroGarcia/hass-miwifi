@@ -15,6 +15,7 @@ try:
 except ImportError:  # Home Assistant before the public re-export (2026.6).
     from homeassistant.components.device_tracker.config_entry import ScannerEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import STATE_NOT_HOME, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
@@ -24,6 +25,7 @@ from homeassistant.helpers.entity_platform import (
     EntityPlatform,
     async_get_current_platform,
 )
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -630,7 +632,7 @@ async def async_setup_entry(
 
     async_dispatcher_connect(hass, SIGNAL_PURGE_DEVICE, _handle_purge)
 
-class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
+class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
     """MiWifi device tracker entry."""
 
     _attr_attribution: str = ATTRIBUTION
@@ -638,6 +640,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
 
     _configuration_port: int | None = None
     _is_connected: bool = False
+    # Until a router reports a restored client: if it was home when Home
+    # Assistant stopped, the time it counts as last seen at.
+    _restored_seen: int | None = None
 
     def __init__(
         self,
@@ -675,6 +680,21 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass."""
         await CoordinatorEntity.async_added_to_hass(self)
+
+        # A restored client has not been reported since the start, and its node
+        # may not list it before this tracker exists: on a full restart a node
+        # can poll before any topology graph is there. One that was home when
+        # Home Assistant stopped stays home until every node has polled once
+        # more, or a present client would show a departure and an arrival.
+        if self._device.get(ATTR_TRACKER_IS_RESTORED):
+            last_state = await self.async_get_last_state()
+            if last_state is not None and last_state.state not in (
+                STATE_NOT_HOME,
+                STATE_UNAVAILABLE,
+                STATE_UNKNOWN,
+            ):
+                self._restored_seen = int(time.time()) + self._mesh_poll_period()
+                self._is_connected = bool(self._attr_available)
 
         # Keep a global map so any router entry can update the live entity
         # without trying to reach entities from another EntityPlatform.
@@ -903,6 +923,37 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         return True
 
 
+    def _mesh_poll_period(self) -> int:
+        """Seconds within which every node polls once more, one request timing out.
+
+        :return int: the longest scan interval plus timeout in the mesh
+        """
+
+        updaters: list = [
+            integration[UPDATER]
+            for integration in async_get_integrations(self.hass).values()
+            if isinstance(integration[UPDATER], LuciUpdater)
+        ] or [self._updater]
+
+        return max(updater._scan_interval + updater.timeout for updater in updaters)
+
+    def _last_seen(self, device: dict, last_ts: int) -> int:
+        """When the client was last seen, for the stay_online window.
+
+        A restored record was last seen before Home Assistant stopped. As long
+        as no router has reported the client again, one that was home then
+        counts as seen until every node has polled once more.
+
+        :param device: dict: the record the state is computed from
+        :param last_ts: int: its last activity, as a timestamp
+        :return int: timestamp
+        """
+
+        if not device.get(ATTR_TRACKER_IS_RESTORED):
+            self._restored_seen = None
+
+        return max(last_ts, self._restored_seen or 0)
+
     def _handle_coordinator_update(self) -> None:
         """Update state."""
         is_available: bool = self._updater.data.get(ATTR_STATE, False)
@@ -926,8 +977,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
         # If device is not present in current refresh, keep last known attributes and
         # compute connectivity based on last_activity + stay_online window.
         if device is None:
-            last_ts: int = parse_last_activity(
-                str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))
+            last_ts: int = self._last_seen(
+                self._device,
+                parse_last_activity(str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))),
             )
             is_connected = False
             if last_ts:
@@ -956,6 +1008,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity):
             current_ts = parse_last_activity(
                 str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))
             )
+        current_ts = self._last_seen(device, current_ts)
 
         if current_ts:
             is_connected = (int(time.time()) - current_ts) <= self._stay_online
