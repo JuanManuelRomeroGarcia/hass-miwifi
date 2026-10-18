@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import json
+import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -45,6 +47,9 @@ from custom_components.miwifi.const import (
     ATTR_TRACKER_IS_RESTORED,
     ATTR_TRACKER_UPDATER_ENTRY_ID,
     CONF_IS_TRACK_DEVICES,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_STAY_ONLINE,
+    DEFAULT_TIMEOUT,
     DOMAIN,
     UPDATER,
 )
@@ -294,6 +299,46 @@ async def test_client_home_before_and_after_the_restart_does_not_leave(
         await _poll(hass, leaf)
 
         assert leaf.is_repeater
+        assert ATTR_TRACKER_IS_RESTORED not in leaf.devices[PRESENT]
+        assert states == [STATE_HOME]
+        notifier.assert_not_awaited()
+    finally:
+        await _stop(leaf, main)
+
+
+async def test_wired_client_waits_for_a_main_still_setting_up(hass, router):
+    """The main is retrying its setup when the node's trackers are added.
+
+    A wired client of the node comes only with the main's push, and the main
+    pushes in its first refresh: here after the node has polled twice more, and
+    after every node would have polled once more.
+    """
+    client, notifier = router
+    main_entry, main = _main(hass)
+    leaf_entry, leaf = await _leaf(hass, client)
+    entity_id = f"device_tracker.{DOMAIN}_{PRESENT.lower().replace(':', '_')}"
+    mock_restore_cache(hass, [State(entity_id, STATE_HOME)])
+    await get_store(hass, LEAF_IP).async_save(
+        {PRESENT: _stored(PRESENT, leaf_entry, days_ago=5 / (24 * 60))}
+    )
+    _radio(client)
+    states = _states(hass, entity_id)
+    try:
+        await _poll(hass, leaf)
+        assert main._is_first_update
+        await _setup_trackers(hass, leaf_entry)
+
+        # Only the trackers' clock moves: the records keep the routers' times.
+        late = time.time() + 2 * (DEFAULT_SCAN_INTERVAL + DEFAULT_TIMEOUT + DEFAULT_STAY_ONLINE)
+        with patch.object(device_tracker, "time", SimpleNamespace(time=lambda: late)):
+            await _poll(hass, leaf)
+            await _poll(hass, leaf)
+
+        # The main's first refresh at last.
+        await _push(hass, main, PRESENT)
+        main._is_first_update = False
+        await _poll(hass, leaf)
+
         assert ATTR_TRACKER_IS_RESTORED not in leaf.devices[PRESENT]
         assert states == [STATE_HOME]
         notifier.assert_not_awaited()

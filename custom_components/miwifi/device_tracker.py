@@ -417,6 +417,10 @@ CONFIGURATION_PORTS: Final = [80, 443]
 # not live at the last save.
 RESTORED_STATE_MAX_AGE: Final = timedelta(minutes=20)
 
+# However slowly the mesh polls or sets up, a restored client that was home is
+# held at most this long (seconds) from when its tracker was added.
+RESTORED_HOLD_MAX: Final = 300
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -649,9 +653,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
 
     _configuration_port: int | None = None
     _is_connected: bool = False
-    # Until a router reports a restored client: if it was home when Home
-    # Assistant stopped, the time it counts as last seen at.
-    _restored_seen: int | None = None
+    # Until a router reports a restored client that was home when Home
+    # Assistant stopped: when its tracker was added.
+    _restored_at: int | None = None
 
     def __init__(
         self,
@@ -692,11 +696,12 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
 
         # A restored client has not been reported since the start, and its node
         # may not list it before this tracker exists: on a full restart a node
-        # can poll before any topology graph is there. One that was home when
-        # Home Assistant stopped stays home until every node has polled once
-        # more, or a present client would show a departure and an arrival.
-        # Not while its node is unreachable: the hold would only show a client
-        # that left arriving once the node is back.
+        # can poll before any topology graph is there, and a wired client comes
+        # only with the main's push. One that was home when Home Assistant
+        # stopped stays home until the mesh has had the chance to report it (see
+        # _last_seen), or a present client would show a departure and an
+        # arrival. Not while its node is unreachable: the hold would only show
+        # a client that left arriving once the node is back.
         if self._device.get(ATTR_TRACKER_IS_RESTORED) and self._attr_available:
             last_state = await self.async_get_last_state()
             if (
@@ -705,7 +710,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
                 not in (STATE_NOT_HOME, STATE_UNAVAILABLE, STATE_UNKNOWN)
                 and self._last_state_is_current()
             ):
-                self._restored_seen = int(time.time()) + self._mesh_poll_period()
+                self._restored_at = int(time.time())
                 self._is_connected = True
 
         # Keep a global map so any router entry can update the live entity
@@ -955,26 +960,15 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             and newest - own.last_seen <= RESTORED_STATE_MAX_AGE
         )
 
-    def _mesh_poll_period(self) -> int:
-        """Seconds within which every node polls once more, one request timing out.
-
-        :return int: the longest scan interval plus timeout in the mesh
-        """
-
-        updaters: list = [
-            integration[UPDATER]
-            for integration in async_get_integrations(self.hass).values()
-            if isinstance(integration[UPDATER], LuciUpdater)
-        ] or [self._updater]
-
-        return max(updater._scan_interval + updater.timeout for updater in updaters)
-
     def _last_seen(self, device: dict, last_ts: int) -> int:
         """When the client was last seen, for the stay_online window.
 
         A restored record was last seen before Home Assistant stopped. As long
         as no router has reported the client again, one that was home then
-        counts as seen until every node has polled once more.
+        counts as seen until every node has polled once more - the longest scan
+        interval in the mesh, one request timing out - and while a node has not
+        finished its first refresh, setting up or retrying it: it has not
+        listed or pushed its clients yet. Never longer than RESTORED_HOLD_MAX.
 
         :param device: dict: the record the state is computed from
         :param last_ts: int: its last activity, as a timestamp
@@ -982,9 +976,24 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         """
 
         if not device.get(ATTR_TRACKER_IS_RESTORED):
-            self._restored_seen = None
+            self._restored_at = None
 
-        return max(last_ts, self._restored_seen or 0)
+        if self._restored_at is None:
+            return last_ts
+
+        updaters: list = [
+            integration[UPDATER]
+            for integration in async_get_integrations(self.hass).values()
+            if isinstance(integration[UPDATER], LuciUpdater)
+        ] or [self._updater]
+
+        seen: int = self._restored_at + max(
+            updater._scan_interval + updater.timeout for updater in updaters
+        )
+        if any(updater._is_first_update for updater in updaters):
+            seen = max(seen, int(time.time()))
+
+        return max(last_ts, min(seen, self._restored_at + RESTORED_HOLD_MAX))
 
     def _handle_coordinator_update(self) -> None:
         """Update state."""

@@ -3,9 +3,10 @@
 The restore step runs in a node's first refresh, before the tracker platform is
 set up, so the platform adds the trackers from the node's records rather than
 from the restore signal. A restored client shows what it showed when Home
-Assistant stopped until a router reports it, or until every node has polled
-once more: a presence automation would otherwise see an arrival, or a
-departure, at every restart. With no state recorded it starts not_home.
+Assistant stopped until a router reports it, or until every node has finished
+its first refresh and polled once more, five minutes at most: a presence
+automation would otherwise see an arrival, or a departure, at every restart.
+With no state recorded, or one older than the last save, it starts not_home.
 
 Runs on a real Home Assistant core: a real LuciUpdater over a scripted router
 API, its real device store, and the real device_tracker platform.
@@ -36,6 +37,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.miwifi import device_tracker
+from custom_components.miwifi.device_tracker import RESTORED_HOLD_MAX
 from custom_components.miwifi.const import (
     ATTR_DEVICE_MAC_ADDRESS,
     ATTR_SENSOR_MODE,
@@ -110,6 +112,12 @@ def _stored(entry):
         "last_activity": seen,
         "first_seen": "2026-01-01T10:00:00",
     }
+
+
+async def _restore(node):
+    """The node's first refresh: it restores its store, and is over."""
+    await node._async_prepare_device_restore(node.data)
+    node._is_first_update = False
 
 
 async def _setup_trackers(hass, entry):
@@ -193,7 +201,7 @@ async def test_restored_tracker_keeps_its_state_until_every_node_has_polled(
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     states = _states(hass)
     try:
-        await node._async_prepare_device_restore(node.data)
+        await _restore(node)
         await _setup_trackers(hass, entry)
         assert hass.states.get(ENTITY_ID).state == shown[0]
 
@@ -211,18 +219,24 @@ async def test_restored_tracker_keeps_its_state_until_every_node_has_polled(
         await node.async_shutdown()
 
 
-async def test_restored_tracker_waits_for_the_slowest_node(hass, router):
-    """Another node polls every two minutes: it gets its poll too."""
+@pytest.mark.parametrize(
+    "slow_scan", [4 * DEFAULT_SCAN_INTERVAL, 3600], ids=["two_minutes", "one_hour"]
+)
+async def test_restored_tracker_waits_for_the_slowest_node(hass, router, slow_scan):
+    """Another node polls every two minutes: it gets its poll too.
+
+    One that polls every hour does not hold every restored client for an hour.
+    """
     entry, node = _node(hass, "force_load_node")
-    slow_scan = 4 * DEFAULT_SCAN_INTERVAL
     slow = LuciUpdater(hass, "192.0.2.3", "test-password", scan_interval=slow_scan)
     slow.update_interval = None
+    slow._is_first_update = False
     hass.data[DOMAIN]["slow"] = {CONF_IP_ADDRESS: "192.0.2.3", UPDATER: slow}
     mock_restore_cache(hass, [State(ENTITY_ID, STATE_HOME)])
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
-    hold = slow_scan + DEFAULT_TIMEOUT + DEFAULT_STAY_ONLINE
+    hold = min(slow_scan + DEFAULT_TIMEOUT, RESTORED_HOLD_MAX) + DEFAULT_STAY_ONLINE
     try:
-        await node._async_prepare_device_restore(node.data)
+        await _restore(node)
         await _setup_trackers(hass, entry)
 
         for seconds in (POLL_PERIOD + DEFAULT_STAY_ONLINE + 5, hold - 5):
@@ -233,6 +247,43 @@ async def test_restored_tracker_waits_for_the_slowest_node(hass, router):
     finally:
         await node.async_shutdown()
         await slow.async_shutdown()
+
+
+@pytest.mark.parametrize("finishes", [True, False], ids=["finishes", "keeps_failing"])
+async def test_restored_tracker_waits_for_a_node_in_its_first_refresh(
+    hass, router, finishes
+):
+    """Another node - the main - is still setting up, or retrying its setup.
+
+    Its first refresh has not listed or pushed its clients yet: the client is
+    held until it has, or for at most RESTORED_HOLD_MAX.
+    """
+    entry, node = _node(hass, "force_load_node")
+    main = LuciUpdater(hass, "192.0.2.1", "test-password")
+    main.update_interval = None
+    hass.data[DOMAIN]["main"] = {CONF_IP_ADDRESS: "192.0.2.1", UPDATER: main}
+    mock_restore_cache(hass, [State(ENTITY_ID, STATE_HOME)])
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    states = _states(hass)
+    try:
+        await _restore(node)
+        await _setup_trackers(hass, entry)
+        await _poll_without_client(hass, node, POLL_PERIOD + DEFAULT_STAY_ONLINE + 5)
+        assert hass.states.get(ENTITY_ID).state == STATE_HOME
+
+        if finishes:
+            # Its first refresh is over, and did not list the client.
+            main._is_first_update = False
+            await _poll_without_client(hass, node, 2 * POLL_PERIOD + DEFAULT_STAY_ONLINE)
+        else:
+            await _poll_without_client(hass, node, RESTORED_HOLD_MAX + DEFAULT_STAY_ONLINE - 5)
+            assert hass.states.get(ENTITY_ID).state == STATE_HOME
+            await _poll_without_client(hass, node, RESTORED_HOLD_MAX + DEFAULT_STAY_ONLINE + 5)
+
+        assert states == [STATE_HOME, STATE_NOT_HOME]
+    finally:
+        await node.async_shutdown()
+        await main.async_shutdown()
 
 
 @pytest.mark.parametrize("kind", ["gateway", "force_load_node"])
@@ -262,7 +313,7 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     states = _states(hass)
     try:
-        await node._async_prepare_device_restore(node.data)
+        await _restore(node)
         await _setup_trackers(hass, entry)
         for seconds in (1, POLL_PERIOD + DEFAULT_STAY_ONLINE + 5):
             await _poll_without_client(hass, node, seconds)
@@ -291,7 +342,7 @@ async def test_restored_tracker_of_an_unreachable_node_is_not_held(
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     states = _states(hass)
     try:
-        await node._async_prepare_device_restore(node.data)
+        await _restore(node)
         node.data[ATTR_STATE] = False
         await _setup_trackers(hass, entry)
         assert hass.states.get(ENTITY_ID).state == STATE_UNAVAILABLE
@@ -314,7 +365,7 @@ async def test_client_reported_since_the_restart_ages_as_usual(hass, router, kin
     mock_restore_cache(hass, [State(ENTITY_ID, STATE_HOME)])
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     try:
-        await node._async_prepare_device_restore(node.data)
+        await _restore(node)
         await _setup_trackers(hass, entry)
         assert hass.states.get(ENTITY_ID).state == STATE_HOME
         await _report_client(hass, node, kind)
@@ -335,7 +386,7 @@ async def test_restored_tracker_starts_not_home_until_reported(hass, router, kin
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     try:
         # Restart: the first refresh restores, then the platform is set up.
-        await node._async_prepare_device_restore(node.data)
+        await _restore(node)
         with patch(
             "custom_components.miwifi.update.MiWiFiNewDeviceNotifier.async_notify_new_device",
             new_callable=AsyncMock,
