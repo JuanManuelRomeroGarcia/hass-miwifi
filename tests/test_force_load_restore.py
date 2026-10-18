@@ -54,6 +54,7 @@ from custom_components.miwifi.const import (
     UPDATER,
 )
 from custom_components.miwifi.enum import Mode
+from custom_components.miwifi.exceptions import LuciConnectionError
 from custom_components.miwifi.helper import get_store
 from custom_components.miwifi.purged_clients import get_purged_clients
 from custom_components.miwifi.updater import LuciUpdater
@@ -267,9 +268,10 @@ async def test_client_home_before_and_after_the_restart_does_not_leave(
 ):
     """The node lists the client only after its trackers are set up.
 
-    node_second_refresh: the whole mesh restarts, so the node polls before any
-    node has stored a topology graph. Its first refresh takes the mode probe's
-    answer, default, and does not read its radio list; the next one does.
+    node_second_refresh: the whole mesh restarts, the node's own topology
+    request fails, and the main stores its graph only after the node's first
+    refresh. That refresh takes the mode probe's answer, default, and does not
+    read its radio list; the next one does.
     main_push: the node's radio list does not have the client (a wired one), and
     the main pushes it in.
     """
@@ -283,7 +285,8 @@ async def test_client_home_before_and_after_the_restart_does_not_leave(
         {PRESENT: _stored(PRESENT, leaf_entry, days_ago=5 / (24 * 60))}
     )
     if reported_by == "node_second_refresh":
-        del main.data["topo_graph"]
+        main_graph = main.data.pop("topo_graph")
+        client.return_value.topo_graph = AsyncMock(side_effect=LuciConnectionError("Connection error"))
     else:
         _radio(client)
     states = _states(hass, entity_id)
@@ -296,6 +299,8 @@ async def test_client_home_before_and_after_the_restart_does_not_leave(
 
         if reported_by == "main_push":
             await _push(hass, main, PRESENT)
+        else:
+            main.data["topo_graph"] = main_graph
         await _poll(hass, leaf)
 
         assert leaf.is_repeater
