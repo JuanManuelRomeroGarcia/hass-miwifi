@@ -33,6 +33,7 @@ from homeassistant.helpers import entity_registry as er, restore_state
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     MockEntityPlatform,
+    async_mock_load_restore_state_from_storage,
     mock_restore_cache,
 )
 
@@ -77,12 +78,14 @@ def router():
         yield
 
 
-def _node(hass, kind):
-    entry = MockConfigEntry(
-        domain=DOMAIN, title=NODE_IP, data={CONF_IP_ADDRESS: NODE_IP},
-        options={CONF_IS_TRACK_DEVICES: True},
-    )
-    entry.add_to_hass(hass)
+def _node(hass, kind, entry=None):
+    """The node's entry and updater; with an entry, its updater in a new run."""
+    if entry is None:
+        entry = MockConfigEntry(
+            domain=DOMAIN, title=NODE_IP, data={CONF_IP_ADDRESS: NODE_IP},
+            options={CONF_IS_TRACK_DEVICES: True},
+        )
+        entry.add_to_hass(hass)
     force_load = kind == "force_load_node"
     node = LuciUpdater(
         hass, NODE_IP, "test-password", is_force_load=force_load,
@@ -354,6 +357,52 @@ async def test_restored_tracker_of_an_unreachable_node_is_not_held(
             await _poll_without_client(hass, node, 5)
 
         assert states == shown
+    finally:
+        await node.async_shutdown()
+
+
+async def test_restart_holds_the_state_the_tracker_saved(hass, router):
+    """What the next start reads is what the tracker showed at the stop.
+
+    The client is home when Home Assistant stops. At the start its node restores
+    it from the store it saved, and the tracker's first state is home. A reload
+    during the hold holds it again; then, not reported, it ages as usual.
+    """
+    entry, node = _node(hass, "force_load_node")
+    try:
+        await _restore(node)
+        platform = await _setup_trackers(hass, entry)
+        await _report_client(hass, node, "force_load_node")
+        assert hass.states.get(ENTITY_ID).state == STATE_HOME
+
+        # The stop: the node saves its store, core the last states.
+        await node.async_stop()
+        saved = restore_state.async_get(hass)
+        await saved.async_dump_states()
+        await platform.async_reset()
+        await hass.async_block_till_done()
+
+        # The start reads them back. Until the platform is set up, the registry
+        # shows the tracker unavailable.
+        hass.data[DOMAIN].pop("devices_cache", None)
+        await async_mock_load_restore_state_from_storage(hass)
+        assert saved.last_states[ENTITY_ID].state.state == STATE_HOME
+        assert hass.states.get(ENTITY_ID).state == STATE_UNAVAILABLE
+        entry, node = _node(hass, "force_load_node", entry)
+        states = _states(hass)
+        await _restore(node)
+        assert node.devices[CLIENT][ATTR_TRACKER_IS_RESTORED]
+        platform = await _setup_trackers(hass, entry)
+        await _poll_without_client(hass, node, POLL_PERIOD)
+        assert states == [STATE_HOME]
+
+        await platform.async_reset()
+        await hass.async_block_till_done()
+        await _setup_trackers(hass, entry)
+        await _poll_without_client(hass, node, POLL_PERIOD + DEFAULT_STAY_ONLINE - 5)
+        assert hass.states.get(ENTITY_ID).state == STATE_HOME
+        await _poll_without_client(hass, node, POLL_PERIOD + DEFAULT_STAY_ONLINE + 5)
+        assert states == [STATE_HOME, STATE_UNAVAILABLE, STATE_HOME, STATE_NOT_HOME]
     finally:
         await node.async_shutdown()
 

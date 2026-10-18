@@ -2342,7 +2342,8 @@ class LuciUpdater(DataUpdateCoordinator):
             # This runs in the first refresh, before the tracker platform is
             # set up: the signal goes unheard, and the platform adds the
             # tracker from self.devices. The flag has to be on the record for
-            # the tracker to start not_home. add_device drops it.
+            # the tracker to start from its last state rather than as
+            # connected. add_device drops it.
             device[ATTR_TRACKER_IS_RESTORED] = True
             self.devices[mac] = device
 
