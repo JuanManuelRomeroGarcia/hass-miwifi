@@ -7,7 +7,6 @@ import inspect
 import asyncio
 import time
 from collections import Counter
-from datetime import timedelta
 from functools import cached_property
 from typing import Any, Final
 
@@ -412,11 +411,6 @@ ATTR_CHANGES: Final = (
 )
 
 CONFIGURATION_PORTS: Final = [80, 443]
-
-# Core saves the last states every 15 minutes and at the stop, each live entity
-# with the time of that save. One older than the last save by more than this
-# was not live at it.
-RESTORED_STATE_MAX_AGE: Final = timedelta(minutes=20)
 
 # However slowly the mesh polls or sets up, a restored client that was home is
 # held at most this long (seconds) from when its tracker was added.
@@ -965,7 +959,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             (seen for seen, count in saved.items() if count > 1), default=max(saved)
         )
 
-        return last_save - own.last_seen <= RESTORED_STATE_MAX_AGE
+        return own.last_seen >= last_save
 
     def _last_seen(self, device: dict, last_ts: int) -> int:
         """When the client was last seen, for the stay_online window.

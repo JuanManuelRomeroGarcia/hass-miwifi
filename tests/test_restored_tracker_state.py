@@ -300,7 +300,7 @@ async def test_restored_tracker_waits_for_a_node_in_its_first_refresh(
 @pytest.mark.parametrize(
     ("saved_before_the_last_save", "shown"),
     [
-        (timedelta(minutes=10), [STATE_HOME, STATE_NOT_HOME]),
+        (timedelta(minutes=10), [STATE_NOT_HOME]),
         (timedelta(days=3), [STATE_NOT_HOME]),
     ],
     ids=["shortly_before", "in_an_earlier_run"],
@@ -308,12 +308,13 @@ async def test_restored_tracker_waits_for_a_node_in_its_first_refresh(
 async def test_restored_tracker_holds_only_a_state_from_the_last_save(
     hass, router, kind, saved_before_the_last_save, shown
 ):
-    """Home in a state saved before the last save.
+    """Home in a state saved before the last save: not held.
 
     in_an_earlier_run: the node did not load in the last run, so no entry
     provided the tracker, and core kept the state saved in the run before, with
-    the time of that save. The client may have left days ago: not held.
-    shortly_before: the tracker was removed a few minutes before the last save.
+    the time of that save. The client may have left days ago.
+    shortly_before: the tracker was removed a few minutes before the last save,
+    so it was not live at it either.
     """
     entry, node = _node(hass, kind)
     mock_restore_cache(
