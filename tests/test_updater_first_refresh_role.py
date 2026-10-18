@@ -20,7 +20,7 @@ for the leaf and for every node the endpoint already types right.
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -243,7 +243,7 @@ async def test_a_wired_leaf_is_a_mesh_node_from_its_first_refresh(
         main_api.delay = leaf_api.delay = 0
 
         # The leaf was past its mode step before the main stored its graph.
-        assert mesh.log.index((LEAF_IP, "xqnetwork/wan_info")) < mesh.log.index(
+        assert mesh.log.index((LEAF_IP, "misystem/led")) < mesh.log.index(
             (MAIN_IP, TOPOLOGY)
         )
         first = list(leaf_api.requests)
@@ -322,6 +322,12 @@ async def test_a_wired_leaf_is_a_mesh_node_from_its_first_refresh(
             Mode.REPEATER, False, [MODE],
             id="wifi-repeater",
         ),
+        # Not the main, and its own graph says access point.
+        pytest.param(
+            {TOPOLOGY: {"code": 0, "show": 0, "graph": {"mode": 2}}}, False, 2,
+            Mode.ACCESS_POINT, False, [],
+            id="access-point-graph",
+        ),
         # xqnetwork/mode fails with HTTP 500, and get_netmode answers.
         pytest.param(
             {TOPOLOGY: 404, MODE: 500, NETMODE: {"code": 0, "netmode": 2}}, False, 2,
@@ -366,3 +372,27 @@ async def test_the_first_refresh_gives_the_role_the_second_keeps(
     assert node.data[ATTR_SENSOR_MODE] == role
     assert bool(node.data["topo_graph"]["graph"].get("is_main")) is is_main
     assert second.count(TOPOLOGY) == 1
+
+
+async def test_a_lone_leaf_is_a_mesh_node_when_the_main_was_chosen(mesh: Mesh) -> None:
+    """The saved main is another node, whose entry is not registered yet.
+
+    A single entry is otherwise taken for the main. The saved main says it is
+    not, so the leaf's own graph types it from the first refresh.
+    """
+
+    leaf, api = await mesh.add(LEAF_IP, LEAF_MAC, "RA82", {TOPOLOGY: NODE_GRAPH})
+
+    with patch(
+        "custom_components.miwifi.frontend.async_load_manual_main_mac",
+        AsyncMock(return_value=MAIN_MAC),
+    ):
+        first = await _refresh(leaf, api)
+
+        assert leaf.data[ATTR_SENSOR_MODE] == Mode.MESH_NODE
+        assert not {MODE, NETMODE} & set(first)
+        assert not leaf.data["topo_graph"]["graph"].get("is_main")
+
+        await _refresh(leaf, api)
+
+    assert leaf.data[ATTR_SENSOR_MODE] == Mode.MESH_NODE
