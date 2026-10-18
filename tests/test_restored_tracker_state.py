@@ -28,7 +28,7 @@ from homeassistant.const import (
     STATE_UNAVAILABLE,
 )
 from homeassistant.core import State, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import entity_registry as er, restore_state
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     MockEntityPlatform,
@@ -233,6 +233,78 @@ async def test_restored_tracker_waits_for_the_slowest_node(hass, router):
     finally:
         await node.async_shutdown()
         await slow.async_shutdown()
+
+
+@pytest.mark.parametrize("kind", ["gateway", "force_load_node"])
+@pytest.mark.parametrize(
+    ("saved_before_the_last_save", "shown"),
+    [
+        (timedelta(minutes=10), [STATE_HOME, STATE_NOT_HOME]),
+        (timedelta(days=3), [STATE_NOT_HOME]),
+    ],
+    ids=["shortly_before", "in_an_earlier_run"],
+)
+async def test_restored_tracker_holds_only_a_state_from_the_last_save(
+    hass, router, kind, saved_before_the_last_save, shown
+):
+    """Home in a state saved before the last save.
+
+    in_an_earlier_run: the node did not load in the last run, so no entry
+    provided the tracker, and core kept the state saved in the run before, with
+    the time of that save. The client may have left days ago: not held.
+    shortly_before: the tracker was removed a few minutes before the last save.
+    """
+    entry, node = _node(hass, kind)
+    mock_restore_cache(
+        hass, [State(ENTITY_ID, STATE_HOME), State("sensor.live_at_the_last_save", "1")]
+    )
+    restore_state.async_get(hass).last_states[ENTITY_ID].last_seen -= saved_before_the_last_save
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    states = _states(hass)
+    try:
+        await node._async_prepare_device_restore(node.data)
+        await _setup_trackers(hass, entry)
+        for seconds in (1, POLL_PERIOD + DEFAULT_STAY_ONLINE + 5):
+            await _poll_without_client(hass, node, seconds)
+
+        assert states == shown
+    finally:
+        await node.async_shutdown()
+
+
+@pytest.mark.parametrize(
+    ("reported", "shown"),
+    [(False, [STATE_UNAVAILABLE, STATE_NOT_HOME]), (True, [STATE_UNAVAILABLE, STATE_HOME])],
+    ids=["not_reported", "reported"],
+)
+async def test_restored_tracker_of_an_unreachable_node_is_not_held(
+    hass, router, reported, shown
+):
+    """The node cannot be reached when its trackers are added.
+
+    A client that was home at the stop shows unavailable. Once the node is back,
+    its list says where the client is: a hold from then on would only show one
+    that left arriving.
+    """
+    entry, node = _node(hass, "force_load_node")
+    mock_restore_cache(hass, [State(ENTITY_ID, STATE_HOME)])
+    await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
+    states = _states(hass)
+    try:
+        await node._async_prepare_device_restore(node.data)
+        node.data[ATTR_STATE] = False
+        await _setup_trackers(hass, entry)
+        assert hass.states.get(ENTITY_ID).state == STATE_UNAVAILABLE
+
+        node.data[ATTR_STATE] = True
+        if reported:
+            await _report_client(hass, node, "force_load_node")
+        else:
+            await _poll_without_client(hass, node, 5)
+
+        assert states == shown
+    finally:
+        await node.async_shutdown()
 
 
 @pytest.mark.parametrize("kind", ["gateway", "force_load_node"])

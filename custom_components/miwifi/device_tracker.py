@@ -6,6 +6,7 @@ import inspect
 
 import asyncio
 import time
+from datetime import timedelta
 from functools import cached_property
 from typing import Any, Final
 
@@ -25,7 +26,10 @@ from homeassistant.helpers.entity_platform import (
     EntityPlatform,
     async_get_current_platform,
 )
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.restore_state import (
+    RestoreEntity,
+    async_get as async_get_restore_state,
+)
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -408,6 +412,11 @@ ATTR_CHANGES: Final = (
 
 CONFIGURATION_PORTS: Final = [80, 443]
 
+# Core saves the last states every 15 minutes and at the stop, each live entity
+# with the time of that save. One older than the newest by more than this was
+# not live at the last save.
+RESTORED_STATE_MAX_AGE: Final = timedelta(minutes=20)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -686,15 +695,18 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         # can poll before any topology graph is there. One that was home when
         # Home Assistant stopped stays home until every node has polled once
         # more, or a present client would show a departure and an arrival.
-        if self._device.get(ATTR_TRACKER_IS_RESTORED):
+        # Not while its node is unreachable: the hold would only show a client
+        # that left arriving once the node is back.
+        if self._device.get(ATTR_TRACKER_IS_RESTORED) and self._attr_available:
             last_state = await self.async_get_last_state()
-            if last_state is not None and last_state.state not in (
-                STATE_NOT_HOME,
-                STATE_UNAVAILABLE,
-                STATE_UNKNOWN,
+            if (
+                last_state is not None
+                and last_state.state
+                not in (STATE_NOT_HOME, STATE_UNAVAILABLE, STATE_UNKNOWN)
+                and self._last_state_is_current()
             ):
                 self._restored_seen = int(time.time()) + self._mesh_poll_period()
-                self._is_connected = bool(self._attr_available)
+                self._is_connected = True
 
         # Keep a global map so any router entry can update the live entity
         # without trying to reach entities from another EntityPlatform.
@@ -922,6 +934,26 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         """Force enabled."""
         return True
 
+
+    def _last_state_is_current(self) -> bool:
+        """Whether the last state is the one saved at the last save.
+
+        Core keeps the state of an entity that no entry provided in a run - its
+        node did not load - for a week, with the time it was saved: that client
+        may have left days ago.
+
+        :return bool: the tracker was live when the last states were last saved
+        """
+
+        last_states: dict = async_get_restore_state(self.hass).last_states
+        own = last_states.get(self.entity_id)
+        newest = max((stored.last_seen for stored in last_states.values()), default=None)
+
+        return (
+            own is not None
+            and newest is not None
+            and newest - own.last_seen <= RESTORED_STATE_MAX_AGE
+        )
 
     def _mesh_poll_period(self) -> int:
         """Seconds within which every node polls once more, one request timing out.
