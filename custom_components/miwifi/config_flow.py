@@ -74,6 +74,19 @@ from .helper import (
 from .updater import LuciUpdater, async_get_updater
 
 
+def _minimum_presence_seconds(values: dict) -> int:
+    """Budget one polling interval and one request timeout, not a full cycle."""
+    return int(values.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)) + int(
+        values.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+    )
+
+
+def _invalid_presence_timing(values: dict) -> bool:
+    return bool(values.get(CONF_IS_TRACK_DEVICES, True)) and int(
+        values.get(CONF_STAY_ONLINE, DEFAULT_STAY_ONLINE)
+    ) < _minimum_presence_seconds(values)
+
+
 class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     _discovered_device: dict | None = None
 
@@ -105,6 +118,11 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_discovery_confirm(self, user_input=None) -> FlowResult:
         errors = {}
         if user_input is not None:
+            if _invalid_presence_timing(user_input):
+                return await self._show_form(
+                    user_input, {CONF_STAY_ONLINE: "presence_too_short"},
+                    step_id="discovery_confirm",
+                )
             if self._discovered_device is None:
                 await self.async_set_unique_id(user_input[CONF_IP_ADDRESS])
                 self._abort_if_unique_id_configured()
@@ -156,7 +174,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ]),
             vol.Required(CONF_PROTOCOL, default=DEFAULT_PROTOCOL): vol.In(PROTOCOL_OPTIONS),
             vol.Required(CONF_IS_TRACK_DEVICES, default=True): cv.boolean,
-            vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
+            vol.Required(CONF_STAY_ONLINE, default=max(60, DEFAULT_STAY_ONLINE)): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
         }
@@ -173,11 +191,13 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema_dict[vol.Optional(CONF_LOG_LEVEL, default=log_level)] = vol.In(LOG_LEVEL_OPTIONS)
             schema_dict[vol.Optional(CONF_ENABLE_PORT_PROBE, default=DEFAULT_ENABLE_PORT_PROBE)] = cv.boolean
 
-        schema = vol.Schema(schema_dict)
+        schema = self.add_suggested_values_to_schema(vol.Schema(schema_dict), user_input)
 
-        description_placeholders = None
+        description_placeholders = {
+            "minimum_stay_online": str(_minimum_presence_seconds(user_input or {})),
+        }
         if step_id == "discovery_confirm":
-            description_placeholders = {
+            description_placeholders |= {
                 "name": f"{model} ({ip})",
                 "ip_address": ip,
                 "local_user_documentation_url": await async_user_documentation_url(self.hass),
@@ -322,6 +342,18 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         errors: dict[str, str] = {}
 
+        if user_input is not None and _invalid_presence_timing(user_input):
+            return self.async_show_form(
+                step_id="device_settings",
+                data_schema=self.add_suggested_values_to_schema(
+                    await self._get_device_options_schema(), user_input
+                ),
+                errors={CONF_STAY_ONLINE: "presence_too_short"},
+                description_placeholders={
+                    "minimum_stay_online": str(_minimum_presence_seconds(user_input)),
+                },
+            )
+
         if user_input is not None:
             code, reason = await async_verify_access(
                 self.hass,
@@ -369,8 +401,16 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
 
         return self.async_show_form(
             step_id="device_settings",
-            data_schema=await self._get_device_options_schema(),
-            errors=errors
+            data_schema=self.add_suggested_values_to_schema(
+                await self._get_device_options_schema(), user_input
+            ),
+            errors=errors,
+            description_placeholders={
+                "minimum_stay_online": str(_minimum_presence_seconds(user_input or {
+                    CONF_SCAN_INTERVAL: get_config_value(self._config_entry, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                    CONF_TIMEOUT: get_config_value(self._config_entry, CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                })),
+            },
         )
 
     async def async_update_unique_id(self, unique_id: str) -> None:

@@ -20,3 +20,7 @@ Known mesh nodes are excluded from client tracking and restoration. Only positiv
 Review automations using an old client tracker for a node; those references are not migrated automatically. Do not manually delete an empty device row that still serves as a parent for clients.
 
 Physical testing covers wired meshes. If duplicate entities or a wireless satellite tracked as a client recur, open a new issue with model, firmware, HA version, reproduction steps and anonymized diagnostics.
+
+## Presence timing
+
+See [timing, minimums and examples](Presence-timing.md) before changing polling, timeout or presence grace. Save validation is prepared locally for the next update.

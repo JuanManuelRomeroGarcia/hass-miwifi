@@ -6,7 +6,8 @@
       "password.not_matched": "Senha ou algoritmo de criptografia incorretos",
       "connection": "Falha ao estabelecer conexão",
       "router.not.supported": "O roteador não é compatível. Informações detalhadas foram enviadas ao centro de notificações.",
-      "router.error_with_reason": "Erro ao conectar ao roteador: {reason}"
+      "router.error_with_reason": "Erro ao conectar ao roteador: {reason}",
+      "presence_too_short": "Use pelo menos {minimum_stay_online} segundos (intervalo de consulta + tempo limite). Uma rede mesh lenta pode precisar de mais."
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "Criar sensores de dispositivo (clientes)",
           "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo",
           "is_ap_mode": "Ponto de acesso / nó mesh (ignorar endpoints WAN e de gateway)"
+        },
+        "data_description": {
+          "stay_online": "Mantém o cliente em casa por estes segundos após a última observação. Mínimo: intervalo de consulta + tempo limite. Comece com 60 s; uma rede mesh lenta pode precisar de mais. Valores maiores atrasam a detecção da saída.",
+          "scan_interval": "Intervalo entre consultas programadas. As requisições acrescentam tempo. Intervalos menores aumentam a carga do roteador. Considere o nó mesh que informa mais lentamente.",
+          "timeout": "Tempo de espera por requisição ao roteador. Algumas consultas usam limites menores. Não é a duração máxima de um ciclo completo nem o tempo de presença."
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "Senha ou algoritmo de criptografia incorretos",
       "connection": "Falha ao estabelecer conexão",
       "router.not.supported": "O roteador não é compatível. Informações detalhadas foram enviadas ao centro de notificações.",
-      "router.error_with_reason": "Erro ao conectar ao roteador: {reason}"
+      "router.error_with_reason": "Erro ao conectar ao roteador: {reason}",
+      "presence_too_short": "Use pelo menos {minimum_stay_online} segundos (intervalo de consulta + tempo limite). Uma rede mesh lenta pode precisar de mais."
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "Ativar sondagem de portas (80/443) para URL de configuração do dispositivo",
           "protocol": "Protocolo",
           "is_ap_mode": "Ponto de acesso / nó mesh (ignorar endpoints WAN e de gateway)"
+        },
+        "data_description": {
+          "stay_online": "Mantém o cliente em casa por estes segundos após a última observação. Mínimo: intervalo de consulta + tempo limite. Comece com 60 s; uma rede mesh lenta pode precisar de mais. Valores maiores atrasam a detecção da saída.",
+          "scan_interval": "Intervalo entre consultas programadas. As requisições acrescentam tempo. Intervalos menores aumentam a carga do roteador. Considere o nó mesh que informa mais lentamente.",
+          "timeout": "Tempo de espera por requisição ao roteador. Algumas consultas usam limites menores. Não é a duração máxima de um ciclo completo nem o tempo de presença."
         }
       }
     }

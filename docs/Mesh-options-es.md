@@ -20,3 +20,7 @@ Los nodos conocidos no se registran ni restauran como clientes. Solo una identif
 Si una automatización usaba el antiguo tracker de cliente del nodo, revisa esa referencia: no se migra automáticamente. No borres manualmente una fila sin entidades si otros dispositivos la usan como padre.
 
 Las pruebas físicas de esta versión cubren mallas por cable. Si detectas duplicados o un satélite inalámbrico tratado como cliente, abre un nuevo issue con modelo, firmware, versión HA, pasos y diagnóstico anonimizado.
+
+## Tiempos de presencia
+
+Consulta [tiempos, mínimos y ejemplos](Presence-timing-es.md) antes de cambiar escaneo, espera o permanencia. Los controles de guardado están preparados localmente para la siguiente actualización.

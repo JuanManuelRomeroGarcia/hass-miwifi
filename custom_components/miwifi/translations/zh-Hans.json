@@ -6,7 +6,8 @@
       "password.not_matched": "密码或加密算法错误",
       "connection": "无法建立连接",
       "router.not.supported": "路由器不受支持。详细信息已发送到通知中心。",
-      "router.error_with_reason": "连接路由器时出错: {reason}"
+      "router.error_with_reason": "连接路由器时出错: {reason}",
+      "presence_too_short": "请至少设置为 {minimum_stay_online} 秒（扫描间隔加请求超时）。较慢的 Mesh 网络可能需要更大的余量。"
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "创建设备传感器（客户端）",
           "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
           "is_ap_mode": "接入点 / Mesh 节点（跳过 WAN 和网关端点）"
+        },
+        "data_description": {
+          "stay_online": "自上次观察到客户端起，在此秒数内保持在家状态。不得小于扫描间隔加请求超时。建议从 60 秒开始；较慢的 Mesh 网络可能需要更长时间。增大此值会延迟离家检测。",
+          "scan_interval": "计划轮询之间的间隔。请求本身也需要时间，因此实际读取间隔可能更长。缩短间隔会增加路由器负载；请考虑报告最慢的 Mesh 节点。",
+          "timeout": "单次路由器请求的等待时间。某些接口使用更短的限制；此值不是完整轮询周期的最长时间，也不是在家状态保持时间。"
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "密码或加密算法错误",
       "connection": "无法建立连接",
       "router.not.supported": "路由器不受支持。详细信息已发送到通知中心。",
-      "router.error_with_reason": "连接路由器时出错: {reason}"
+      "router.error_with_reason": "连接路由器时出错: {reason}",
+      "presence_too_short": "请至少设置为 {minimum_stay_online} 秒（扫描间隔加请求超时）。较慢的 Mesh 网络可能需要更大的余量。"
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "启用端口探测（80/443）以获取设备配置 URL",
           "protocol": "协议",
           "is_ap_mode": "接入点 / Mesh 节点（跳过 WAN 和网关端点）"
+        },
+        "data_description": {
+          "stay_online": "自上次观察到客户端起，在此秒数内保持在家状态。不得小于扫描间隔加请求超时。建议从 60 秒开始；较慢的 Mesh 网络可能需要更长时间。增大此值会延迟离家检测。",
+          "scan_interval": "计划轮询之间的间隔。请求本身也需要时间，因此实际读取间隔可能更长。缩短间隔会增加路由器负载；请考虑报告最慢的 Mesh 节点。",
+          "timeout": "单次路由器请求的等待时间。某些接口使用更短的限制；此值不是完整轮询周期的最长时间，也不是在家状态保持时间。"
         }
       }
     }
