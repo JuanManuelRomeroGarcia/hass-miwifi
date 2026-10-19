@@ -3392,13 +3392,13 @@ class LuciUpdater(DataUpdateCoordinator):
                     )
                     return
 
-                except Exception as e2:
+                except (LuciConnectionError, LuciRequestError, Exception) as e2:
                     await self.hass.async_add_executor_job(
                         _LOGGER.debug,
                         "[MiWiFi] NAT rules retry after re-login failed: %s (cooldown 1m)",
                         e2,
                     )
-                    self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+                    # A failed read must not replace the last successful snapshot.
                     self._nat_rules_next_try = now + timedelta(minutes=1)
                     return
 
@@ -3409,6 +3409,13 @@ class LuciUpdater(DataUpdateCoordinator):
             )
             self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
             self._nat_rules_next_try = now + timedelta(minutes=10)
+            return
+
+        except LuciConnectionError as e:
+            # Luci errors derive from BaseException, so Exception below does
+            # not catch them. NAT reads must not abort the coordinator refresh.
+            _LOGGER.warning("[MiWiFi] NAT rules connection failed (retry in 1m): %s", e)
+            self._nat_rules_next_try = now + timedelta(minutes=1)
             return
 
         except asyncio.TimeoutError:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import timedelta, time as dtime
 from typing import Any, Dict
@@ -29,6 +30,7 @@ STORE_AUTO_PURGE = getattr(C, "STORE_AUTO_PURGE", "auto_purge.json")
 
 AUTO_PURGE_UNSUB = "_auto_purge_global_unsub"
 AUTO_PURGE_FIRST = "_auto_purge_global_first"
+AUTO_PURGE_PRIME = "_auto_purge_prime"
 AUTO_PURGE_OWNER = "_auto_purge_owner"  
 
 
@@ -123,6 +125,11 @@ async def _save(hass: HomeAssistant, data: Dict[str, Any]) -> None:
 def cancel_auto_purge(hass: HomeAssistant, entry_id: str | None = None) -> None:
     """Cancels scheduled tasks; clears owner if matched."""
     data = hass.data.setdefault(DOMAIN, {})
+    pending = data.pop(AUTO_PURGE_PRIME, None)
+    if pending:
+        task = pending.get("task")
+        if isinstance(task, asyncio.Task) and task is not asyncio.current_task():
+            task.cancel()
     for key in (AUTO_PURGE_UNSUB, AUTO_PURGE_FIRST):
         unsub = data.pop(key, None)
         if callable(unsub):
@@ -147,12 +154,18 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
 
     data = hass.data.setdefault(DOMAIN, {})
     owner_id = data.get(AUTO_PURGE_OWNER)
-    if owner_id and owner_id != entry.entry_id and data.get(AUTO_PURGE_UNSUB):
+    if owner_id and owner_id != entry.entry_id and (
+        data.get(AUTO_PURGE_UNSUB) or data.get(AUTO_PURGE_PRIME)
+    ):
         # Ya hay otro dueño con scheduler activo -> no reprogramar
         return
 
     cancel_auto_purge(hass, entry_id=owner_id)
     data[AUTO_PURGE_OWNER] = entry.entry_id
+    # Reserve ownership before yielding to storage: another entry can finish
+    # setup before _prime arms its first timer.
+    reservation = {"task": None}
+    data[AUTO_PURGE_PRIME] = reservation
 
     async def _current_cfg() -> tuple[dtime, int, str]:
         """Lee hora/frecuencia del store global (con defaults).
@@ -342,4 +355,12 @@ def schedule_auto_purge(hass: HomeAssistant, entry: ConfigEntry, kickoff: bool =
         )
         await _save(hass, s2)
 
-    hass.async_create_task(_prime())
+    async def _start():
+        try:
+            if data.get(AUTO_PURGE_PRIME) is reservation:
+                await _prime()
+        finally:
+            if data.get(AUTO_PURGE_PRIME) is reservation:
+                data.pop(AUTO_PURGE_PRIME, None)
+
+    reservation["task"] = hass.async_create_task(_start())

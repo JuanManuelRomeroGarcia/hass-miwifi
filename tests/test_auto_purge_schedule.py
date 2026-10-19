@@ -517,3 +517,66 @@ async def test_the_scheduled_run_completes_on_the_registered_service(hass) -> No
     # The conservative parameters: the randomised MAC goes, the stable one stays.
     assert entities.async_get(trackers["02:00:00:00:00:01"]) is None
     assert entities.async_get(trackers["00:00:00:00:00:02"]) is not None
+
+
+@pytest.mark.parametrize("action", ["second_entry", "reschedule", "cancel"])
+async def test_scheduler_claims_owner_before_prime_runs(action):
+    """Concurrent setups cannot lose a timer handle or arm a cancelled prime."""
+    hass = _hass_with_tasks()
+    hass.services.async_call = AsyncMock()
+    scheduled = []
+    kicks = []
+    store = {"every_days": 7, "at": "00:00"}
+    def timer(_h, callback, when):
+        scheduled.append((callback, MagicMock()))
+        return scheduled[-1][1]
+    with patch.object(auto_purge, "_load", AsyncMock(return_value=store.copy())), patch.object(
+        auto_purge, "_save", AsyncMock()
+    ), patch.object(auto_purge, "async_track_point_in_time", timer), patch.object(
+        auto_purge, "async_call_later", lambda _h, delay, cb: kicks.append(cb) or MagicMock()
+    ):
+        entry = SimpleNamespace(entry_id="first")
+        schedule_auto_purge(hass, entry)
+        if action == "second_entry":
+            schedule_auto_purge(hass, SimpleNamespace(entry_id="second"))
+        elif action == "reschedule":
+            schedule_auto_purge(hass, entry)
+        else:
+            auto_purge.cancel_auto_purge(hass, entry.entry_id)
+        for coro in list(hass.pending):
+            await coro
+        expected = 0 if action == "cancel" else 1
+        assert len(scheduled) == len(kicks) == expected
+        if expected:
+            assert hass.data[DOMAIN][auto_purge.AUTO_PURGE_OWNER] == "first"
+            await kicks[0]()
+            hass.services.async_call.assert_awaited_once()
+            scheduled[0][1].assert_called_once()
+            auto_purge.cancel_auto_purge(hass)
+            scheduled[1][1].assert_called_once()
+        else:
+            hass.services.async_call.assert_not_awaited()
+        assert auto_purge.AUTO_PURGE_PRIME not in hass.data[DOMAIN]
+
+
+async def test_cancel_running_prime_does_not_arm_a_timer(hass):
+    """Unloading while storage is still loading cancels the actual HA task."""
+    entered = asyncio.Event()
+    released = asyncio.Event()
+    async def load(_hass):
+        entered.set()
+        await released.wait()
+        return {"every_days": 7, "at": "00:00"}
+    with patch.object(auto_purge, "_load", side_effect=load), patch.object(
+        auto_purge, "_save", AsyncMock()
+    ) as save, patch.object(auto_purge, "async_track_point_in_time") as timer, patch.object(
+        auto_purge, "async_call_later"
+    ) as later:
+        schedule_auto_purge(hass, SimpleNamespace(entry_id="first"))
+        await asyncio.wait_for(entered.wait(), 2)
+        auto_purge.cancel_auto_purge(hass, "first")
+        released.set()
+        await hass.async_block_till_done()
+        timer.assert_not_called()
+        later.assert_not_called()
+        save.assert_not_awaited()

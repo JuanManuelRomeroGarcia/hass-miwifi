@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Integrate the local trial of #364 (empty leaf counters), #366 (persistent auto-purge deadlines and failure history), #368 (force-load client restoration and saved tracker state), and #370 (first-refresh topology role). Preserve contributor commits; no release or public merge yet.
+- Reserve global scheduler ownership before asynchronous setup and cancel pending initialization on unload/reschedule, preventing multiple entries from arming duplicate purge timers.
+- Handle LuCI connection failures in optional NAT reads, including the authentication retry; keep the last successful snapshot during transport failure and retry after one minute instead of aborting the coordinator refresh.
+- Focused combined HA 2026.10.0 validation: 98 passed. Full legacy and compatibility batteries are deferred to the eventual GitHub PR. Keep integration/frontend version 3.12.0 during the hardware trial.
+
 ## 3.12.0 — 2026-10-17
 
 - Translate the optional purge MAC-address filter in all eight languages and use a language-neutral day unit; preserve selection, preview defaults and deletion safeguards.
