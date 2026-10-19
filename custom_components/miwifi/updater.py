@@ -577,9 +577,8 @@ class LuciUpdater(DataUpdateCoordinator):
         node above it says about the node.
 
         Only a positive identification counts. Nothing here can push a node
-        towards `default`, so a graph that has not arrived yet - our own is
-        written at the end of the cycle, so on the first one it is absent -
-        simply leaves the endpoint in charge.
+        towards `default`, so a missing graph - not read yet, or its request
+        failed - simply leaves the endpoint in charge.
 
         :return Mode | None: the mesh role, or None when the graph cannot tell
         """
@@ -1123,7 +1122,16 @@ class LuciUpdater(DataUpdateCoordinator):
         # The topology graph is the authoritative view of the mesh, and a leaf
         # behind a foreign gateway answers `default` here. Take the role from the
         # graph when it has one, and skip a gateway probe the node cannot answer.
-        if (topology_role := self._topology_role()) is not None:
+        topology_role = self._topology_role()
+
+        # Our own graph is read at the end of a cycle, and on a full restart the
+        # main has not read its own yet either: with nothing to go by, a wired
+        # leaf would be a gateway for its whole first cycle. Read ours now.
+        if topology_role is None and "topo_graph" not in self.data:
+            await self._async_prepare_topo()
+            topology_role = self._topology_role()
+
+        if topology_role is not None:
             data[ATTR_SENSOR_MODE] = topology_role
 
             if not self._topology_role_logged:
