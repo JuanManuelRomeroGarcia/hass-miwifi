@@ -174,7 +174,7 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ]),
             vol.Required(CONF_PROTOCOL, default=DEFAULT_PROTOCOL): vol.In(PROTOCOL_OPTIONS),
             vol.Required(CONF_IS_TRACK_DEVICES, default=True): cv.boolean,
-            vol.Required(CONF_STAY_ONLINE, default=max(60, DEFAULT_STAY_ONLINE)): cv.positive_int,
+            vol.Required(CONF_STAY_ONLINE, default=DEFAULT_STAY_ONLINE): cv.positive_int,
             vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=10)),
             vol.Required(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): vol.All(vol.Coerce(int), vol.Range(min=10)),
         }

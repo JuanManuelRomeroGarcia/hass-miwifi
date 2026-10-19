@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Standardize defaults at 60 seconds presence grace, 30 seconds polling and 20 seconds request timeout, including missing-setting fallbacks. Preserve explicitly saved user values.
 - Explain scan interval, request timeout and presence grace in all eight form languages. New entries suggest 60 seconds; tracked-entry saves require at least scan interval plus timeout. Preserve existing values without silent adjustment, retain invalid submissions for correction, and document mesh latency limits.
 - Integrate the local trial of #364 (empty leaf counters), #366 (persistent auto-purge deadlines and failure history), #368 (force-load client restoration and saved tracker state), and #370 (first-refresh topology role). Preserve contributor commits; no release or public merge yet.
 - Reserve global scheduler ownership before asynchronous setup and cancel pending initialization on unload/reschedule, preventing multiple entries from arming duplicate purge timers.
