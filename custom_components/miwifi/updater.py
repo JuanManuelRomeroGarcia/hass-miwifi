@@ -2260,7 +2260,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param data: dict
         """
 
-        if not self._is_first_update or (self.is_repeater and self.is_force_load):
+        if not self._is_first_update:
             return
 
         devices: dict | None = await self._async_load_devices()
@@ -2270,6 +2270,17 @@ class LuciUpdater(DataUpdateCoordinator):
 
         integrations: dict = async_get_integrations(self.hass)
         node_macs, node_ips = _known_mesh_nodes(self.hass)
+
+        # A force-load node enumerates and saves its own radio clients, so it
+        # restores them as well, and only them: a record names the node that
+        # saw the client last, and the other nodes leave this node's records
+        # alone below.
+        own_clients_only: bool = self.is_repeater and self.is_force_load
+        other_updaters: list = [
+            integration[UPDATER]
+            for integration in integrations.values()
+            if integration[UPDATER] is not self
+        ]
 
         for mac, device in devices.items():
             if await get_purged_clients(self.hass).async_blocked(mac):
@@ -2285,6 +2296,20 @@ class LuciUpdater(DataUpdateCoordinator):
             ):
                 continue
 
+            # A client another node already holds, live or restored, keeps that
+            # owner whichever entry set up first: it is not added or moved here
+            # as well. A record of a force-load entry still lends that node its
+            # name and IP below.
+            held_elsewhere: bool = any(
+                mac in (getattr(updater, "devices", None) or {})
+                for updater in other_updaters
+            )
+
+            if own_clients_only and (
+                device.get(ATTR_TRACKER_ENTRY_ID) != self._entry_id or held_elsewhere
+            ):
+                continue
+
             try:
                 # fmt: off
                 device[ATTR_TRACKER_CONNECTION] = Connection(int(device[ATTR_TRACKER_CONNECTION])) \
@@ -2295,7 +2320,7 @@ class LuciUpdater(DataUpdateCoordinator):
             except ValueError:
                 device[ATTR_TRACKER_CONNECTION] = None
 
-            _is_add: bool = True
+            _is_add: bool = not held_elsewhere
             if device[ATTR_TRACKER_ENTRY_ID] != self._entry_id:
                 for integration in integrations.values():
                     if (
@@ -2316,7 +2341,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
                         break
 
-                    if mac not in integration[UPDATER].devices:
+                    if not held_elsewhere:
                         device |= {
                             ATTR_TRACKER_ROUTER_MAC_ADDRESS: integration[
                                 UPDATER
@@ -2342,11 +2367,15 @@ class LuciUpdater(DataUpdateCoordinator):
                     ATTR_TRACKER_ENTRY_ID: self._entry_id,
                 }
 
+            # This runs in the first refresh, before the tracker platform is
+            # set up: the signal goes unheard, and the platform adds the
+            # tracker from self.devices. The flag has to be on the record for
+            # the tracker to start from its last state rather than as
+            # connected. add_device drops it.
+            device[ATTR_TRACKER_IS_RESTORED] = True
             self.devices[mac] = device
 
-            async_dispatcher_send(
-                self.hass, SIGNAL_NEW_DEVICE, device | {ATTR_TRACKER_IS_RESTORED: True}
-            )
+            async_dispatcher_send(self.hass, SIGNAL_NEW_DEVICE, device)
 
             #await self.hass.async_add_executor_job(_LOGGER.debug, "Restore device: %s, %s", mac, device)
 
@@ -2397,6 +2426,22 @@ class LuciUpdater(DataUpdateCoordinator):
                 }
         else:
             self.devices[device[ATTR_TRACKER_MAC]] = _device
+
+        # Reported again: the record is no longer only what a store held.
+        self.devices[device[ATTR_TRACKER_MAC]].pop(ATTR_TRACKER_IS_RESTORED, None)
+
+        # Another node's copy that only its store held is stale now: the client
+        # is here. Drop it, or a tracker that reads that node's records keeps
+        # the client away until activity_days expires the copy.
+        for integration in async_get_integrations(self.hass).values():
+            other = integration.get(UPDATER)
+            if other is self or not isinstance(other, LuciUpdater):
+                continue
+            row = other.devices.get(device[ATTR_TRACKER_MAC])
+            if isinstance(row, dict) and row.get(ATTR_TRACKER_IS_RESTORED):
+                del other.devices[device[ATTR_TRACKER_MAC]]
+                with contextlib.suppress(ValueError):
+                    other._moved_devices.remove(device[ATTR_TRACKER_MAC])
             
         # ✅ Keep a mesh-wide latest snapshot so stable device_tracker entities
         # can follow the client even when it moves between main router and leaf nodes.
