@@ -40,7 +40,7 @@ async def test_translated_client_keeps_registry_id_raw_state_and_custom_name(has
     updater.data = {}
     mac = "02:00:00:00:00:41"
     device = {"mac": mac, "name": "Test client", "connection": Connection.WIFI_5_0_GAME,
-              "internet_blocked": False, "signal": None}
+              "internet_blocked": False, "signal": 0}
     updater.devices = {mac: device}
     selected = [replace(desc, entity_registry_enabled_default=True) for desc in MIWIFI_DEVICE_SENSORS
                 if desc.key in ("signal_quality", "internet_blocked", "connection")]
@@ -66,3 +66,45 @@ async def test_translated_client_keeps_registry_id_raw_state_and_custom_name(has
     assert hass.states.get(custom.entity_id).attributes["friendly_name"] == "Mi nombre personalizado"
     states = {entity.entity_description.key: hass.states.get(entity.entity_id).state for entity in entities}
     assert states == {"connection": "5G Game", "signal_quality": "no_signal", "internet_blocked": "False"}
+
+
+@pytest.mark.parametrize(("signal", "connection", "expected"), [
+    (None, Connection.WIFI_5_0_GAME, None),
+    ("", Connection.WIFI_5_0_GAME, None),
+    ("invalid", Connection.WIFI_5_0_GAME, None),
+    (0, Connection.WIFI_5_0_GAME, "no_signal"),
+    (80, Connection.WIFI_5_0_GAME, "very_strong"),
+    (80, Connection.LAN, None),
+])
+async def test_missing_signal_is_unknown_not_a_zero_measurement(hass, signal, connection, expected):
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    updater = DataUpdateCoordinator(hass, logging.getLogger(__name__), name="signal", config_entry=entry)
+    updater.data = {}
+    device = {"mac": "02:00:00:00:00:42", "signal": signal, "connection": connection}
+    updater.devices = {device["mac"]: device}
+    desc = next(desc for desc in MIWIFI_DEVICE_SENSORS if desc.key == "signal_quality")
+    sensor = MiWifiDeviceAttributeSensor(updater, device, desc)
+    sensor.hass = hass
+    assert sensor.native_value == expected
+
+
+@pytest.mark.parametrize("signal", [None, 0, 80])
+async def test_wifi_census_does_not_invent_zero_for_a_missing_signal(hass, signal):
+    from custom_components.miwifi.updater import LuciUpdater
+    from custom_components.miwifi.enum import Mode
+    entry = MockConfigEntry(domain=DOMAIN, data={"ip_address": "192.0.2.1"})
+    entry.add_to_hass(hass)
+    updater = LuciUpdater(hass, "192.0.2.1", "synthetic", entry_id=entry.entry_id)
+    updater.update_interval = None
+    updater.data = {"mode": Mode.DEFAULT, "state": True}
+    row = {"mac": "02:00:00:00:00:43"}
+    if signal is not None:
+        row["signal"] = signal
+    updater.luci.wifi_connect_devices = AsyncMock(return_value={"code": 0, "list": [row]})
+    updater.luci.macfilter_info = AsyncMock(return_value={"code": 0, "list": []})
+    try:
+        await updater._async_prepare_devices(updater.data)
+        assert updater._signals[row["mac"]] == signal
+    finally:
+        await updater.async_shutdown()

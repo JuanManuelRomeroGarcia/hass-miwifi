@@ -429,7 +429,7 @@ class LuciUpdater(DataUpdateCoordinator):
         self.data: dict[str, Any] = {}
         self.devices: dict[str, dict[str, Any]] = {}
         self._mesh_trace = MeshTrace()
-        self._signals: dict[str, int] = {}
+        self._signals: dict[str, int | None] = {}
         self._moved_devices: list = []
         self._is_first_update: bool = True
 
@@ -1945,7 +1945,7 @@ class LuciUpdater(DataUpdateCoordinator):
                     self._forget_mesh_node(mac, integrations)
                     continue
 
-                self._signals[mac] = device["signal"] if "signal" in device else 0
+                self._signals[mac] = device.get("signal")
 
                 if mac in self.devices:
                     self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (

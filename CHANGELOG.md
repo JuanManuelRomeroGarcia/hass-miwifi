@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Report missing, invalid or inapplicable client signal quality as unknown rather than a measured no-signal state; preserve measured zero and valid quality levels.
 - Use HA entity translations for all eleven client sensor names and connection, signal-quality and Internet-block states in eight languages. Preserve unique/entity IDs, custom names and serialized automation states.
 - Standardize defaults at 60 seconds presence grace, 30 seconds polling and 20 seconds request timeout, including missing-setting fallbacks. Preserve explicitly saved user values.
 - Explain scan interval, request timeout and presence grace in all eight form languages. New entries suggest 60 seconds; tracked-entry saves require at least scan interval plus timeout. Preserve existing values without silent adjustment, retain invalid submissions for correction, and document mesh latency limits.

@@ -833,7 +833,7 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
                 sig_int = int(sig) if sig not in ("", None) else None
             except (TypeError, ValueError):
                 sig_int = None
-            return map_signal_quality(sig_int) if sig_int is not None else "no_signal"
+            return map_signal_quality(sig_int) if sig_int is not None else None
 
         if key == ATTR_TRACKER_SIGNAL:
             if conn == Connection.LAN:
