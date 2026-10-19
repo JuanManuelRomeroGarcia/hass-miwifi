@@ -182,5 +182,61 @@
     "set_wifis": {
       "name": "Настроить Wi-Fi (2.4G/5G/Game)"
     }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP-адрес"
+      },
+      "connection": {
+        "name": "Подключение",
+        "state": {
+          "Lan": "Кабель",
+          "2.4G": "Wi-Fi 2,4 ГГц",
+          "5G": "Wi-Fi 5 ГГц",
+          "Guest": "Гостевой Wi-Fi",
+          "5G Game": "Wi-Fi 5 ГГц Game",
+          "IoT": "Wi-Fi IoT"
+        }
+      },
+      "online": {
+        "name": "Время подключения"
+      },
+      "down_speed": {
+        "name": "Скорость загрузки"
+      },
+      "up_speed": {
+        "name": "Скорость отдачи"
+      },
+      "total_usage": {
+        "name": "Переданные данные"
+      },
+      "signal": {
+        "name": "Сигнал"
+      },
+      "signal_quality": {
+        "name": "Качество сигнала",
+        "state": {
+          "very_strong": "Очень сильный",
+          "strong": "Сильный",
+          "fair": "Средний",
+          "weak": "Слабый",
+          "no_signal": "Нет сигнала"
+        }
+      },
+      "last_activity": {
+        "name": "Последняя активность"
+      },
+      "first_seen": {
+        "name": "Первое обнаружение"
+      },
+      "internet_blocked": {
+        "name": "Доступ в Интернет заблокирован",
+        "state": {
+          "True": "Заблокирован",
+          "False": "Разрешён"
+        }
+      }
+    }
   }
 }

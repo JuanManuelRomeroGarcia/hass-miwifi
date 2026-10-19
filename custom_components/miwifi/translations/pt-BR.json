@@ -182,5 +182,61 @@
     "set_wifis": {
       "name": "Configurar Wi-Fi (2.4G/5G/Jogo)"
     }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "Endereço IP"
+      },
+      "connection": {
+        "name": "Conexão",
+        "state": {
+          "Lan": "Cabo",
+          "2.4G": "Wi-Fi 2,4 GHz",
+          "5G": "Wi-Fi 5 GHz",
+          "Guest": "Wi-Fi de visitantes",
+          "5G Game": "Wi-Fi 5 GHz Game",
+          "IoT": "Wi-Fi IoT"
+        }
+      },
+      "online": {
+        "name": "Tempo conectado"
+      },
+      "down_speed": {
+        "name": "Velocidade de download"
+      },
+      "up_speed": {
+        "name": "Velocidade de upload"
+      },
+      "total_usage": {
+        "name": "Dados transferidos"
+      },
+      "signal": {
+        "name": "Sinal"
+      },
+      "signal_quality": {
+        "name": "Qualidade do sinal",
+        "state": {
+          "very_strong": "Muito forte",
+          "strong": "Forte",
+          "fair": "Regular",
+          "weak": "Fraco",
+          "no_signal": "Sem sinal"
+        }
+      },
+      "last_activity": {
+        "name": "Última atividade"
+      },
+      "first_seen": {
+        "name": "Primeira detecção"
+      },
+      "internet_blocked": {
+        "name": "Acesso à Internet bloqueado",
+        "state": {
+          "True": "Bloqueado",
+          "False": "Permitido"
+        }
+      }
+    }
   }
 }

@@ -182,5 +182,61 @@
     "set_wifis": {
       "name": "Wi-Fi yapılandır (2.4G/5G/Oyun)"
     }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP adresi"
+      },
+      "connection": {
+        "name": "Bağlantı",
+        "state": {
+          "Lan": "Kablolu",
+          "2.4G": "Wi-Fi 2,4 GHz",
+          "5G": "Wi-Fi 5 GHz",
+          "Guest": "Misafir Wi-Fi",
+          "5G Game": "Wi-Fi 5 GHz Game",
+          "IoT": "IoT Wi-Fi"
+        }
+      },
+      "online": {
+        "name": "Bağlı kalma süresi"
+      },
+      "down_speed": {
+        "name": "İndirme hızı"
+      },
+      "up_speed": {
+        "name": "Yükleme hızı"
+      },
+      "total_usage": {
+        "name": "Aktarılan veri"
+      },
+      "signal": {
+        "name": "Sinyal"
+      },
+      "signal_quality": {
+        "name": "Sinyal kalitesi",
+        "state": {
+          "very_strong": "Çok güçlü",
+          "strong": "Güçlü",
+          "fair": "Orta",
+          "weak": "Zayıf",
+          "no_signal": "Sinyal yok"
+        }
+      },
+      "last_activity": {
+        "name": "Son etkinlik"
+      },
+      "first_seen": {
+        "name": "İlk algılama"
+      },
+      "internet_blocked": {
+        "name": "İnternet erişimi engelli",
+        "state": {
+          "True": "Engelli",
+          "False": "İzinli"
+        }
+      }
+    }
   }
 }

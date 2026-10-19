@@ -182,5 +182,61 @@
     "set_wifis": {
       "name": "配置 Wi-Fi (2.4G/5G/游戏)"
     }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP 地址"
+      },
+      "connection": {
+        "name": "连接方式",
+        "state": {
+          "Lan": "有线",
+          "2.4G": "2.4 GHz Wi-Fi",
+          "5G": "5 GHz Wi-Fi",
+          "Guest": "访客 Wi-Fi",
+          "5G Game": "5 GHz Game Wi-Fi",
+          "IoT": "IoT Wi-Fi"
+        }
+      },
+      "online": {
+        "name": "已连接时间"
+      },
+      "down_speed": {
+        "name": "下载速度"
+      },
+      "up_speed": {
+        "name": "上传速度"
+      },
+      "total_usage": {
+        "name": "已传输数据"
+      },
+      "signal": {
+        "name": "信号"
+      },
+      "signal_quality": {
+        "name": "信号质量",
+        "state": {
+          "very_strong": "极强",
+          "strong": "强",
+          "fair": "一般",
+          "weak": "弱",
+          "no_signal": "无信号"
+        }
+      },
+      "last_activity": {
+        "name": "最后活动"
+      },
+      "first_seen": {
+        "name": "首次发现"
+      },
+      "internet_blocked": {
+        "name": "互联网访问已阻止",
+        "state": {
+          "True": "已阻止",
+          "False": "允许"
+        }
+      }
+    }
   }
 }

@@ -167,5 +167,61 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP address"
+      },
+      "connection": {
+        "name": "Connection",
+        "state": {
+          "Lan": "Wired",
+          "2.4G": "Wi-Fi 2.4 GHz",
+          "5G": "Wi-Fi 5 GHz",
+          "Guest": "Guest Wi-Fi",
+          "5G Game": "Wi-Fi 5 GHz Game",
+          "IoT": "IoT Wi-Fi"
+        }
+      },
+      "online": {
+        "name": "Connected time"
+      },
+      "down_speed": {
+        "name": "Download speed"
+      },
+      "up_speed": {
+        "name": "Upload speed"
+      },
+      "total_usage": {
+        "name": "Total usage"
+      },
+      "signal": {
+        "name": "Signal"
+      },
+      "signal_quality": {
+        "name": "Signal quality",
+        "state": {
+          "very_strong": "Very strong",
+          "strong": "Strong",
+          "fair": "Fair",
+          "weak": "Weak",
+          "no_signal": "No signal"
+        }
+      },
+      "last_activity": {
+        "name": "Last activity"
+      },
+      "first_seen": {
+        "name": "First seen"
+      },
+      "internet_blocked": {
+        "name": "Internet blocked",
+        "state": {
+          "True": "Blocked",
+          "False": "Allowed"
+        }
+      }
+    }
   }
 }
