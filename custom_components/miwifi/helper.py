@@ -256,8 +256,19 @@ async def set_global_panel_state(hass: HomeAssistant, enabled: bool) -> None:
     store = Store(hass, 1, GLOBAL_PANEL_STORE)
     await store.async_save({"enabled": enabled})
 
-def map_signal_quality(signal: int) -> str:
-    """Map numeric signal (0-100) to quality."""
+def map_signal_quality(signal: int, unit: str | None = None) -> str:
+    """Map legacy percentage or explicit RSSI to a qualitative label.
+
+    RSSI thresholds are presentation bands, not Xiaomi's wifi_quality flag.
+    """
+    if unit == "dBm":
+        if signal >= -50:
+            return "very_strong"
+        if signal >= -60:
+            return "strong"
+        if signal >= -70:
+            return "fair"
+        return "weak"
     
     if signal >= 70:
         return "very_strong"

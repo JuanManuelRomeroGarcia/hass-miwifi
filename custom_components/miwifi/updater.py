@@ -292,6 +292,7 @@ REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_INTERNET_BLOCKED,
     ATTR_TRACKER_FIRST_SEEN,
     ATTR_TRACKER_TOTAL_USAGE,
+    "wifi_protocol", "link_tx_rate", "link_rx_rate", "signal_unit", "signal_source",
 )
 
 # pylint: disable=too-many-branches,too-many-lines,too-many-arguments
@@ -429,7 +430,7 @@ class LuciUpdater(DataUpdateCoordinator):
         self.data: dict[str, Any] = {}
         self.devices: dict[str, dict[str, Any]] = {}
         self._mesh_trace = MeshTrace()
-        self._signals: dict[str, int] = {}
+        self._signals: dict[str, int | None] = {}
         self._moved_devices: list = []
         self._is_first_update: bool = True
 
@@ -577,9 +578,8 @@ class LuciUpdater(DataUpdateCoordinator):
         node above it says about the node.
 
         Only a positive identification counts. Nothing here can push a node
-        towards `default`, so a graph that has not arrived yet - our own is
-        written at the end of the cycle, so on the first one it is absent -
-        simply leaves the endpoint in charge.
+        towards `default`, so a missing graph - not read yet, or its request
+        failed - simply leaves the endpoint in charge.
 
         :return Mode | None: the mesh role, or None when the graph cannot tell
         """
@@ -1123,7 +1123,16 @@ class LuciUpdater(DataUpdateCoordinator):
         # The topology graph is the authoritative view of the mesh, and a leaf
         # behind a foreign gateway answers `default` here. Take the role from the
         # graph when it has one, and skip a gateway probe the node cannot answer.
-        if (topology_role := self._topology_role()) is not None:
+        topology_role = self._topology_role()
+
+        # Our own graph is read at the end of a cycle, and on a full restart the
+        # main has not read its own yet either: with nothing to go by, a wired
+        # leaf would be a gateway for its whole first cycle. Read ours now.
+        if topology_role is None and "topo_graph" not in self.data:
+            await self._async_prepare_topo()
+            topology_role = self._topology_role()
+
+        if topology_role is not None:
             data[ATTR_SENSOR_MODE] = topology_role
 
             if not self._topology_role_logged:
@@ -1829,6 +1838,8 @@ class LuciUpdater(DataUpdateCoordinator):
         if trace is not None:
             trace.census(response, {}, source="xqnetwork/wifi_connect_devices")
 
+        # A fresh successful Wi-Fi census must not retain obsolete signals.
+        self._signals.clear()
         now = dt_util.utcnow()
         macfilter_info: Optional[dict] = None
 
@@ -1937,7 +1948,7 @@ class LuciUpdater(DataUpdateCoordinator):
                     self._forget_mesh_node(mac, integrations)
                     continue
 
-                self._signals[mac] = device["signal"] if "signal" in device else 0
+                self._signals[mac] = device.get("signal")
 
                 if mac in self.devices:
                     self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
@@ -2033,6 +2044,29 @@ class LuciUpdater(DataUpdateCoordinator):
 
         await asyncio.sleep(DEFAULT_CALL_DELAY)
 
+        # Enrich only the existing active census, never create or remove clients
+        # from device_list: its schema and offline records differ by firmware.
+        details_by_mac: dict[str, dict] = {}
+        detail_reader = getattr(self.luci, "client_details", None)
+        if callable(detail_reader) and monotonic() >= getattr(self, "_client_details_retry_at", 0):
+            try:
+                payload = await detail_reader()
+                if not isinstance(payload, dict) or payload.get("code", 0) != 0 or not isinstance(payload.get("devices"), list):
+                    self._client_details_retry_at = monotonic() + 3600
+                else:
+                    for row in payload["devices"]:
+                        if not isinstance(row, dict) or row.get("online") not in (1, "1"):
+                            continue
+                        mac = row.get("mac")
+                        if isinstance(mac, str) and mac.strip():
+                            details_by_mac[mac.strip().upper()] = row
+            except (LuciConnectionError, asyncio.TimeoutError):
+                self._client_details_retry_at = monotonic() + 60
+                _LOGGER.debug("[MiWiFi] extended client metrics temporarily unavailable")
+            except (LuciError, Exception):
+                self._client_details_retry_at = monotonic() + 3600
+                _LOGGER.debug("[MiWiFi] extended client metrics unavailable; using legacy census")
+
         integrations = async_get_integrations(self.hass)
 
         # Capture the complete list before routing mutates individual records.
@@ -2105,6 +2139,16 @@ class LuciUpdater(DataUpdateCoordinator):
             if mac_u in node_macs or active_ip.get("ip") in node_ips:
                 self._forget_mesh_node(mac_u, integrations)
                 continue
+
+            # Metrics travel with the record when the main forwards it to a
+            # leaf. A conflicting parent/IP is a roaming snapshot, not a match.
+            detail = details_by_mac.get(mac_u, {})
+            if detail and (
+                str(detail.get("parent") or "").strip().upper() != str(device.get("parent") or "").strip().upper()
+                or detail.get("ip") != active_ip.get("ip")
+            ):
+                detail = {}
+            device["_miwifi_details"] = detail
 
             # Keep only the active IP entry
             device["ip"] = [active_ip]
@@ -2220,6 +2264,34 @@ class LuciUpdater(DataUpdateCoordinator):
                             source_ip=self.ip, pushed_clients=len(devices))
 
         if isinstance(response.get("list"), list) and response.get("code", 0) == 0:
+            # A node whose counters hold our last push, and that this complete
+            # census routes no client to, gets no push: its last client left,
+            # and nothing else resets a pushed node. Zero its counters, or the
+            # per-band ones keep that push while the total follows the topology
+            # down to 0. Unlike a push this is not stamped as a census: the
+            # total goes back to the topology, which can count clients
+            # devicelist does not list, and has no per-band split to give.
+            routed_ips = set(mac_to_ip.values())
+            for ip, integration in integrations.items():
+                updater = integration.get(UPDATER)
+                # Skipped: a node whose MAC we do not know (its clients could
+                # not be routed to it), one whose counters are not from our
+                # push (by IP, so our push from before a reload still counts),
+                # and one that counts its own clients.
+                if (
+                    ip in add_to
+                    or ip not in routed_ips
+                    or not isinstance(updater, LuciUpdater)
+                    or getattr(updater, "_parent_census_at", None) is None
+                    or getattr(updater._parent_census_source, "ip", None) != self.ip
+                    or updater._counts_own_clients
+                ):
+                    continue
+                updater.reset_counter(is_force=True)
+                trace = getattr(updater, "_mesh_trace", None)
+                if trace is not None:
+                    trace.event("parent_census_empty", updater.data, source_ip=self.ip)
+
             updaters = [row[UPDATER] for row in integrations.values() if row.get(UPDATER)]
             if self not in updaters:
                 updaters.append(self)
@@ -2232,7 +2304,7 @@ class LuciUpdater(DataUpdateCoordinator):
         :param data: dict
         """
 
-        if not self._is_first_update or (self.is_repeater and self.is_force_load):
+        if not self._is_first_update:
             return
 
         devices: dict | None = await self._async_load_devices()
@@ -2242,6 +2314,17 @@ class LuciUpdater(DataUpdateCoordinator):
 
         integrations: dict = async_get_integrations(self.hass)
         node_macs, node_ips = _known_mesh_nodes(self.hass)
+
+        # A force-load node enumerates and saves its own radio clients, so it
+        # restores them as well, and only them: a record names the node that
+        # saw the client last, and the other nodes leave this node's records
+        # alone below.
+        own_clients_only: bool = self.is_repeater and self.is_force_load
+        other_updaters: list = [
+            integration[UPDATER]
+            for integration in integrations.values()
+            if integration[UPDATER] is not self
+        ]
 
         for mac, device in devices.items():
             if await get_purged_clients(self.hass).async_blocked(mac):
@@ -2257,6 +2340,20 @@ class LuciUpdater(DataUpdateCoordinator):
             ):
                 continue
 
+            # A client another node already holds, live or restored, keeps that
+            # owner whichever entry set up first: it is not added or moved here
+            # as well. A record of a force-load entry still lends that node its
+            # name and IP below.
+            held_elsewhere: bool = any(
+                mac in (getattr(updater, "devices", None) or {})
+                for updater in other_updaters
+            )
+
+            if own_clients_only and (
+                device.get(ATTR_TRACKER_ENTRY_ID) != self._entry_id or held_elsewhere
+            ):
+                continue
+
             try:
                 # fmt: off
                 device[ATTR_TRACKER_CONNECTION] = Connection(int(device[ATTR_TRACKER_CONNECTION])) \
@@ -2267,7 +2364,7 @@ class LuciUpdater(DataUpdateCoordinator):
             except ValueError:
                 device[ATTR_TRACKER_CONNECTION] = None
 
-            _is_add: bool = True
+            _is_add: bool = not held_elsewhere
             if device[ATTR_TRACKER_ENTRY_ID] != self._entry_id:
                 for integration in integrations.values():
                     if (
@@ -2288,7 +2385,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
                         break
 
-                    if mac not in integration[UPDATER].devices:
+                    if not held_elsewhere:
                         device |= {
                             ATTR_TRACKER_ROUTER_MAC_ADDRESS: integration[
                                 UPDATER
@@ -2314,11 +2411,15 @@ class LuciUpdater(DataUpdateCoordinator):
                     ATTR_TRACKER_ENTRY_ID: self._entry_id,
                 }
 
+            # This runs in the first refresh, before the tracker platform is
+            # set up: the signal goes unheard, and the platform adds the
+            # tracker from self.devices. The flag has to be on the record for
+            # the tracker to start from its last state rather than as
+            # connected. add_device drops it.
+            device[ATTR_TRACKER_IS_RESTORED] = True
             self.devices[mac] = device
 
-            async_dispatcher_send(
-                self.hass, SIGNAL_NEW_DEVICE, device | {ATTR_TRACKER_IS_RESTORED: True}
-            )
+            async_dispatcher_send(self.hass, SIGNAL_NEW_DEVICE, device)
 
             #await self.hass.async_add_executor_job(_LOGGER.debug, "Restore device: %s, %s", mac, device)
 
@@ -2359,7 +2460,10 @@ class LuciUpdater(DataUpdateCoordinator):
             if is_from_parent:
                 # El principal es la fuente autoritativa para clientes del leaf
                 self.devices[device[ATTR_TRACKER_MAC]] |= {
-                    key: value for key, value in _device.items() if value is not None
+                    key: value for key, value in _device.items()
+                    if value is not None or key in (
+                        ATTR_TRACKER_SIGNAL, "wifi_protocol", "link_tx_rate", "link_rx_rate", "signal_unit", "signal_source"
+                    )
                 }
             else:
                 self.devices[device[ATTR_TRACKER_MAC]] |= {
@@ -2369,6 +2473,22 @@ class LuciUpdater(DataUpdateCoordinator):
                 }
         else:
             self.devices[device[ATTR_TRACKER_MAC]] = _device
+
+        # Reported again: the record is no longer only what a store held.
+        self.devices[device[ATTR_TRACKER_MAC]].pop(ATTR_TRACKER_IS_RESTORED, None)
+
+        # Another node's copy that only its store held is stale now: the client
+        # is here. Drop it, or a tracker that reads that node's records keeps
+        # the client away until activity_days expires the copy.
+        for integration in async_get_integrations(self.hass).values():
+            other = integration.get(UPDATER)
+            if other is self or not isinstance(other, LuciUpdater):
+                continue
+            row = other.devices.get(device[ATTR_TRACKER_MAC])
+            if isinstance(row, dict) and row.get(ATTR_TRACKER_IS_RESTORED):
+                del other.devices[device[ATTR_TRACKER_MAC]]
+                with contextlib.suppress(ValueError):
+                    other._moved_devices.remove(device[ATTR_TRACKER_MAC])
             
         # ✅ Keep a mesh-wide latest snapshot so stable device_tracker entities
         # can follow the client even when it moves between main router and leaf nodes.
@@ -2586,14 +2706,45 @@ class LuciUpdater(DataUpdateCoordinator):
         if internet_blocked is None:
             internet_blocked = False
 
+        # device_list supplies RSSI as text and PHY rates with units. Retain
+        # legacy signal semantics when unavailable; never interpret -50 as 0%.
+        signal = self._signals.get(device[ATTR_TRACKER_MAC]) if is_online else None
+        metrics = {"wifi_protocol": None, "link_tx_rate": None, "link_rx_rate": None,
+                   "signal_unit": "%" if signal is not None else None,
+                   "signal_source": "wifi_connect_devices" if signal is not None else None}
+        detail = device.get("_miwifi_details")
+        if isinstance(detail, dict) and is_online:
+            try:
+                rssi = int(detail.get("signal"))
+            except (TypeError, ValueError, OverflowError):
+                rssi = None
+            if rssi is not None and -127 <= rssi < 0:
+                signal = rssi
+                metrics["signal_unit"] = "dBm"
+                metrics["signal_source"] = "misystem/device_list"
+            protocol = detail.get("wifiprotocol")
+            if isinstance(protocol, str) and protocol.strip():
+                metrics["wifi_protocol"] = protocol.strip()
+            for raw_key, key in (("nego_tx_rate", "link_tx_rate"), ("nego_rx_rate", "link_rx_rate")):
+                value = detail.get(raw_key)
+                if isinstance(value, str) and value.endswith("Mbps"):
+                    rate = _to_float(value[:-4], default=-1)
+                    if 0 <= rate <= 100000:
+                        metrics[key] = rate
+
+        if getattr(connection, "name", None) == "LAN":
+            signal = None
+            metrics = dict.fromkeys(metrics)
+
         return {
+            **metrics,
             ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
             ATTR_TRACKER_UPDATER_ENTRY_ID: device.get(
                 ATTR_TRACKER_UPDATER_ENTRY_ID, device[ATTR_TRACKER_ENTRY_ID]
             ),
             ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC],
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: router_mac,
-            ATTR_TRACKER_SIGNAL: self._signals.get(device[ATTR_TRACKER_MAC]),
+            ATTR_TRACKER_SIGNAL: signal,
             ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_IP: ip_value,
             ATTR_TRACKER_CONNECTION: connection,
@@ -3311,13 +3462,13 @@ class LuciUpdater(DataUpdateCoordinator):
                     )
                     return
 
-                except Exception as e2:
+                except (LuciConnectionError, LuciRequestError, Exception) as e2:
                     await self.hass.async_add_executor_job(
                         _LOGGER.debug,
                         "[MiWiFi] NAT rules retry after re-login failed: %s (cooldown 1m)",
                         e2,
                     )
-                    self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
+                    # A failed read must not replace the last successful snapshot.
                     self._nat_rules_next_try = now + timedelta(minutes=1)
                     return
 
@@ -3328,6 +3479,13 @@ class LuciUpdater(DataUpdateCoordinator):
             )
             self.data["nat_rules"] = {"ftype_1": [], "ftype_2": [], "total": 0}
             self._nat_rules_next_try = now + timedelta(minutes=10)
+            return
+
+        except LuciConnectionError as e:
+            # Luci errors derive from BaseException, so Exception below does
+            # not catch them. NAT reads must not abort the coordinator refresh.
+            _LOGGER.warning("[MiWiFi] NAT rules connection failed (retry in 1m): %s", e)
+            self._nat_rules_next_try = now + timedelta(minutes=1)
             return
 
         except asyncio.TimeoutError:

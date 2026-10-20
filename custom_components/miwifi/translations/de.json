@@ -6,7 +6,8 @@
       "password.not_matched": "Falsches Passwort oder Verschlüsselungsalgorithmus",
       "connection": "Verbindung konnte nicht hergestellt werden",
       "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungscenter gesendet.",
-      "router.error_with_reason": "Fehler beim Verbinden mit dem Router: {reason}"
+      "router.error_with_reason": "Fehler beim Verbinden mit dem Router: {reason}",
+      "presence_too_short": "Mindestens {minimum_stay_online} Sekunden verwenden (Abfrageintervall + Anfragezeitlimit). Langsame Mesh-Netze können mehr benötigen."
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
           "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
           "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte überspringen)"
+        },
+        "data_description": {
+          "stay_online": "Hält einen Client nach der letzten Beobachtung so viele Sekunden zu Hause. Mindestens Abfrageintervall + Anfragezeitlimit. Beginne mit 60 s; langsame Mesh-Netze brauchen eventuell mehr. Höhere Werte verzögern die Abwesenheitserkennung.",
+          "scan_interval": "Abstand zwischen geplanten Abfragen. Anfragen benötigen zusätzliche Zeit. Kürzere Intervalle belasten den Router stärker. Berücksichtige den langsamsten meldenden Mesh-Knoten.",
+          "timeout": "Wartezeit pro Routeranfrage. Einige Endpunkte verwenden kürzere Grenzen. Dies ist nicht die maximale Dauer einer vollständigen Abfrage und nicht die Anwesenheitsdauer."
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "Falsches Passwort oder Verschlüsselungsalgorithmus",
       "connection": "Verbindung konnte nicht hergestellt werden",
       "router.not.supported": "Der Router wird nicht unterstützt. Detaillierte Informationen wurden an das Benachrichtigungscenter gesendet.",
-      "router.error_with_reason": "Fehler beim Verbinden mit dem Router: {reason}"
+      "router.error_with_reason": "Fehler beim Verbinden mit dem Router: {reason}",
+      "presence_too_short": "Mindestens {minimum_stay_online} Sekunden verwenden (Abfrageintervall + Anfragezeitlimit). Langsame Mesh-Netze können mehr benötigen."
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "Port-Abfrage (80/443) für Geräte-Konfigurations-URL aktivieren",
           "protocol": "Protokoll",
           "is_ap_mode": "Access Point / Mesh-Knoten (WAN- und Gateway-Endpunkte überspringen)"
+        },
+        "data_description": {
+          "stay_online": "Hält einen Client nach der letzten Beobachtung so viele Sekunden zu Hause. Mindestens Abfrageintervall + Anfragezeitlimit. Beginne mit 60 s; langsame Mesh-Netze brauchen eventuell mehr. Höhere Werte verzögern die Abwesenheitserkennung.",
+          "scan_interval": "Abstand zwischen geplanten Abfragen. Anfragen benötigen zusätzliche Zeit. Kürzere Intervalle belasten den Router stärker. Berücksichtige den langsamsten meldenden Mesh-Knoten.",
+          "timeout": "Wartezeit pro Routeranfrage. Einige Endpunkte verwenden kürzere Grenzen. Dies ist nicht die maximale Dauer einer vollständigen Abfrage und nicht die Anwesenheitsdauer."
         }
       }
     }
@@ -169,6 +181,71 @@
     },
     "set_wifis": {
       "name": "Wi-Fi konfigurieren (2.4G/5G/Spiel)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP-Adresse"
+      },
+      "connection": {
+        "name": "Verbindung",
+        "state": {
+          "lan": "Kabel",
+          "wifi_2_4": "WLAN 2,4 GHz",
+          "wifi_5": "WLAN 5 GHz",
+          "guest": "Gast-WLAN",
+          "wifi_5_game": "WLAN 5 GHz Game",
+          "iot": "IoT-WLAN"
+        }
+      },
+      "online": {
+        "name": "Verbindungsdauer"
+      },
+      "down_speed": {
+        "name": "Downloadgeschwindigkeit"
+      },
+      "up_speed": {
+        "name": "Uploadgeschwindigkeit"
+      },
+      "total_usage": {
+        "name": "Übertragene Daten"
+      },
+      "signal": {
+        "name": "Signal"
+      },
+      "signal_quality": {
+        "name": "Signalqualität",
+        "state": {
+          "very_strong": "Sehr stark",
+          "strong": "Stark",
+          "fair": "Mittel",
+          "weak": "Schwach",
+          "no_signal": "Kein Signal"
+        }
+      },
+      "last_activity": {
+        "name": "Letzte Aktivität"
+      },
+      "first_seen": {
+        "name": "Erstmals erkannt"
+      },
+      "internet_blocked": {
+        "name": "Internetzugang gesperrt",
+        "state": {
+          "true": "Gesperrt",
+          "false": "Erlaubt"
+        }
+      },
+      "wifi_protocol": {
+        "name": "WLAN-Protokoll"
+      },
+      "link_tx_rate": {
+        "name": "TX-Verbindungsrate"
+      },
+      "link_rx_rate": {
+        "name": "RX-Verbindungsrate"
+      }
     }
   }
 }

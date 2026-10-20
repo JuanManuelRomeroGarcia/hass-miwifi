@@ -56,6 +56,7 @@ API_PATHS = {
     "qos_switch": "misystem/qos_switch",
     "qos_info": "misystem/qos_info",
     "device_list": "misystem/devicelist",
+    "client_details": "misystem/device_list",
     "wifi_connect_devices": "xqnetwork/wifi_connect_devices",
     "set_mac_filter": "xqsystem/set_mac_filter",
     "mac_filter_info": "xqnetwork/wifi_macfilter_info",
@@ -606,6 +607,10 @@ class LuciClient:
         """
 
         return await self.get(self._api_paths["device_list"])
+
+    async def client_details(self) -> dict:
+        """Read extended client metrics; not a replacement for the client census."""
+        return await self.get(self._api_paths["client_details"], timeout=5.0)
 
     async def wifi_connect_devices(self) -> dict:
         """xqnetwork/wifi_connect_devices method.

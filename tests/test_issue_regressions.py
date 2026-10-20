@@ -744,7 +744,7 @@ class ClientSensorValueTests(unittest.TestCase):
 class TrackerSpeedAttributeTests(unittest.TestCase):
     def setUp(self):
         import math
-        env = {**load_constants(), 'ScannerEntity': type('ScannerEntity', (), {}), 'CoordinatorEntity': type('CoordinatorEntity', (), {})}
+        env = {**load_constants(), **{base: type(base, (), {}) for base in ('ScannerEntity', 'CoordinatorEntity', 'RestoreEntity')}}
         env['pretty_size'] = load_function('helper.py', 'pretty_size', {'math': math})
         self.cls = load_class('device_tracker.py', 'MiWifiDeviceTracker', env, {'_speed_attribute'})
         self.key = env['ATTR_TRACKER_DOWN_SPEED']

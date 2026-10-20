@@ -6,7 +6,8 @@
       "password.not_matched": "Wrong password or encryption algorithm",
       "connection": "Failed to establish connection",
       "router.not.supported": "The router is not supported. Detailed information has been sent to the notification center.",
-      "router.error_with_reason": "Error connecting to the router: {reason}"
+      "router.error_with_reason": "Error connecting to the router: {reason}",
+      "presence_too_short": "Use at least {minimum_stay_online} seconds (scan interval + request timeout). Slow meshes may need a larger margin."
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "Create device sensors (clients)",
           "enable_port_probe": "Enable port probing (80/443) for device configuration URL",
           "is_ap_mode": "Access point / mesh node (skip WAN and gateway endpoints)"
+        },
+        "data_description": {
+          "stay_online": "Keep a client home for this many seconds after its last observation. Must be at least scan interval + request timeout. Start with 60 s; slow meshes may need more. Larger values delay departure detection.",
+          "scan_interval": "Time between scheduled polls. Requests add time, so actual readings may be farther apart. Lower values increase router load; allow enough presence time for the slowest reporting node.",
+          "timeout": "How long to wait for a router request. Some endpoints use shorter limits; this is not the maximum duration of a complete poll. It is separate from presence time."
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "Wrong password or encryption algorithm",
       "connection": "Failed to establish connection",
       "router.not.supported": "The router is not supported. Detailed information has been sent to the notification center.",
-      "router.error_with_reason": "Error connecting to the router: {reason}"
+      "router.error_with_reason": "Error connecting to the router: {reason}",
+      "presence_too_short": "Use at least {minimum_stay_online} seconds (scan interval + request timeout). Slow meshes may need a larger margin."
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "Enable port probing (80/443) for device configuration URL",
           "protocol": "Protocol",
           "is_ap_mode": "Access point / mesh node (skip WAN and gateway endpoints)"
+        },
+        "data_description": {
+          "stay_online": "Keep a client home for this many seconds after its last observation. Must be at least scan interval + request timeout. Start with 60 s; slow meshes may need more. Larger values delay departure detection.",
+          "scan_interval": "Time between scheduled polls. Requests add time, so actual readings may be farther apart. Lower values increase router load; allow enough presence time for the slowest reporting node.",
+          "timeout": "How long to wait for a router request. Some endpoints use shorter limits; this is not the maximum duration of a complete poll. It is separate from presence time."
         }
       }
     }
@@ -173,6 +185,71 @@
     "set_wifis": {
       "name": "Configure Wi-Fi (2.4G/5G/Game)",
       "description": "Changes the settings of one or more Wi-Fi bands on the selected router or the main router."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP address"
+      },
+      "connection": {
+        "name": "Connection",
+        "state": {
+          "lan": "Wired",
+          "wifi_2_4": "Wi-Fi 2.4 GHz",
+          "wifi_5": "Wi-Fi 5 GHz",
+          "guest": "Guest Wi-Fi",
+          "wifi_5_game": "Wi-Fi 5 GHz Game",
+          "iot": "IoT Wi-Fi"
+        }
+      },
+      "online": {
+        "name": "Connected time"
+      },
+      "down_speed": {
+        "name": "Download speed"
+      },
+      "up_speed": {
+        "name": "Upload speed"
+      },
+      "total_usage": {
+        "name": "Total usage"
+      },
+      "signal": {
+        "name": "Signal"
+      },
+      "signal_quality": {
+        "name": "Signal quality",
+        "state": {
+          "very_strong": "Very strong",
+          "strong": "Strong",
+          "fair": "Fair",
+          "weak": "Weak",
+          "no_signal": "No signal"
+        }
+      },
+      "last_activity": {
+        "name": "Last activity"
+      },
+      "first_seen": {
+        "name": "First seen"
+      },
+      "internet_blocked": {
+        "name": "Internet blocked",
+        "state": {
+          "true": "Blocked",
+          "false": "Allowed"
+        }
+      },
+      "wifi_protocol": {
+        "name": "Wi-Fi protocol"
+      },
+      "link_tx_rate": {
+        "name": "TX link rate"
+      },
+      "link_rx_rate": {
+        "name": "RX link rate"
+      }
     }
   }
 }

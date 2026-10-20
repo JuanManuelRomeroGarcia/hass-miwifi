@@ -36,12 +36,14 @@ OPTIONS_FLOW_EDIT_DATA: Final = {
     CONF_PASSWORD: "new",
     CONF_TIMEOUT: 15,
     CONF_SCAN_INTERVAL: 55,
+    "stay_online": 70,
 }
 OPTIONS_FLOW_DATA: Final = {
     CONF_IP_ADDRESS: MOCK_IP_ADDRESS,
     CONF_PASSWORD: MOCK_PASSWORD,
     CONF_TIMEOUT: 10,
     CONF_SCAN_INTERVAL: 50,
+    "stay_online": 60,
 }
 
 _LOGGER = logging.getLogger(__name__)

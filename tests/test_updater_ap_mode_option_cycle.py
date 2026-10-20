@@ -54,8 +54,8 @@ GATEWAY_REQUESTS: frozenset[str] = frozenset({"mode", "wan_info", "macfilter_inf
 async def _run_node(hass: HomeAssistant, *, is_ap_mode: bool, topology: bool) -> dict:
     """Run two complete cycles of a mesh node and report the second.
 
-    The node's own graph is read at the end of a cycle, so a role taken from
-    the topology shows from the second cycle on.
+    The first cycle also logs in and reads the node's identity, so the second
+    is the one compared.
 
     With `topology`, the main lists the node as a leaf and the node's own graph
     calls it a mesh node, as on a wired-backhaul mesh. Without it, the node's

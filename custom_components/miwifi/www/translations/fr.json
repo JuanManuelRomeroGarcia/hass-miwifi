@@ -321,5 +321,8 @@
   "status_column_value": "Valeur",
   "dump_api_diagnostics": "Nouvelles requêtes API et réponses (routeur principal et nœuds)",
   "dump_api_diagnostics_hint": "Interroge les blocs de diagnostic connus en lecture seule sur tous les routeurs chargés, avec erreurs, requêtes ignorées et durées. Jusqu’à 2 minutes. Les mots de passe et jetons restent toujours masqués. Ce catalogue ne couvre pas toutes les API possibles du micrologiciel.",
-  "settings_support_optional": "MiWiFi est gratuit. Si le projet vous est utile, vous pouvez soutenir son développement par un don volontaire :"
+  "settings_support_optional": "MiWiFi est gratuit. Si le projet vous est utile, vous pouvez soutenir son développement par un don volontaire :",
+  "wifi_protocol": "Protocole Wi-Fi",
+  "link_tx_rate": "Débit de liaison TX",
+  "link_rx_rate": "Débit de liaison RX"
 }

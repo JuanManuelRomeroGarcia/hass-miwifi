@@ -320,5 +320,8 @@
   "status_column_value": "Valor",
   "dump_api_diagnostics": "Consultas API y respuestas nuevas (principal y nodos)",
   "dump_api_diagnostics_hint": "Consulta los bloques de diagnóstico de solo lectura conocidos en todos los routers cargados, con errores, omisiones y tiempos. Hasta 2 minutos. Las contraseñas y los tokens siempre se ocultan. Es un catálogo de diagnóstico, no todas las API posibles del firmware.",
-  "settings_support_optional": "MiWiFi es gratuito. Si te resulta útil, puedes apoyar su desarrollo con una aportación voluntaria:"
+  "settings_support_optional": "MiWiFi es gratuito. Si te resulta útil, puedes apoyar su desarrollo con una aportación voluntaria:",
+  "wifi_protocol": "Protocolo Wi-Fi",
+  "link_tx_rate": "Velocidad de enlace TX",
+  "link_rx_rate": "Velocidad de enlace RX"
 }

@@ -277,31 +277,42 @@ MIWIFI_SENSORS: tuple[SensorEntityDescription, ...] = (
 
 KEY_SIGNAL_QUALITY: Final = "signal_quality"
 
+CLIENT_CONNECTION_STATES = {
+    "Lan": "lan", "2.4G": "wifi_2_4", "5G": "wifi_5", "Guest": "guest",
+    "5G Game": "wifi_5_game", "IoT": "iot",
+}
+
 MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=ATTR_TRACKER_IP,
-        name="IP",
+        translation_key=ATTR_TRACKER_IP,
+        name=None,
         icon="mdi:ip-network",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_CONNECTION,
-        name="Connection",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(CLIENT_CONNECTION_STATES.values()),
+        translation_key=ATTR_TRACKER_CONNECTION,
+        name=None,
         icon="mdi:lan-connect",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_ONLINE,
-        name="Online",
+        translation_key=ATTR_TRACKER_ONLINE,
+        name=None,
         icon="mdi:timer-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_DOWN_SPEED,
-        name="Down speed",
+        translation_key=ATTR_TRACKER_DOWN_SPEED,
+        name=None,
         icon="mdi:download-network",
         device_class=SensorDeviceClass.DATA_RATE,
         native_unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
@@ -311,7 +322,8 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_UP_SPEED,
-        name="Up speed",
+        translation_key=ATTR_TRACKER_UP_SPEED,
+        name=None,
         icon="mdi:upload-network",
         device_class=SensorDeviceClass.DATA_RATE,
         native_unit_of_measurement=UnitOfDataRate.BYTES_PER_SECOND,
@@ -321,7 +333,8 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_TOTAL_USAGE,
-        name="Total usage",
+        translation_key=ATTR_TRACKER_TOTAL_USAGE,
+        name=None,
         icon="mdi:counter",
         device_class=SensorDeviceClass.DATA_SIZE,
         native_unit_of_measurement=UnitOfInformation.BYTES,
@@ -331,7 +344,8 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_SIGNAL,
-        name="Signal",
+        translation_key=ATTR_TRACKER_SIGNAL,
+        name=None,
         icon="mdi:wifi",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement="dBm",
@@ -340,15 +354,38 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
+        key="wifi_protocol", translation_key="wifi_protocol", name=None,
+        icon="mdi:wifi", entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="link_tx_rate", translation_key="link_tx_rate", name=None,
+        icon="mdi:upload-network", device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABITS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT, entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="link_rx_rate", translation_key="link_rx_rate", name=None,
+        icon="mdi:download-network", device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABITS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT, entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
         key=KEY_SIGNAL_QUALITY,
-        name="Signal quality",
+        device_class=SensorDeviceClass.ENUM,
+        options=["very_strong", "strong", "fair", "weak", "no_signal"],
+        translation_key=KEY_SIGNAL_QUALITY,
+        name=None,
         icon="mdi:wifi-strength-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_LAST_ACTIVITY,
-        name="Last activity",
+        translation_key=ATTR_TRACKER_LAST_ACTIVITY,
+        name=None,
         icon="mdi:clock-outline",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -356,7 +393,8 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_FIRST_SEEN,
-        name="First seen",
+        translation_key=ATTR_TRACKER_FIRST_SEEN,
+        name=None,
         icon="mdi:clock-start",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -364,7 +402,10 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
     SensorEntityDescription(
         key=ATTR_TRACKER_INTERNET_BLOCKED,
-        name="Internet blocked",
+        device_class=SensorDeviceClass.ENUM,
+        options=["true", "false"],
+        translation_key=ATTR_TRACKER_INTERNET_BLOCKED,
+        name=None,
         icon="mdi:shield-off-outline",
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=True,
@@ -794,13 +835,21 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
         key = str(self.entity_description.key)
 
         conn = dev.get(ATTR_TRACKER_CONNECTION)
+        if conn == Connection.LAN and key in ("wifi_protocol", "link_tx_rate", "link_rx_rate"):
+            return None
         if isinstance(conn, Connection):
             conn_phrase = conn.phrase
         else:
             conn_phrase = conn
 
         if key == ATTR_TRACKER_CONNECTION:
-            return conn_phrase
+            return CLIENT_CONNECTION_STATES.get(conn_phrase)
+
+        if key == ATTR_TRACKER_INTERNET_BLOCKED:
+            # HA's translation schema requires canonical lowercase enum keys.
+            # The tracker's original boolean attribute remains unchanged.
+            value = dev.get(key)
+            return str(value).lower() if isinstance(value, bool) else None
 
         if key == KEY_SIGNAL_QUALITY:
             sig = dev.get(ATTR_TRACKER_SIGNAL, None)
@@ -810,9 +859,11 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
                 sig_int = int(sig) if sig not in ("", None) else None
             except (TypeError, ValueError):
                 sig_int = None
-            return map_signal_quality(sig_int) if sig_int is not None else "no_signal"
+            return map_signal_quality(sig_int, dev.get("signal_unit")) if sig_int is not None else None
 
         if key == ATTR_TRACKER_SIGNAL:
+            if dev.get("signal_unit") == "%":
+                return None
             if conn == Connection.LAN:
                 return None
             sig = dev.get(ATTR_TRACKER_SIGNAL, None)
@@ -860,6 +911,8 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
             "connected_via_router_name": serving_node[1] if serving_node else None,
 
             "connection": conn_text,
+            "signal_unit": dev.get("signal_unit"),
+            "signal_source": dev.get("signal_source"),
         }
 
 

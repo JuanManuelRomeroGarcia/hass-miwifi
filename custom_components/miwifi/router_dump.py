@@ -48,6 +48,7 @@ READ_QUERIES = (
     ReadQuery("wifi_diag_detail_all", "xqnetwork/wifi_diag_detail_all", ("network", "wifi_config")),
     ReadQuery("wifi_ap_signal", "xqnetwork/wifiap_signal", ("network",)),
     ReadQuery("device_list", "misystem/devicelist", ("devices",)),
+    ReadQuery("client_details", "misystem/device_list", ("devices",)),
     ReadQuery("wifi_connect_devices", "xqnetwork/wifi_connect_devices", ("devices",)),
     ReadQuery("mac_filter_info", "xqnetwork/wifi_macfilter_info", ("devices",)),
     ReadQuery("nat_single", "xqnetwork/portforward", ("nat_rules",), (("ftype", 1),), True),

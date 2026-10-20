@@ -72,4 +72,26 @@ for (const language of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"])
   const translations = JSON.parse(fs.readFileSync(`custom_components/miwifi/www/translations/${language}.json`, "utf8"));
   for (const key of [...keys, "devices_column_node", "devices_column_connection", "devices_column_upload", "devices_column_download"]) assert.ok(translations[key], `${language}: ${key}`);
 }
+const enriched = device("Metrics", "192.0.2.50", -43);
+enriched.attributes.signal_unit = "dBm";
+enriched.attributes.link_tx_rate = 2401;
+enriched.attributes.link_rx_rate = 0;
+enriched.attributes.wifi_protocol = "Wi-Fi 6(802.11ax)";
+assert.equal(panel._cellValue(enriched, "signal", topo), "-43 dBm");
+assert.equal(panel._cellValue(enriched, "link_tx_rate", topo), "2401 Mbps");
+assert.equal(panel._cellValue(enriched, "link_rx_rate", topo), "0 Mbps");
+assert.equal(panel._cellValue(enriched, "wifi_protocol", topo), "Wi-Fi 6(802.11ax)");
+enriched.attributes.connection = "Lan";
+for (const key of ["signal", "wifi_protocol", "link_tx_rate", "link_rx_rate"]) assert.equal(panel._cellValue(enriched, key, topo), "—");
+const cardOutput = JSON.stringify(panel._renderCard(enriched, topo, {}));
+for (const value of ["signal_quality", "wifi_protocol", "link_tx_rate", "link_rx_rate", "2401 Mbps"]) assert.ok(!cardOutput.includes(value));
+enriched.attributes.connection = "5G";
+enriched.attributes.signal = "";
+enriched.attributes.link_tx_rate = null;
+assert.equal(panel._cellValue(enriched, "signal", topo), "—");
+assert.equal(panel._cellValue(enriched, "link_tx_rate", topo), "—");
+for (const language of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"]) {
+  const t = JSON.parse(fs.readFileSync(`custom_components/miwifi/www/translations/${language}.json`, "utf8"));
+  for (const key of ["wifi_protocol", "link_tx_rate", "link_rx_rate"]) assert.ok(t[key]);
+}
 console.log("PASS: numeric name/IP sorting, search, columns, preference restore, blocked storage, unavailable state, admin-only WAN writes, duplicate-write guard, failure feedback and eight languages.");

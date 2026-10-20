@@ -6,7 +6,8 @@
       "password.not_matched": "Mot de passe ou algorithme de chiffrement incorrect",
       "connection": "Échec de l’établissement de la connexion",
       "router.not.supported": "Le routeur n’est pas pris en charge. Des informations détaillées ont été envoyées au centre de notifications.",
-      "router.error_with_reason": "Erreur de connexion au routeur : {reason}"
+      "router.error_with_reason": "Erreur de connexion au routeur : {reason}",
+      "presence_too_short": "Utilisez au moins {minimum_stay_online} secondes (intervalle de lecture + délai de requête). Un mesh lent peut nécessiter davantage."
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
           "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
           "is_ap_mode": "Point d'accès / nœud maillé (ignorer les points de terminaison WAN et passerelle)"
+        },
+        "data_description": {
+          "stay_online": "Maintient le client présent pendant ce délai après sa dernière observation. Au minimum : intervalle de lecture + délai de requête. Commencez par 60 s ; un réseau mesh lent peut nécessiter davantage. Une valeur élevée retarde la détection du départ.",
+          "scan_interval": "Intervalle entre les lectures programmées. Les requêtes ajoutent du temps. Un intervalle court sollicite davantage le routeur. Tenez compte du nœud mesh le plus lent.",
+          "timeout": "Délai d’attente par requête au routeur. Certaines requêtes ont une limite plus courte. Ce n’est ni la durée maximale d’un cycle complet ni le délai de présence."
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "Mot de passe ou algorithme de chiffrement incorrect",
       "connection": "Échec de l’établissement de la connexion",
       "router.not.supported": "Le routeur n’est pas pris en charge. Des informations détaillées ont été envoyées au centre de notifications.",
-      "router.error_with_reason": "Erreur de connexion au routeur : {reason}"
+      "router.error_with_reason": "Erreur de connexion au routeur : {reason}",
+      "presence_too_short": "Utilisez au moins {minimum_stay_online} secondes (intervalle de lecture + délai de requête). Un mesh lent peut nécessiter davantage."
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "Activer le sondage des ports (80/443) pour l’URL de configuration de l’appareil",
           "protocol": "Protocole",
           "is_ap_mode": "Point d'accès / nœud maillé (ignorer les points de terminaison WAN et passerelle)"
+        },
+        "data_description": {
+          "stay_online": "Maintient le client présent pendant ce délai après sa dernière observation. Au minimum : intervalle de lecture + délai de requête. Commencez par 60 s ; un réseau mesh lent peut nécessiter davantage. Une valeur élevée retarde la détection du départ.",
+          "scan_interval": "Intervalle entre les lectures programmées. Les requêtes ajoutent du temps. Un intervalle court sollicite davantage le routeur. Tenez compte du nœud mesh le plus lent.",
+          "timeout": "Délai d’attente par requête au routeur. Certaines requêtes ont une limite plus courte. Ce n’est ni la durée maximale d’un cycle complet ni le délai de présence."
         }
       }
     }
@@ -169,6 +181,71 @@
     },
     "set_wifis": {
       "name": "Configurer le Wi-Fi (2.4G/5G/Game)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "Adresse IP"
+      },
+      "connection": {
+        "name": "Connexion",
+        "state": {
+          "lan": "Câble",
+          "wifi_2_4": "Wi-Fi 2,4 GHz",
+          "wifi_5": "Wi-Fi 5 GHz",
+          "guest": "Wi-Fi invité",
+          "wifi_5_game": "Wi-Fi 5 GHz Game",
+          "iot": "Wi-Fi IoT"
+        }
+      },
+      "online": {
+        "name": "Durée de connexion"
+      },
+      "down_speed": {
+        "name": "Débit descendant"
+      },
+      "up_speed": {
+        "name": "Débit montant"
+      },
+      "total_usage": {
+        "name": "Données transférées"
+      },
+      "signal": {
+        "name": "Signal"
+      },
+      "signal_quality": {
+        "name": "Qualité du signal",
+        "state": {
+          "very_strong": "Très fort",
+          "strong": "Fort",
+          "fair": "Moyen",
+          "weak": "Faible",
+          "no_signal": "Aucun signal"
+        }
+      },
+      "last_activity": {
+        "name": "Dernière activité"
+      },
+      "first_seen": {
+        "name": "Première détection"
+      },
+      "internet_blocked": {
+        "name": "Accès Internet bloqué",
+        "state": {
+          "true": "Bloqué",
+          "false": "Autorisé"
+        }
+      },
+      "wifi_protocol": {
+        "name": "Protocole Wi-Fi"
+      },
+      "link_tx_rate": {
+        "name": "Débit de liaison TX"
+      },
+      "link_rx_rate": {
+        "name": "Débit de liaison RX"
+      }
     }
   }
 }

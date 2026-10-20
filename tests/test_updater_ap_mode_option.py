@@ -31,6 +31,7 @@ def _updater(is_ap_mode: bool) -> LuciUpdater:
     updater.data = {}
     updater._is_cb0401v2 = False
     updater._topology_role_logged = False
+    updater._signals = {}
     updater.luci = MagicMock()
 
     hass = MagicMock()

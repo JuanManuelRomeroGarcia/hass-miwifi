@@ -6,7 +6,8 @@
       "password.not_matched": "Contraseña o algoritmo de cifrado incorrectos",
       "connection": "No se pudo establecer la conexión",
       "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones.",
-      "router.error_with_reason": "Error al conectar con el router: {reason}"
+      "router.error_with_reason": "Error al conectar con el router: {reason}",
+      "presence_too_short": "Usa al menos {minimum_stay_online} segundos (escaneo + espera de solicitudes). Una malla lenta puede necesitar más margen."
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "Crear sensores de dispositivos (clientes)",
           "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo",
           "is_ap_mode": "Punto de acceso / nodo mesh (omitir endpoints WAN y de puerta de enlace)"
+        },
+        "data_description": {
+          "stay_online": "Mantiene al cliente en casa durante estos segundos desde la última observación. Debe ser al menos escaneo + espera de solicitudes. Empieza con 60 s; una malla lenta puede necesitar más. Aumentarlo retrasa detectar una salida.",
+          "scan_interval": "Tiempo entre consultas programadas. Las peticiones añaden tiempo: las lecturas reales pueden estar más separadas. Reducirlo aumenta la carga del router. El margen de presencia debe cubrir al nodo que informa más despacio.",
+          "timeout": "Espera de una petición al router. Algunas consultas usan límites más cortos; no es el tiempo máximo de un ciclo completo. Es distinto del margen de presencia."
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "Contraseña o algoritmo de cifrado incorrectos",
       "connection": "No se pudo establecer la conexión",
       "router.not.supported": "El router no es compatible. Se ha enviado información detallada al centro de notificaciones.",
-      "router.error_with_reason": "Error al conectar con el router: {reason}"
+      "router.error_with_reason": "Error al conectar con el router: {reason}",
+      "presence_too_short": "Usa al menos {minimum_stay_online} segundos (escaneo + espera de solicitudes). Una malla lenta puede necesitar más margen."
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "Habilitar sondeo de puertos (80/443) para la URL de configuración del dispositivo",
           "protocol": "Protocolo",
           "is_ap_mode": "Punto de acceso / nodo mesh (omitir endpoints WAN y de puerta de enlace)"
+        },
+        "data_description": {
+          "stay_online": "Mantiene al cliente en casa durante estos segundos desde la última observación. Debe ser al menos escaneo + espera de solicitudes. Empieza con 60 s; una malla lenta puede necesitar más. Aumentarlo retrasa detectar una salida.",
+          "scan_interval": "Tiempo entre consultas programadas. Las peticiones añaden tiempo: las lecturas reales pueden estar más separadas. Reducirlo aumenta la carga del router. El margen de presencia debe cubrir al nodo que informa más despacio.",
+          "timeout": "Espera de una petición al router. Algunas consultas usan límites más cortos; no es el tiempo máximo de un ciclo completo. Es distinto del margen de presencia."
         }
       }
     }
@@ -169,6 +181,71 @@
     },
     "set_wifis": {
       "name": "Configurar Wi-Fi (2.4G/5G/Game)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "Dirección IP"
+      },
+      "connection": {
+        "name": "Conexión",
+        "state": {
+          "lan": "Cable",
+          "wifi_2_4": "Wi-Fi 2,4 GHz",
+          "wifi_5": "Wi-Fi 5 GHz",
+          "guest": "Wi-Fi de invitados",
+          "wifi_5_game": "Wi-Fi 5 GHz Game",
+          "iot": "Wi-Fi IoT"
+        }
+      },
+      "online": {
+        "name": "Tiempo conectado"
+      },
+      "down_speed": {
+        "name": "Velocidad de descarga"
+      },
+      "up_speed": {
+        "name": "Velocidad de subida"
+      },
+      "total_usage": {
+        "name": "Datos transferidos"
+      },
+      "signal": {
+        "name": "Señal"
+      },
+      "signal_quality": {
+        "name": "Calidad de señal",
+        "state": {
+          "very_strong": "Muy buena",
+          "strong": "Buena",
+          "fair": "Regular",
+          "weak": "Débil",
+          "no_signal": "Sin señal"
+        }
+      },
+      "last_activity": {
+        "name": "Última actividad"
+      },
+      "first_seen": {
+        "name": "Primera detección"
+      },
+      "internet_blocked": {
+        "name": "Acceso a Internet bloqueado",
+        "state": {
+          "true": "Bloqueado",
+          "false": "Permitido"
+        }
+      },
+      "wifi_protocol": {
+        "name": "Protocolo Wi-Fi"
+      },
+      "link_tx_rate": {
+        "name": "Velocidad de enlace TX"
+      },
+      "link_rx_rate": {
+        "name": "Velocidad de enlace RX"
+      }
     }
   }
 }

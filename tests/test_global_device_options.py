@@ -282,7 +282,7 @@ NODE_OPTIONS = {
     CONF_ENCRYPTION_ALGORITHM: "sha256",
     CONF_PROTOCOL: "auto",
     CONF_IS_TRACK_DEVICES: True,
-    CONF_STAY_ONLINE: 30,
+    CONF_STAY_ONLINE: 60,
     CONF_SCAN_INTERVAL: 30,
     CONF_ACTIVITY_DAYS: 30,
     CONF_TIMEOUT: 20,
@@ -354,7 +354,7 @@ async def test_node_save_keeps_the_legacy_client_sensor_vote(
     _listen(hass, main, node)
     assert get_mesh_device_sensors_enabled(hass)
 
-    await _save_node(hass, node, **{CONF_SCAN_INTERVAL: 60})
+    await _save_node(hass, node, **{CONF_SCAN_INTERVAL: 60, CONF_STAY_ONLINE: 80})
     await hass.async_block_till_done()
 
     assert node.options[CONF_ENABLE_DEVICE_SENSORS] is True
@@ -403,3 +403,46 @@ async def test_ap_override_node_save_preserves_global_sensor_choice(
     assert main.options == main_options
     assert get_mesh_device_sensors_enabled(hass)
     assert [call.args[0] for call in reload.await_args_list] == [node.entry_id]
+
+
+@pytest.mark.parametrize("stay", [15, 30, 49])
+async def test_unsafe_presence_save_is_rejected_without_login_or_option_changes(hass, stay):
+    entry = _entry(hass, {**NODE_OPTIONS, CONF_STAY_ONLINE: 20}, ip=NODE_IP)
+    original = dict(entry.options)
+    form = await _open(hass, entry, "device_settings")
+    assert _defaults(form)[CONF_STAY_ONLINE] == 20
+    assert entry.options == original  # No silent adjustment of old settings.
+    with patch("custom_components.miwifi.config_flow.async_verify_access", AsyncMock()) as verify:
+        result = await hass.config_entries.options.async_configure(
+            form["flow_id"], {**_defaults(form), CONF_STAY_ONLINE: stay}
+        )
+    assert result["errors"] == {CONF_STAY_ONLINE: "presence_too_short"}
+    assert result["description_placeholders"]["minimum_stay_online"] == "50"
+    verify.assert_not_awaited()
+    assert entry.options == original
+    key = next(k for k in result["data_schema"].schema if str(k) == CONF_STAY_ONLINE)
+    assert key.description["suggested_value"] == stay
+
+
+@pytest.mark.parametrize(("stay", "tracking"), [(50, True), (15, False)])
+async def test_presence_budget_boundary_and_disabled_tracking(hass, stay, tracking):
+    entry = _entry(hass, dict(NODE_OPTIONS), ip=NODE_IP)
+    result = await _save_node(
+        hass, entry, **{CONF_STAY_ONLINE: stay, CONF_IS_TRACK_DEVICES: tracking}
+    )
+    assert result["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+    assert entry.options[CONF_STAY_ONLINE] == stay
+
+
+async def test_new_entry_checks_presence_before_router_access(hass):
+    form = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    # New installations get 60 s; already saved entries keep their values.
+    assert _defaults(form)[CONF_STAY_ONLINE] == 60
+    values = {**_defaults(form), CONF_IP_ADDRESS: "192.0.2.99", CONF_PASSWORD: "synthetic",
+              CONF_SCAN_INTERVAL: 30, CONF_TIMEOUT: 20, CONF_STAY_ONLINE: 20}
+    with patch("custom_components.miwifi.config_flow.async_verify_access", AsyncMock()) as verify:
+        result = await hass.config_entries.flow.async_configure(form["flow_id"], values)
+    assert result["errors"] == {CONF_STAY_ONLINE: "presence_too_short"}
+    verify.assert_not_awaited()

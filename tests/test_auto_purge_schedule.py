@@ -9,6 +9,15 @@ Two defects, both measured on a live instance:
 - `every_days = 0` was documented in the UI as "disabled" and implemented as
   `int(s.get("every_days") or DEFAULT)`, which read zero as missing and handed
   back the default of 1. Asking for "never" got "every day".
+
+A third one, also live: every setup recomputed the deadline from now, so an
+instance restarting more often than `every_days` pushed it forward forever
+and the purge stopped running (last run in August, next_due always a week
+away).
+
+And the runs it did make: every one in that store's history said `ok: false`
+and nothing else. The job swallowed the service's exception without a log
+line or a stored reason, so nothing said why.
 """
 
 # pylint: disable=protected-access
@@ -16,10 +25,22 @@ Two defects, both measured on a live instance:
 from __future__ import annotations
 
 import asyncio
+import copy
+import logging
+from contextlib import contextmanager
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
+
+from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.service import async_register_admin_service
+from homeassistant.util import dt as dt_util
 
 from custom_components.miwifi import auto_purge
 from custom_components.miwifi.auto_purge import (
@@ -28,6 +49,7 @@ from custom_components.miwifi.auto_purge import (
     DOMAIN,
     schedule_auto_purge,
 )
+from custom_components.miwifi.services import SERVICES
 
 
 def _hass_with_tasks() -> MagicMock:
@@ -157,3 +179,404 @@ async def test_kickoff_cancels_previous_deadline_and_shutdown_cancels_replacemen
             hass.services.async_call.assert_awaited_once()
             auto_purge.cancel_auto_purge(hass)
             deadlines[1][1].assert_called_once()
+
+
+ROME = dt_util.get_time_zone("Europe/Rome")
+
+
+def _rome(day: int, hour: int, minute: int = 0) -> datetime:
+    return datetime(2026, 10, day, hour, minute, tzinfo=ROME)
+
+
+@pytest.fixture
+def rome_time_zone():
+    """A zone with an offset and a DST change (25 Oct 2026) inside the window."""
+
+    original = dt_util.DEFAULT_TIME_ZONE
+    dt_util.set_default_time_zone(ROME)
+    yield
+    dt_util.set_default_time_zone(original)
+
+
+@contextmanager
+def _persistent_store(store: dict):
+    """Setups against a store that keeps what the scheduler saves.
+
+    `setup(now)` runs schedule_auto_purge as an HA start or entry reload would
+    (`kickoff=False` as async_unload_entry does for a remaining entry);
+    `armed` collects every deadline handed to the timer, `kicks` every startup
+    kickoff as (delay, callback).
+    """
+
+    env = SimpleNamespace(armed=[], kicks=[], now=None)
+    hass = _hass_with_tasks()
+    hass.services.async_call = AsyncMock()
+    env.hass = hass
+
+    async def save(_hass, data):
+        store.clear()
+        store.update(copy.deepcopy(data))
+
+    async def setup(now, kickoff=True, entry_id="entry-1"):
+        env.now = now
+        hass.pending.clear()
+        schedule_auto_purge(hass, SimpleNamespace(entry_id=entry_id), kickoff=kickoff)
+        for coro in list(hass.pending):
+            await coro
+
+    env.setup = setup
+
+    with patch.object(
+        auto_purge, "_load", AsyncMock(side_effect=lambda _h: copy.deepcopy(store))
+    ), patch.object(auto_purge, "_save", AsyncMock(side_effect=save)), patch.object(
+        auto_purge,
+        "async_track_point_in_time",
+        lambda _h, _cb, when: env.armed.append(when) or MagicMock(),
+    ), patch.object(
+        auto_purge,
+        "async_call_later",
+        lambda _h, delay, cb: env.kicks.append((delay, cb)) or MagicMock(),
+    ), patch.object(
+        auto_purge.dt_util, "now", lambda *_a, **_k: env.now
+    ):
+        yield env
+
+
+def _pending(every_days: int = 7, at: str = "04:10", **extra) -> dict:
+    """A store as a run on 11 Oct leaves it: next run on 18 Oct at 04:10."""
+
+    store = {
+        "every_days": every_days,
+        "at": at,
+        "last_run": _rome(11, 4, 10).isoformat(),
+        "last_ok": True,
+        "next_due": _rome(18, 4, 10).isoformat(),
+        "next_due_for": {"every_days": 7, "at": "04:10"},
+    }
+    store.update(extra)
+    return store
+
+
+def _legacy(**extra) -> dict:
+    """The same store as written before next_due_for existed."""
+
+    store = _pending(**extra)
+    del store["next_due_for"]
+    return store
+
+
+async def test_a_pending_deadline_survives_a_restart(rome_time_zone) -> None:
+    """A setup before the deadline arms the stored deadline, not now + N days."""
+
+    store = _pending()
+    stored_due = store["next_due"]
+
+    with _persistent_store(store) as env:
+        await env.setup(_rome(15, 12))
+
+    assert env.armed == [_rome(18, 4, 10)]
+    assert env.kicks == []
+    assert store["next_due"] == stored_due
+
+
+async def test_daily_restarts_still_reach_the_deadline(rome_time_zone) -> None:
+    """The live failure: restarts every day must not postpone a weekly purge."""
+
+    store = _pending()
+
+    with _persistent_store(store) as env:
+        for day in (12, 13, 14, 15, 16, 17):
+            await env.setup(_rome(day, 9))
+
+    assert env.armed == [_rome(18, 4, 10)] * 6
+    assert env.kicks == []
+    assert dt_util.parse_datetime(store["next_due"]) == _rome(18, 4, 10)
+
+
+@pytest.mark.parametrize(
+    "now", [_rome(15, 3), _rome(18, 3)], ids=["days before", "on the day"]
+)
+async def test_a_setup_before_at_keeps_the_deadline(rome_time_zone, now) -> None:
+    """A restart in the small hours must not move the purge to that night.
+
+    _next_run() returns today's `at` while it is still ahead, so recomputing on
+    a 03:00 restart ran the purge at 04:10 however recently it had run. On the
+    due day that is the deadline anyway; on any other day it is not.
+    """
+
+    store = _pending()
+
+    with _persistent_store(store) as env:
+        await env.setup(now)
+
+    assert env.armed == [_rome(18, 4, 10)]
+    assert env.kicks == []
+
+
+async def test_an_unload_hands_the_pending_deadline_over(rome_time_zone) -> None:
+    """async_unload_entry re-arms the schedule on a remaining entry.
+
+    That is the path of every options save on the entry that owns the timer:
+    it unloads, and another entry takes over with kickoff=False.
+    """
+
+    store = _pending()
+
+    with _persistent_store(store) as env:
+        await env.setup(_rome(15, 12), kickoff=False, entry_id="entry-2")
+
+    assert env.armed == [_rome(18, 4, 10)]
+    assert env.kicks == []
+    assert store["owner"] == "entry-2"
+    assert dt_util.parse_datetime(store["next_due"]) == _rome(18, 4, 10)
+
+
+async def test_a_deadline_saved_before_the_record_existed_is_kept(
+    rome_time_zone,
+) -> None:
+    """The first restarts after an upgrade must not postpone the purge either.
+
+    The code before next_due_for rewrote next_due at every setup, so such a
+    store holds a deadline on `at`, at most one period ahead.
+    """
+
+    store = _legacy()
+
+    with _persistent_store(store) as env:
+        await env.setup(_rome(15, 12))
+        await env.setup(_rome(16, 12))
+
+    assert env.armed == [_rome(18, 4, 10)] * 2
+    assert env.kicks == []
+    assert store["next_due_for"] == {"every_days": 7, "at": "04:10"}
+
+
+@pytest.mark.parametrize(
+    ("label", "store", "expected"),
+    [
+        # Options flow changed the frequency: the old deadline is not this
+        # schedule's, even though it is less than three days ahead.
+        (
+            "every_days changed",
+            _pending(every_days=3, next_due=_rome(17, 4, 10).isoformat()),
+            _rome(18, 4, 10),
+        ),
+        ("at changed", _pending(at="05:30"), _rome(22, 5, 30)),
+        # Stores written before next_due_for existed: only the deadline itself
+        # can be checked against the schedule.
+        (
+            "no record, another time of day",
+            _legacy(next_due=_rome(18, 5, 30).isoformat()),
+            _rome(22, 4, 10),
+        ),
+        ("no record, beyond the new period", _legacy(every_days=2), _rome(17, 4, 10)),
+        ("unparsable deadline", _pending(next_due="soon"), _rome(22, 4, 10)),
+        # More than one period ahead: the clock was ahead when it was saved.
+        ("too far ahead", _pending(next_due=_rome(30, 4, 10).isoformat()), _rome(22, 4, 10)),
+        # Saved under another zone: same instant, wrong local hour.
+        ("other time zone", _pending(next_due="2026-10-18T04:10:00+00:00"), _rome(22, 4, 10)),
+    ],
+)
+async def test_a_deadline_from_another_schedule_is_recomputed(
+    rome_time_zone, label, store, expected
+) -> None:
+    """Keep only what this schedule would have produced; recompute the rest."""
+
+    with _persistent_store(store) as env:
+        await env.setup(_rome(15, 12))
+
+    assert env.armed == [expected], label
+    assert dt_util.parse_datetime(store["next_due"]) == expected
+    assert store["next_due_for"] == {"every_days": store["every_days"], "at": store["at"]}
+
+
+def test_a_naive_deadline_is_not_kept(rome_time_zone) -> None:
+    """Without an offset it cannot be ordered against now; recompute instead."""
+
+    store = _pending(next_due="2026-10-18T04:10:00")
+
+    assert auto_purge._kept_deadline(store, _rome(15, 12), auto_purge._parse_hhmm("04:10"), 7) is None
+
+
+async def test_an_overdue_deadline_still_kicks_off_once(rome_time_zone) -> None:
+    """Missed while HA was down: one delayed run, then the regular schedule.
+
+    The next deadline lands after the DST change (+02:00 -> +01:00, 25 Oct).
+    """
+
+    store = _pending()
+
+    with _persistent_store(store) as env:
+        await env.setup(_rome(19, 9))
+
+        assert [delay for delay, _cb in env.kicks] == [60]
+        assert env.armed == [_rome(26, 4, 10)]
+
+        await env.kicks[0][1]()
+
+        env.hass.services.async_call.assert_awaited_once()
+        assert env.armed[-1] == _rome(26, 4, 10)
+        assert store["next_due_for"] == {"every_days": 7, "at": "04:10"}
+
+        # A restart after that run keeps its deadline and does not kick again.
+        await env.setup(_rome(20, 9))
+
+    assert len(env.kicks) == 1
+    assert env.armed[-1] == _rome(26, 4, 10)
+    assert dt_util.parse_datetime(store["next_due"]) == _rome(26, 4, 10)
+
+
+async def test_a_failed_run_records_why(rome_time_zone, caplog) -> None:
+    """The reason goes to the log and the store; the next good run clears it."""
+
+    store = _pending()
+
+    with _persistent_store(store) as env:
+        env.hass.services.async_call.side_effect = ValueError(
+            "too many values to unpack (expected 2)"
+        )
+        await env.setup(_rome(19, 9))
+        await env.kicks[0][1]()
+
+        assert store["last_ok"] is False
+        assert store["last_error"] == "ValueError: too many values to unpack (expected 2)"
+        assert store["history"][-1]["error"] == store["last_error"]
+        failures = [
+            record
+            for record in caplog.records
+            if record.name == auto_purge.__name__ and record.levelno == logging.ERROR
+        ]
+        assert len(failures) == 1
+        assert failures[0].exc_info is not None
+
+        env.hass.services.async_call.side_effect = None
+        await env.kicks[0][1]()
+
+    assert store["last_ok"] is True
+    assert store["last_error"] is None
+    assert [("error" in run, run["ok"]) for run in store["history"]] == [
+        (True, False),
+        (False, True),
+    ]
+
+
+async def test_the_scheduled_run_completes_on_the_registered_service(hass) -> None:
+    """End to end on a real core, through the service as setup registers it.
+
+    The rest of this file mocks the call. Here the job's parameters go through
+    the admin wrapper, the schema and the service body. The registry holds a
+    device of another integration with a longer identifier tuple: before the
+    fix for #313, one such row made the service raise on every call, so every
+    scheduled run recorded `ok: false`.
+    """
+
+    other = MockConfigEntry(domain="other_hub")
+    other.add_to_hass(hass)
+    devices = dr.async_get(hass)
+    devices.async_get_or_create(
+        config_entry_id=other.entry_id,
+        identifiers={("other_hub", "bridge-1", "zone", "3")},
+    )
+
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    entities = er.async_get(hass)
+    month_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%S")
+    trackers = {}
+    for mac in ("02:00:00:00:00:01", "00:00:00:00:00:02"):
+        device = devices.async_get_or_create(
+            config_entry_id=entry.entry_id, identifiers={(DOMAIN, mac.lower())}
+        )
+        tracker = entities.async_get_or_create(
+            "device_tracker",
+            DOMAIN,
+            f"{DOMAIN}-{mac.lower()}",
+            config_entry=entry,
+            device_id=device.id,
+        )
+        hass.states.async_set(
+            tracker.entity_id, "not_home", {"mac": mac, "last_activity": month_ago}
+        )
+        trackers[mac] = tracker.entity_id
+
+    purge = dict(SERVICES)["purge_inactive_devices"]
+    async_register_admin_service(
+        hass, DOMAIN, "purge_inactive_devices", purge(hass).async_call_service, purge.schema
+    )
+
+    # An empty store has never run: the kickoff fires 60 s after setup.
+    schedule_auto_purge(hass, entry, kickoff=True)
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=61))
+    await hass.async_block_till_done()
+    auto_purge.cancel_auto_purge(hass)
+
+    stored = await auto_purge._load(hass)
+    assert stored["last_error"] is None
+    assert [run["ok"] for run in stored["history"]] == [True]
+    # The conservative parameters: the randomised MAC goes, the stable one stays.
+    assert entities.async_get(trackers["02:00:00:00:00:01"]) is None
+    assert entities.async_get(trackers["00:00:00:00:00:02"]) is not None
+
+
+@pytest.mark.parametrize("action", ["second_entry", "reschedule", "cancel"])
+async def test_scheduler_claims_owner_before_prime_runs(action):
+    """Concurrent setups cannot lose a timer handle or arm a cancelled prime."""
+    hass = _hass_with_tasks()
+    hass.services.async_call = AsyncMock()
+    scheduled = []
+    kicks = []
+    store = {"every_days": 7, "at": "00:00"}
+    def timer(_h, callback, when):
+        scheduled.append((callback, MagicMock()))
+        return scheduled[-1][1]
+    with patch.object(auto_purge, "_load", AsyncMock(return_value=store.copy())), patch.object(
+        auto_purge, "_save", AsyncMock()
+    ), patch.object(auto_purge, "async_track_point_in_time", timer), patch.object(
+        auto_purge, "async_call_later", lambda _h, delay, cb: kicks.append(cb) or MagicMock()
+    ):
+        entry = SimpleNamespace(entry_id="first")
+        schedule_auto_purge(hass, entry)
+        if action == "second_entry":
+            schedule_auto_purge(hass, SimpleNamespace(entry_id="second"))
+        elif action == "reschedule":
+            schedule_auto_purge(hass, entry)
+        else:
+            auto_purge.cancel_auto_purge(hass, entry.entry_id)
+        for coro in list(hass.pending):
+            await coro
+        expected = 0 if action == "cancel" else 1
+        assert len(scheduled) == len(kicks) == expected
+        if expected:
+            assert hass.data[DOMAIN][auto_purge.AUTO_PURGE_OWNER] == "first"
+            await kicks[0]()
+            hass.services.async_call.assert_awaited_once()
+            scheduled[0][1].assert_called_once()
+            auto_purge.cancel_auto_purge(hass)
+            scheduled[1][1].assert_called_once()
+        else:
+            hass.services.async_call.assert_not_awaited()
+        assert auto_purge.AUTO_PURGE_PRIME not in hass.data[DOMAIN]
+
+
+async def test_cancel_running_prime_does_not_arm_a_timer(hass):
+    """Unloading while storage is still loading cancels the actual HA task."""
+    entered = asyncio.Event()
+    released = asyncio.Event()
+    async def load(_hass):
+        entered.set()
+        await released.wait()
+        return {"every_days": 7, "at": "00:00"}
+    with patch.object(auto_purge, "_load", side_effect=load), patch.object(
+        auto_purge, "_save", AsyncMock()
+    ) as save, patch.object(auto_purge, "async_track_point_in_time") as timer, patch.object(
+        auto_purge, "async_call_later"
+    ) as later:
+        schedule_auto_purge(hass, SimpleNamespace(entry_id="first"))
+        await asyncio.wait_for(entered.wait(), 2)
+        auto_purge.cancel_auto_purge(hass, "first")
+        released.set()
+        await hass.async_block_till_done()
+        timer.assert_not_called()
+        later.assert_not_called()
+        save.assert_not_awaited()

@@ -6,7 +6,8 @@
       "password.not_matched": "Yanlış parola veya şifreleme algoritması",
       "connection": "Bağlantı kurulamadı",
       "router.not.supported": "Yönlendirici desteklenmiyor. Ayrıntılı bilgiler bildirim merkezine gönderildi.",
-      "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}"
+      "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}",
+      "presence_too_short": "En az {minimum_stay_online} saniye kullanın (tarama aralığı + istek zaman aşımı). Yavaş mesh ağları daha fazla süre gerektirebilir."
     },
     "step": {
       "discovery_confirm": {
@@ -28,6 +29,11 @@
           "enable_device_sensors": "Cihaz sensörleri oluştur (istemciler)",
           "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)",
           "is_ap_mode": "Erişim noktası / mesh düğümü (WAN ve ağ geçidi uç noktalarını atla)"
+        },
+        "data_description": {
+          "stay_online": "Son gözlemden sonra istemciyi bu süre boyunca evde tutar. En az tarama aralığı + istek zaman aşımı olmalıdır. 60 saniyeyle başlayın; yavaş mesh ağları daha fazlasını gerektirebilir. Büyük değerler ayrılma algılamasını geciktirir.",
+          "scan_interval": "Planlanan sorgular arasındaki süre. İstekler ek zaman alır. Kısa aralıklar yönlendirici yükünü artırır. En yavaş bilgi veren mesh düğümünü hesaba katın.",
+          "timeout": "Yönlendiriciye yapılan bir isteğin bekleme süresi. Bazı sorgular daha kısa sınırlar kullanır. Tam bir sorgulama döngüsünün en uzun süresi veya evde kalma süresi değildir."
         }
       }
     }
@@ -38,7 +44,8 @@
       "password.not_matched": "Yanlış parola veya şifreleme algoritması",
       "connection": "Bağlantı kurulamadı",
       "router.not.supported": "Yönlendirici desteklenmiyor. Ayrıntılı bilgiler bildirim merkezine gönderildi.",
-      "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}"
+      "router.error_with_reason": "Yönlendiriciye bağlanırken hata oluştu: {reason}",
+      "presence_too_short": "En az {minimum_stay_online} saniye kullanın (tarama aralığı + istek zaman aşımı). Yavaş mesh ağları daha fazla süre gerektirebilir."
     },
     "step": {
       "init": {
@@ -76,6 +83,11 @@
           "enable_port_probe": "Cihaz yapılandırma URL'si için bağlantı noktası sorgulamasını etkinleştir (80/443)",
           "protocol": "Protokol",
           "is_ap_mode": "Erişim noktası / mesh düğümü (WAN ve ağ geçidi uç noktalarını atla)"
+        },
+        "data_description": {
+          "stay_online": "Son gözlemden sonra istemciyi bu süre boyunca evde tutar. En az tarama aralığı + istek zaman aşımı olmalıdır. 60 saniyeyle başlayın; yavaş mesh ağları daha fazlasını gerektirebilir. Büyük değerler ayrılma algılamasını geciktirir.",
+          "scan_interval": "Planlanan sorgular arasındaki süre. İstekler ek zaman alır. Kısa aralıklar yönlendirici yükünü artırır. En yavaş bilgi veren mesh düğümünü hesaba katın.",
+          "timeout": "Yönlendiriciye yapılan bir isteğin bekleme süresi. Bazı sorgular daha kısa sınırlar kullanır. Tam bir sorgulama döngüsünün en uzun süresi veya evde kalma süresi değildir."
         }
       }
     }
@@ -169,6 +181,71 @@
     },
     "set_wifis": {
       "name": "Wi-Fi yapılandır (2.4G/5G/Oyun)"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ip": {
+        "name": "IP adresi"
+      },
+      "connection": {
+        "name": "Bağlantı",
+        "state": {
+          "lan": "Kablolu",
+          "wifi_2_4": "Wi-Fi 2,4 GHz",
+          "wifi_5": "Wi-Fi 5 GHz",
+          "guest": "Misafir Wi-Fi",
+          "wifi_5_game": "Wi-Fi 5 GHz Game",
+          "iot": "IoT Wi-Fi"
+        }
+      },
+      "online": {
+        "name": "Bağlı kalma süresi"
+      },
+      "down_speed": {
+        "name": "İndirme hızı"
+      },
+      "up_speed": {
+        "name": "Yükleme hızı"
+      },
+      "total_usage": {
+        "name": "Aktarılan veri"
+      },
+      "signal": {
+        "name": "Sinyal"
+      },
+      "signal_quality": {
+        "name": "Sinyal kalitesi",
+        "state": {
+          "very_strong": "Çok güçlü",
+          "strong": "Güçlü",
+          "fair": "Orta",
+          "weak": "Zayıf",
+          "no_signal": "Sinyal yok"
+        }
+      },
+      "last_activity": {
+        "name": "Son etkinlik"
+      },
+      "first_seen": {
+        "name": "İlk algılama"
+      },
+      "internet_blocked": {
+        "name": "İnternet erişimi engelli",
+        "state": {
+          "true": "Engelli",
+          "false": "İzinli"
+        }
+      },
+      "wifi_protocol": {
+        "name": "Wi-Fi protokolü"
+      },
+      "link_tx_rate": {
+        "name": "TX bağlantı hızı"
+      },
+      "link_rx_rate": {
+        "name": "RX bağlantı hızı"
+      }
     }
   }
 }
