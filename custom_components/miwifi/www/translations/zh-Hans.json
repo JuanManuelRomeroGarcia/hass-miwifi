@@ -321,5 +321,8 @@
   "status_column_value": "值",
   "dump_api_diagnostics": "新的 API 查询及响应（主路由器和节点）",
   "dump_api_diagnostics_hint": "查询所有已加载路由器的已知只读诊断数据，包含错误、跳过的查询和耗时。最多需要 2 分钟。密码和会话令牌始终隐藏。此诊断目录不包含固件的所有可能 API。",
-  "settings_support_optional": "MiWiFi 免费使用。如果它对您有帮助，欢迎自愿捐助，支持项目开发："
+  "settings_support_optional": "MiWiFi 免费使用。如果它对您有帮助，欢迎自愿捐助，支持项目开发：",
+  "wifi_protocol": "Wi-Fi 协议",
+  "link_tx_rate": "TX 链路速率",
+  "link_rx_rate": "RX 链路速率"
 }

@@ -135,6 +135,10 @@ async def test_init(hass: HomeAssistant, httpx_mock: HTTPXMock) -> None:
         is_reusable=True,
     )
     httpx_mock.add_response(
+        json={"code": 0, "devices": []}, method="GET",
+        url=get_url("misystem/device_list"), is_reusable=True,
+    )
+    httpx_mock.add_response(
         text=load_fixture("wifi_connect_devices_data.json"),
         method="GET",
         url=get_url("xqnetwork/wifi_connect_devices"),

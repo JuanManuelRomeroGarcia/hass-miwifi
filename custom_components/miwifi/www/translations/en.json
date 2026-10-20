@@ -320,5 +320,8 @@
   "status_column_value": "Value",
   "dump_api_diagnostics": "Fresh API queries and responses (main + nodes)",
   "dump_api_diagnostics_hint": "Queries the known read-only diagnostic blocks on all loaded routers, including errors, skipped queries and timings. Up to 2 minutes. Passwords and session tokens are always hidden. This is a diagnostic catalogue, not every possible firmware API.",
-  "settings_support_optional": "MiWiFi is free to use. If it helps you, you can support its development with a voluntary donation:"
+  "settings_support_optional": "MiWiFi is free to use. If it helps you, you can support its development with a voluntary donation:",
+  "wifi_protocol": "Wi-Fi protocol",
+  "link_tx_rate": "TX link rate",
+  "link_rx_rate": "RX link rate"
 }

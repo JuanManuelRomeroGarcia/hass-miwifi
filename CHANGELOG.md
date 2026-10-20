@@ -1,15 +1,16 @@
 # Changelog
 
-## Unreleased
+## 3.13.0 — 2026-10-20
 
-- Report missing, invalid or inapplicable client signal quality as unknown rather than a measured no-signal state; preserve measured zero and valid quality levels.
-- Use HA entity translations for all eleven client sensor names and connection, signal-quality and Internet-block states in eight languages. Preserve unique/entity IDs, custom names and serialized automation states.
-- Standardize defaults at 60 seconds presence grace, 30 seconds polling and 20 seconds request timeout, including missing-setting fallbacks. Preserve explicitly saved user values.
-- Explain scan interval, request timeout and presence grace in all eight form languages. New entries suggest 60 seconds; tracked-entry saves require at least scan interval plus timeout. Preserve existing values without silent adjustment, retain invalid submissions for correction, and document mesh latency limits.
-- Integrate the local trial of #364 (empty leaf counters), #366 (persistent auto-purge deadlines and failure history), #368 (force-load client restoration and saved tracker state), and #370 (first-refresh topology role). Preserve contributor commits; no release or public merge yet.
-- Reserve global scheduler ownership before asynchronous setup and cancel pending initialization on unload/reschedule, preventing multiple entries from arming duplicate purge timers.
-- Handle LuCI connection failures in optional NAT reads, including the authentication retry; keep the last successful snapshot during transport failure and retry after one minute instead of aborting the coordinator refresh.
-- Focused combined HA 2026.10.0 validation: 98 passed. Full legacy and compatibility batteries are deferred to the eventual GitHub PR. Keep integration/frontend version 3.12.0 during the hardware trial.
+- Fix mesh leaf counters after their last parent-reported client leaves (#364), preserve auto-purge deadlines across restarts and record failed runs (#366), restore force-load node clients and their saved presence states (#368), and identify a wired mesh node from its own topology on its first refresh (#370). Preserve @brembygit's original commits and integrate the dependent restoration/role fixes together.
+- Reserve global purge-scheduler ownership before asynchronous initialization and cancel pending setup on unload/reschedule, preventing duplicate timers. Keep the last successful NAT snapshot on LuCI transport/authentication-retry failures and retry after one minute without aborting the coordinator refresh.
+- Standardize defaults at 60 seconds presence grace, 30 seconds polling and 20 seconds request timeout, preserving explicitly saved values. Explain timing fields in all eight languages and reject tracked-entry saves whose presence grace is less than scan interval plus timeout. Existing installations are not silently retuned.
+- Localize client sensor names and connection, signal-quality and Internet-access states through HA entity translations in all eight languages, preserving entity IDs, custom names and raw automation states. Treat missing or invalid signal quality as unknown while preserving a measured zero.
+- Read optional `misystem/device_list` metrics for active clients matched by MAC/IP/parent, with bounded requests and failure backoff. Keep the legacy census authoritative for discovery, presence, routing and purge safeguards. Add actual RSSI in dBm, Wi-Fi protocol and TX/RX PHY link rates to attributes, three optional diagnostic sensors and Cards/List panel views. Do not label legacy percentage values as dBm, and hide inapplicable Wi-Fi fields for LAN clients. Include the read in diagnostic exports.
+- Add the standalone read-only SSH API inventory tool and its guide. Inventory controller hashes, route/parameter hints and native-service presence without executing discovered handlers; support Plink password files and OpenSSH keys. Firmware declarations do not prove runtime API support.
+- Stop tracking maintainer-only test/review/reply documents and archived disabled workflow copies. Ignore local assistant attachments, state, diagnostic exports and maintainer notes while preserving public guides, active workflows, tooling and tests.
+- Real RC01/RC06 mesh checks: stable presence, departure/return, signal consistent with the router app, client link metrics, LAN field hiding, reloads, purge simulations and one targeted removal retained after reload, with no errors reported by the maintainer. Automatic scheduler execution, an emptied leaf, force-load restoration and the precise first-refresh role were not all reproduced physically; retain their automated regression coverage. The existing unknown client total-usage reading remains unresolved.
+- Update integration, bundled frontend and cache references together to 3.13.0. Restart Home Assistant and refresh the panel after updating. Preserve the current auto-purge setting; keep it disabled until you have reviewed a simulation. The HACS minimum remains HA 2025.8.0.
 
 ## 3.12.0 — 2026-10-17
 

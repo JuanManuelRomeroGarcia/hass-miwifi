@@ -408,6 +408,7 @@ ATTR_CHANGES: Final = (
     ATTR_TRACKER_UP_SPEED,
     ATTR_TRACKER_OPTIONAL_MAC,
     ATTR_TRACKER_INTERNET_BLOCKED,
+    "wifi_protocol", "link_tx_rate", "link_rx_rate", "signal_unit", "signal_source",
 )
 
 CONFIGURATION_PORTS: Final = [80, 443]
@@ -815,7 +816,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             connection = connection.phrase  # type: ignore[assignment]
 
         signal_key = (
-            map_signal_quality(int(signal)) if signal not in ("", None) else "no_signal"
+            map_signal_quality(int(signal), self._device.get("signal_unit")) if signal not in ("", None) else None
         )
 
         total_bytes = int(self._device.get(ATTR_TRACKER_TOTAL_USAGE, 0) or 0)
@@ -854,6 +855,11 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             "connected_via_router_name": serving_node[1] if serving_node else None,
             
             ATTR_TRACKER_SIGNAL: signal,
+            "signal_unit": self._device.get("signal_unit") if self.is_connected else None,
+            "signal_source": self._device.get("signal_source") if self.is_connected else None,
+            "wifi_protocol": self._device.get("wifi_protocol") if self.is_connected else None,
+            "link_tx_rate": self._device.get("link_tx_rate") if self.is_connected else None,
+            "link_rx_rate": self._device.get("link_rx_rate") if self.is_connected else None,
             ATTR_TRACKER_DOWN_SPEED: self._speed_attribute(ATTR_TRACKER_DOWN_SPEED),
             ATTR_TRACKER_UP_SPEED: self._speed_attribute(ATTR_TRACKER_UP_SPEED),
             ATTR_TRACKER_LAST_ACTIVITY: self._device.get(ATTR_TRACKER_LAST_ACTIVITY, None),

@@ -236,6 +236,15 @@
           "True": "Gesperrt",
           "False": "Erlaubt"
         }
+      },
+      "wifi_protocol": {
+        "name": "WLAN-Protokoll"
+      },
+      "link_tx_rate": {
+        "name": "TX-Verbindungsrate"
+      },
+      "link_rx_rate": {
+        "name": "RX-Verbindungsrate"
       }
     }
   }

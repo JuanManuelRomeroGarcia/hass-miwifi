@@ -236,6 +236,15 @@
           "True": "Bloqueado",
           "False": "Permitido"
         }
+      },
+      "wifi_protocol": {
+        "name": "Protocolo Wi-Fi"
+      },
+      "link_tx_rate": {
+        "name": "Velocidad de enlace TX"
+      },
+      "link_rx_rate": {
+        "name": "Velocidad de enlace RX"
       }
     }
   }

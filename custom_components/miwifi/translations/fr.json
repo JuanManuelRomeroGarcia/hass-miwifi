@@ -236,6 +236,15 @@
           "True": "Bloqué",
           "False": "Autorisé"
         }
+      },
+      "wifi_protocol": {
+        "name": "Protocole Wi-Fi"
+      },
+      "link_tx_rate": {
+        "name": "Débit de liaison TX"
+      },
+      "link_rx_rate": {
+        "name": "Débit de liaison RX"
       }
     }
   }

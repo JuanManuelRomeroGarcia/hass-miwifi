@@ -236,6 +236,15 @@
           "True": "Engelli",
           "False": "İzinli"
         }
+      },
+      "wifi_protocol": {
+        "name": "Wi-Fi protokolü"
+      },
+      "link_tx_rate": {
+        "name": "TX bağlantı hızı"
+      },
+      "link_rx_rate": {
+        "name": "RX bağlantı hızı"
       }
     }
   }

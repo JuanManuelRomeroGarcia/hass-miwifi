@@ -236,6 +236,15 @@
           "True": "已阻止",
           "False": "允许"
         }
+      },
+      "wifi_protocol": {
+        "name": "Wi-Fi 协议"
+      },
+      "link_tx_rate": {
+        "name": "TX 链路速率"
+      },
+      "link_rx_rate": {
+        "name": "RX 链路速率"
       }
     }
   }

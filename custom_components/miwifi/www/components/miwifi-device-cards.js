@@ -1,10 +1,11 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.12.0";
-import { localize } from "../translations/localize.js?v=3.12.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.13.0";
+import { localize } from "../translations/localize.js?v=3.13.0";
 
 const COLUMNS = [
   ["name", "label_name"], ["state", "nav_status"], ["ip", "ip"],
   ["mac", "mac_address"], ["node", "devices_column_node"],
   ["connection", "devices_column_connection"], ["signal", "signal"],
+  ["wifi_protocol", "wifi_protocol"], ["link_tx_rate", "link_tx_rate"], ["link_rx_rate", "link_rx_rate"],
   ["up", "devices_column_upload"], ["down", "devices_column_download"],
   ["last", "last_activity"], ["wan", "wan_access"],
 ];
@@ -85,7 +86,10 @@ class MiWiFiDeviceCards extends LitElement {
         : device.state === "not_home" ? "status_disconnected" : "status_unavailable");
       case "node": return a.connected_via_router_name || topo.routersByMac[this._getViaMac(device)] || this._getViaMac(device) || "—";
       case "connection": return this._getConnectionTitle(this._getConnectionKey(a.connection));
-      case "signal": return this._getConnectionKey(a.connection) === "lan" ? "—" : a.signal ?? "—";
+      case "signal": return this._getConnectionKey(a.connection) === "lan" || a.signal === "" || a.signal == null ? "—" : `${a.signal} ${a.signal_unit || ""}`.trim();
+      case "link_tx_rate":
+      case "link_rx_rate": return this._getConnectionKey(a.connection) === "lan" || a[key] == null ? "—" : `${a[key]} Mbps`;
+      case "wifi_protocol": return this._getConnectionKey(a.connection) === "lan" ? "—" : a.wifi_protocol || "—";
       case "up": return a.up_speed ?? "—";
       case "down": return a.down_speed ?? "—";
       case "last": return a.last_activity || "—";
@@ -494,7 +498,10 @@ class MiWiFiDeviceCards extends LitElement {
 
         ${String(a.connection || "").toLowerCase() !== "lan"
           ? html`
-              <div class="device-info">${localize("signal")}: ${a.signal ?? "-"}</div>
+              <div class="device-info">${localize("signal")}: ${this._cellValue(device, "signal", topo)}</div>
+              ${a.wifi_protocol ? html`<div class="device-info">${localize("wifi_protocol")}: ${a.wifi_protocol}</div>` : ""}
+              ${a.link_tx_rate != null ? html`<div class="device-info">${localize("link_tx_rate")}: ${a.link_tx_rate} Mbps</div>` : ""}
+              ${a.link_rx_rate != null ? html`<div class="device-info">${localize("link_rx_rate")}: ${a.link_rx_rate} Mbps</div>` : ""}
               <div class="device-info">${localize("signal_quality")}: ${this._translateSignalQuality(a.signal_quality)}</div>
             `
           : ""}

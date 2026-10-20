@@ -240,6 +240,15 @@
           "True": "Blocked",
           "False": "Allowed"
         }
+      },
+      "wifi_protocol": {
+        "name": "Wi-Fi protocol"
+      },
+      "link_tx_rate": {
+        "name": "TX link rate"
+      },
+      "link_rx_rate": {
+        "name": "RX link rate"
       }
     }
   }

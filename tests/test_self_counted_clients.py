@@ -154,6 +154,8 @@ class Mesh:
         updater.data = {const.ATTR_SENSOR_MODE: mode, const.ATTR_DEVICE_MAC_ADDRESS: mac}
         updater.devices = {}
         updater.luci = Mock()
+        # These tests isolate census/counter routing. Metrics do not add clients.
+        updater.luci.client_details = AsyncMock(return_value={"code": 0, "devices": []})
         updater.hass = Mock(data={})
         updater.hass.config_entries.async_entries = lambda domain: []
         updater._is_first_update = True

@@ -292,6 +292,7 @@ REPEATER_SKIP_ATTRS: Final = (
     ATTR_TRACKER_INTERNET_BLOCKED,
     ATTR_TRACKER_FIRST_SEEN,
     ATTR_TRACKER_TOTAL_USAGE,
+    "wifi_protocol", "link_tx_rate", "link_rx_rate", "signal_unit", "signal_source",
 )
 
 # pylint: disable=too-many-branches,too-many-lines,too-many-arguments
@@ -1837,6 +1838,8 @@ class LuciUpdater(DataUpdateCoordinator):
         if trace is not None:
             trace.census(response, {}, source="xqnetwork/wifi_connect_devices")
 
+        # A fresh successful Wi-Fi census must not retain obsolete signals.
+        self._signals.clear()
         now = dt_util.utcnow()
         macfilter_info: Optional[dict] = None
 
@@ -2041,6 +2044,29 @@ class LuciUpdater(DataUpdateCoordinator):
 
         await asyncio.sleep(DEFAULT_CALL_DELAY)
 
+        # Enrich only the existing active census, never create or remove clients
+        # from device_list: its schema and offline records differ by firmware.
+        details_by_mac: dict[str, dict] = {}
+        detail_reader = getattr(self.luci, "client_details", None)
+        if callable(detail_reader) and monotonic() >= getattr(self, "_client_details_retry_at", 0):
+            try:
+                payload = await detail_reader()
+                if not isinstance(payload, dict) or payload.get("code", 0) != 0 or not isinstance(payload.get("devices"), list):
+                    self._client_details_retry_at = monotonic() + 3600
+                else:
+                    for row in payload["devices"]:
+                        if not isinstance(row, dict) or row.get("online") not in (1, "1"):
+                            continue
+                        mac = row.get("mac")
+                        if isinstance(mac, str) and mac.strip():
+                            details_by_mac[mac.strip().upper()] = row
+            except (LuciConnectionError, asyncio.TimeoutError):
+                self._client_details_retry_at = monotonic() + 60
+                _LOGGER.debug("[MiWiFi] extended client metrics temporarily unavailable")
+            except (LuciError, Exception):
+                self._client_details_retry_at = monotonic() + 3600
+                _LOGGER.debug("[MiWiFi] extended client metrics unavailable; using legacy census")
+
         integrations = async_get_integrations(self.hass)
 
         # Capture the complete list before routing mutates individual records.
@@ -2113,6 +2139,16 @@ class LuciUpdater(DataUpdateCoordinator):
             if mac_u in node_macs or active_ip.get("ip") in node_ips:
                 self._forget_mesh_node(mac_u, integrations)
                 continue
+
+            # Metrics travel with the record when the main forwards it to a
+            # leaf. A conflicting parent/IP is a roaming snapshot, not a match.
+            detail = details_by_mac.get(mac_u, {})
+            if detail and (
+                str(detail.get("parent") or "").strip().upper() != str(device.get("parent") or "").strip().upper()
+                or detail.get("ip") != active_ip.get("ip")
+            ):
+                detail = {}
+            device["_miwifi_details"] = detail
 
             # Keep only the active IP entry
             device["ip"] = [active_ip]
@@ -2424,7 +2460,10 @@ class LuciUpdater(DataUpdateCoordinator):
             if is_from_parent:
                 # El principal es la fuente autoritativa para clientes del leaf
                 self.devices[device[ATTR_TRACKER_MAC]] |= {
-                    key: value for key, value in _device.items() if value is not None
+                    key: value for key, value in _device.items()
+                    if value is not None or key in (
+                        ATTR_TRACKER_SIGNAL, "wifi_protocol", "link_tx_rate", "link_rx_rate", "signal_unit", "signal_source"
+                    )
                 }
             else:
                 self.devices[device[ATTR_TRACKER_MAC]] |= {
@@ -2667,14 +2706,45 @@ class LuciUpdater(DataUpdateCoordinator):
         if internet_blocked is None:
             internet_blocked = False
 
+        # device_list supplies RSSI as text and PHY rates with units. Retain
+        # legacy signal semantics when unavailable; never interpret -50 as 0%.
+        signal = self._signals.get(device[ATTR_TRACKER_MAC]) if is_online else None
+        metrics = {"wifi_protocol": None, "link_tx_rate": None, "link_rx_rate": None,
+                   "signal_unit": "%" if signal is not None else None,
+                   "signal_source": "wifi_connect_devices" if signal is not None else None}
+        detail = device.get("_miwifi_details")
+        if isinstance(detail, dict) and is_online:
+            try:
+                rssi = int(detail.get("signal"))
+            except (TypeError, ValueError, OverflowError):
+                rssi = None
+            if rssi is not None and -127 <= rssi < 0:
+                signal = rssi
+                metrics["signal_unit"] = "dBm"
+                metrics["signal_source"] = "misystem/device_list"
+            protocol = detail.get("wifiprotocol")
+            if isinstance(protocol, str) and protocol.strip():
+                metrics["wifi_protocol"] = protocol.strip()
+            for raw_key, key in (("nego_tx_rate", "link_tx_rate"), ("nego_rx_rate", "link_rx_rate")):
+                value = detail.get(raw_key)
+                if isinstance(value, str) and value.endswith("Mbps"):
+                    rate = _to_float(value[:-4], default=-1)
+                    if 0 <= rate <= 100000:
+                        metrics[key] = rate
+
+        if getattr(connection, "name", None) == "LAN":
+            signal = None
+            metrics = dict.fromkeys(metrics)
+
         return {
+            **metrics,
             ATTR_TRACKER_ENTRY_ID: device[ATTR_TRACKER_ENTRY_ID],
             ATTR_TRACKER_UPDATER_ENTRY_ID: device.get(
                 ATTR_TRACKER_UPDATER_ENTRY_ID, device[ATTR_TRACKER_ENTRY_ID]
             ),
             ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC],
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: router_mac,
-            ATTR_TRACKER_SIGNAL: self._signals.get(device[ATTR_TRACKER_MAC]),
+            ATTR_TRACKER_SIGNAL: signal,
             ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
             ATTR_TRACKER_IP: ip_value,
             ATTR_TRACKER_CONNECTION: connection,

@@ -111,6 +111,7 @@ class Router:
             RADIO_LIST: {"code": 0, "list": []},
             "xqnetwork/wifi_macfilter_info": {"code": 0, "list": []},
             "misystem/devicelist": {"code": 0, "mac": mac, "list": []},
+            "misystem/device_list": {"code": 0, "devices": []},
             "misystem/newstatus": {"code": 0, "count": 0},
             "xqnetwork/wifiap_signal": {"code": 0, "signal": 60},
         } | answers

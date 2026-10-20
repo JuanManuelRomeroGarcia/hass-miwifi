@@ -1,6 +1,6 @@
 # Polling and presence timing
 
-Prepared locally after 3.12.0; not released yet.
+Available from v3.13.0.
 
 Timing remains configurable. When saving a tracked entry, the form requires:
 

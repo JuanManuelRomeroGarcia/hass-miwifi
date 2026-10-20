@@ -349,6 +349,25 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_registry_enabled_default=False,
     ),
     SensorEntityDescription(
+        key="wifi_protocol", translation_key="wifi_protocol", name=None,
+        icon="mdi:wifi", entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="link_tx_rate", translation_key="link_tx_rate", name=None,
+        icon="mdi:upload-network", device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABITS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT, entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
+        key="link_rx_rate", translation_key="link_rx_rate", name=None,
+        icon="mdi:download-network", device_class=SensorDeviceClass.DATA_RATE,
+        native_unit_of_measurement=UnitOfDataRate.MEGABITS_PER_SECOND,
+        state_class=SensorStateClass.MEASUREMENT, entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
+    ),
+    SensorEntityDescription(
         key=KEY_SIGNAL_QUALITY,
         device_class=SensorDeviceClass.ENUM,
         options=["very_strong", "strong", "fair", "weak", "no_signal"],
@@ -811,6 +830,8 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
         key = str(self.entity_description.key)
 
         conn = dev.get(ATTR_TRACKER_CONNECTION)
+        if conn == Connection.LAN and key in ("wifi_protocol", "link_tx_rate", "link_rx_rate"):
+            return None
         if isinstance(conn, Connection):
             conn_phrase = conn.phrase
         else:
@@ -833,9 +854,11 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
                 sig_int = int(sig) if sig not in ("", None) else None
             except (TypeError, ValueError):
                 sig_int = None
-            return map_signal_quality(sig_int) if sig_int is not None else None
+            return map_signal_quality(sig_int, dev.get("signal_unit")) if sig_int is not None else None
 
         if key == ATTR_TRACKER_SIGNAL:
+            if dev.get("signal_unit") == "%":
+                return None
             if conn == Connection.LAN:
                 return None
             sig = dev.get(ATTR_TRACKER_SIGNAL, None)
@@ -883,6 +906,8 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
             "connected_via_router_name": serving_node[1] if serving_node else None,
 
             "connection": conn_text,
+            "signal_unit": dev.get("signal_unit"),
+            "signal_source": dev.get("signal_source"),
         }
 
 

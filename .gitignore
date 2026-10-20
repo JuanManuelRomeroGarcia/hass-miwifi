@@ -143,3 +143,23 @@ push_miwifi.sh
 /config/custom_components/miwifi/__pycache__/
 pyvenv.cfg
 node_modules/
+
+# Local assistant state and private attachments
+/.codex/
+/.codex-*/
+/.agents/
+/AGENTS.md
+
+# Local Home Assistant state and diagnostic exports
+/.storage/
+/dump_*.zip
+/logs_*.zip
+
+# Maintainer-only test plans, review notes and reply drafts
+/docs/Prueba-*.md
+/docs/github-reply-*.md
+/docs/Release-review.md
+/local-notes/
+
+# Archived workflow copies; active workflows remain tracked
+/.github/workflows/*.disable

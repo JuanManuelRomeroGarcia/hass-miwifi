@@ -86,8 +86,8 @@ if (!params.has('frame')) {
       throw new Error('Unsupported preview request');
     },
   };
-  await import('/miwifi_static/panel-frontend.js?v=3.12.0');
-  const { navigate } = await import('/miwifi_static/router.js?v=3.12.0');
+  await import('/miwifi_static/panel-frontend.js?v=3.13.0');
+  const { navigate } = await import('/miwifi_static/router.js?v=3.13.0');
   navigate('/' + (params.get('page') || 'miwifi-devices'));
   const panel = document.createElement('miwifi-panel'); panel.hass = hass;
   document.body.append(panel);

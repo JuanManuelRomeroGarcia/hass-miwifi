@@ -1,6 +1,6 @@
 # Tiempos de consulta y presencia
 
-Disponible en la preparación local posterior a 3.12.0; todavía sin publicar.
+Disponible desde v3.13.0.
 
 Los valores se mantienen configurables para adaptarse a cada firmware y red.
 Al guardar una entrada con seguimiento activado, el formulario exige:
