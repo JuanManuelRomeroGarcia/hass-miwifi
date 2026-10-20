@@ -195,12 +195,12 @@
       "connection": {
         "name": "Connection",
         "state": {
-          "Lan": "Wired",
-          "2.4G": "Wi-Fi 2.4 GHz",
-          "5G": "Wi-Fi 5 GHz",
-          "Guest": "Guest Wi-Fi",
-          "5G Game": "Wi-Fi 5 GHz Game",
-          "IoT": "IoT Wi-Fi"
+          "lan": "Wired",
+          "wifi_2_4": "Wi-Fi 2.4 GHz",
+          "wifi_5": "Wi-Fi 5 GHz",
+          "guest": "Guest Wi-Fi",
+          "wifi_5_game": "Wi-Fi 5 GHz Game",
+          "iot": "IoT Wi-Fi"
         }
       },
       "online": {
@@ -237,8 +237,8 @@
       "internet_blocked": {
         "name": "Internet blocked",
         "state": {
-          "True": "Blocked",
-          "False": "Allowed"
+          "true": "Blocked",
+          "false": "Allowed"
         }
       },
       "wifi_protocol": {

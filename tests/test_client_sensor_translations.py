@@ -1,5 +1,6 @@
-"""HA entity translations preserve client identities and raw automation states."""
+"""HA entity translations preserve client identities and valid canonical states."""
 import logging
+import re
 from dataclasses import replace
 from unittest.mock import AsyncMock
 
@@ -29,10 +30,11 @@ async def test_ha_loads_all_client_entity_names_and_states(hass, language, label
         assert translations[prefix + desc.key + ".name"]
     for desc in MIWIFI_DEVICE_SENSORS:
         for state in desc.options or []:
+            assert re.fullmatch(r"[a-z0-9]+(?:[_-][a-z0-9]+)*", state)
             assert translations[prefix + desc.key + ".state." + state]
 
 
-async def test_translated_client_keeps_registry_id_raw_state_and_custom_name(hass):
+async def test_translated_client_keeps_registry_id_and_custom_name(hass):
     hass.config.language = "es"
     entry = MockConfigEntry(domain=DOMAIN, data={"ip_address": "192.0.2.1"})
     entry.add_to_hass(hass)
@@ -65,7 +67,9 @@ async def test_translated_client_keeps_registry_id_raw_state_and_custom_name(has
             assert hass.states.get(entity.entity_id).attributes["friendly_name"] == "Test client Acceso a Internet bloqueado"
     assert hass.states.get(custom.entity_id).attributes["friendly_name"] == "Mi nombre personalizado"
     states = {entity.entity_description.key: hass.states.get(entity.entity_id).state for entity in entities}
-    assert states == {"connection": "5G Game", "signal_quality": "no_signal", "internet_blocked": "False"}
+    assert states == {"connection": "wifi_5_game", "signal_quality": "no_signal", "internet_blocked": "false"}
+    assert device["connection"] == Connection.WIFI_5_0_GAME
+    assert device["internet_blocked"] is False
 
 
 @pytest.mark.parametrize(("signal", "connection", "expected"), [

@@ -191,12 +191,12 @@
       "connection": {
         "name": "Conexión",
         "state": {
-          "Lan": "Cable",
-          "2.4G": "Wi-Fi 2,4 GHz",
-          "5G": "Wi-Fi 5 GHz",
-          "Guest": "Wi-Fi de invitados",
-          "5G Game": "Wi-Fi 5 GHz Game",
-          "IoT": "Wi-Fi IoT"
+          "lan": "Cable",
+          "wifi_2_4": "Wi-Fi 2,4 GHz",
+          "wifi_5": "Wi-Fi 5 GHz",
+          "guest": "Wi-Fi de invitados",
+          "wifi_5_game": "Wi-Fi 5 GHz Game",
+          "iot": "Wi-Fi IoT"
         }
       },
       "online": {
@@ -233,8 +233,8 @@
       "internet_blocked": {
         "name": "Acceso a Internet bloqueado",
         "state": {
-          "True": "Bloqueado",
-          "False": "Permitido"
+          "true": "Bloqueado",
+          "false": "Permitido"
         }
       },
       "wifi_protocol": {

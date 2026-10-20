@@ -277,6 +277,11 @@ MIWIFI_SENSORS: tuple[SensorEntityDescription, ...] = (
 
 KEY_SIGNAL_QUALITY: Final = "signal_quality"
 
+CLIENT_CONNECTION_STATES = {
+    "Lan": "lan", "2.4G": "wifi_2_4", "5G": "wifi_5", "Guest": "guest",
+    "5G Game": "wifi_5_game", "IoT": "iot",
+}
+
 MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=ATTR_TRACKER_IP,
@@ -289,7 +294,7 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=ATTR_TRACKER_CONNECTION,
         device_class=SensorDeviceClass.ENUM,
-        options=[item.phrase for item in Connection],
+        options=list(CLIENT_CONNECTION_STATES.values()),
         translation_key=ATTR_TRACKER_CONNECTION,
         name=None,
         icon="mdi:lan-connect",
@@ -398,7 +403,7 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
     SensorEntityDescription(
         key=ATTR_TRACKER_INTERNET_BLOCKED,
         device_class=SensorDeviceClass.ENUM,
-        options=["True", "False"],
+        options=["true", "false"],
         translation_key=ATTR_TRACKER_INTERNET_BLOCKED,
         name=None,
         icon="mdi:shield-off-outline",
@@ -838,13 +843,13 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
             conn_phrase = conn
 
         if key == ATTR_TRACKER_CONNECTION:
-            return conn_phrase
+            return CLIENT_CONNECTION_STATES.get(conn_phrase)
 
         if key == ATTR_TRACKER_INTERNET_BLOCKED:
-            # Keep the existing serialized states used by automations. Enum
-            # metadata lets HA translate their presentation, not their values.
+            # HA's translation schema requires canonical lowercase enum keys.
+            # The tracker's original boolean attribute remains unchanged.
             value = dev.get(key)
-            return str(value) if isinstance(value, bool) else value
+            return str(value).lower() if isinstance(value, bool) else None
 
         if key == KEY_SIGNAL_QUALITY:
             sig = dev.get(ATTR_TRACKER_SIGNAL, None)

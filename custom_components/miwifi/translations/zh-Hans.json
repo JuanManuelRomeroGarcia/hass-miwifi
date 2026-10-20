@@ -191,12 +191,12 @@
       "connection": {
         "name": "连接方式",
         "state": {
-          "Lan": "有线",
-          "2.4G": "2.4 GHz Wi-Fi",
-          "5G": "5 GHz Wi-Fi",
-          "Guest": "访客 Wi-Fi",
-          "5G Game": "5 GHz Game Wi-Fi",
-          "IoT": "IoT Wi-Fi"
+          "lan": "有线",
+          "wifi_2_4": "2.4 GHz Wi-Fi",
+          "wifi_5": "5 GHz Wi-Fi",
+          "guest": "访客 Wi-Fi",
+          "wifi_5_game": "5 GHz Game Wi-Fi",
+          "iot": "IoT Wi-Fi"
         }
       },
       "online": {
@@ -233,8 +233,8 @@
       "internet_blocked": {
         "name": "互联网访问已阻止",
         "state": {
-          "True": "已阻止",
-          "False": "允许"
+          "true": "已阻止",
+          "false": "允许"
         }
       },
       "wifi_protocol": {

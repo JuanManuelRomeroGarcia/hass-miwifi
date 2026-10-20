@@ -191,12 +191,12 @@
       "connection": {
         "name": "Подключение",
         "state": {
-          "Lan": "Кабель",
-          "2.4G": "Wi-Fi 2,4 ГГц",
-          "5G": "Wi-Fi 5 ГГц",
-          "Guest": "Гостевой Wi-Fi",
-          "5G Game": "Wi-Fi 5 ГГц Game",
-          "IoT": "Wi-Fi IoT"
+          "lan": "Кабель",
+          "wifi_2_4": "Wi-Fi 2,4 ГГц",
+          "wifi_5": "Wi-Fi 5 ГГц",
+          "guest": "Гостевой Wi-Fi",
+          "wifi_5_game": "Wi-Fi 5 ГГц Game",
+          "iot": "Wi-Fi IoT"
         }
       },
       "online": {
@@ -233,8 +233,8 @@
       "internet_blocked": {
         "name": "Доступ в Интернет заблокирован",
         "state": {
-          "True": "Заблокирован",
-          "False": "Разрешён"
+          "true": "Заблокирован",
+          "false": "Разрешён"
         }
       },
       "wifi_protocol": {

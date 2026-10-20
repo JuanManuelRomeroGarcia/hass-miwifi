@@ -27,6 +27,12 @@ integration and frontend both use 3.13.0. The minimum remains HA 2025.8.0.
 New diagnostic sensors can be enabled from the device's disabled entities.
 Review purge candidates in simulation before enabling automatic deletion.
 
+**Automation migration:** the client connection sensor now uses `lan`, `wifi_2_4`,
+`wifi_5`, `guest`, `wifi_5_game` and `iot`; the Internet-block sensor uses lowercase
+`true`/`false`. Update comparisons of those sensor states. Device-tracker
+attributes, entity IDs and signal-quality states stay unchanged. See the
+[translation migration guide](Entity-translations.md).
+
 The maintainer verified stable presence, return/departure, RSSI against the app,
 mesh client metrics, LAN field hiding, reloads and a selective deletion on RC01/RC06,
 without reported errors. Scheduler deadlines, empty-leaf and force-load startup
@@ -41,3 +47,5 @@ Mantiene los ajustes guardados y propone 60/30/20 segundos por defecto.
 Actualiza desde HACS, reinicia Home Assistant y refresca el panel. Los tres
 sensores nuevos son opcionales; las velocidades de enlace no equivalen al tráfico
 de Internet. Revisa una simulación antes de activar la autopurga.
+Si comparas el estado de los sensores de conexión o bloqueo en automatizaciones,
+adapta sus valores según la [guía de migración](Entity-translations-es.md).
