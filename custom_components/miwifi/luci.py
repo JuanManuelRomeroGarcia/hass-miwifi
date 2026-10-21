@@ -852,7 +852,7 @@ class LuciClient:
         protocol requirement, not a password-storage KDF. Replacing H with
         Argon2, bcrypt or PBKDF2 would prevent authentication. The fast hashes
         still permit offline guessing of a captured login exchange; see
-        docs/Authentication-security.md for the limitation and mitigations.
+        https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Authentication-security for the limitation and mitigations.
 
         :param nonce: str: nonce
         :param password: str: password

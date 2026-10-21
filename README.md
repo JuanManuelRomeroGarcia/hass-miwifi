@@ -4,6 +4,14 @@
 [![Telegram](https://img.shields.io/badge/Telegram-channel-34ABDF.svg?style=for-the-badge)](https://t.me/XiaohackRouters)
 
 
+> **Help test Xiaomi router compatibility / Ayuda a comprobar tu router**
+>
+> Run the optional PC tools and share reviewed reports in [Discussion #374](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/discussions/374). No test integration installation is required.
+>
+> Ejecuta las herramientas voluntarias desde el PC y comparte los informes revisados en la discusión. No hace falta instalar una integración de prueba.
+>
+> [English guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-community) · [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-community-es)
+
 The component allows you to monitor devices and manage routers based on [MiWiFi](http://miwifi.com/) from [Home Assistant](https://www.home-assistant.io/).
 
 
@@ -37,26 +45,26 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Device blocking](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Example-automation#device-blocking)
   - [Lighting automation](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Example-automation#lighting-automation)
 - [Diagnostics](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Diagnostics)
-  - [Mesh support capture](tests/MESH_SUPPORT.md)
-  - [Mesh node identities and dashboard filters](docs/Mesh-client-routing.md)
-    - [Guía en español](docs/Mesh-client-routing-es.md)
+  - [Mesh support capture](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-support-capture)
+  - [Mesh node identities and dashboard filters](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-client-routing)
+    - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-client-routing-es)
 - [FAQ](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/FAQ)
 - [Private MAC addresses and automatic replacement](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) (v3.9.0)
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses-es)
 - [DHCP reservations](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/DHCP-reservations) (v3.10.0)
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/DHCP-reservations-es)
-- [Authentication security and CodeQL findings](docs/Authentication-security.md)
-  - [Guía en español](docs/Authentication-security-es.md)
-- [Panel cards, lists and configurable device tables](docs/Panel-device-view.md) (v3.11.0)
-  - [Guía en español](docs/Panel-device-view-es.md)
-- [BE6500 Pro / RD08 client categories and dual WAN](docs/BE6500-Pro.md) (v3.11.0)
-  - [Guía en español](docs/BE6500-Pro-es.md)
+- [Authentication security and CodeQL findings](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Authentication-security)
+  - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Authentication-security-es)
+- [Panel cards, lists and configurable device tables](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Panel-device-view) (v3.11.0)
+  - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Panel-device-view-es)
+- [BE6500 Pro / RD08 client categories and dual WAN](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/BE6500-Pro) (v3.11.0)
+  - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/BE6500-Pro-es)
 
 
-- [Mesh settings, manual AP role and safe node cleanup](docs/Mesh-options.md) (v3.12.0)
-  - [Guía en español](docs/Mesh-options-es.md)
-- [Fresh router API diagnostic export](docs/Router-API-diagnostics.md) (v3.12.0)
-  - [Guía en español](docs/Router-API-diagnostics-es.md)
+- [Mesh settings, manual AP role and safe node cleanup](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-options) (v3.12.0)
+  - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-options-es)
+- [Fresh router API diagnostic export](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-diagnostics) (v3.12.0)
+  - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-diagnostics-es)
 
 
 ## Supported routers
@@ -197,7 +205,7 @@ relevant error message.
 
 If setup reports `Router {ip} not supported`, include that message and the router's
 model in a [new issue](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/issues/new/choose).
-For mesh routing or counter problems, follow the [support capture guide](tests/MESH_SUPPORT.md)
+For mesh routing or counter problems, follow the [support capture guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-support-capture)
 and share only the anonymized `mesh_support` section publicly. The rest of a
 diagnostics download can contain device and network information.
 
@@ -226,12 +234,12 @@ its API responses are compatible. Writes require a Home Assistant administrator.
 Automatic private-MAC replacement does not move or delete DHCP reservations;
 each reservation belongs to its configured MAC address.
 
-Read the [DHCP guide](docs/DHCP-reservations.md)
-([español](docs/DHCP-reservations-es.md)) for validation, refresh and lease behavior.
+Read the [DHCP guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/DHCP-reservations)
+([español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/DHCP-reservations-es)) for validation, refresh and lease behavior.
 
 ## Automatic replacement of private MAC addresses
 
-Available from **v3.9.0**. Read the [project wiki guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) or its [repository copy](docs/Random-MAC-addresses.md) before enabling it. The guide covers aliases, deletion effects, troubleshooting and persistence.
+Available from **v3.9.0**. Read the [project wiki guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Random-MAC-addresses) before enabling it. The guide covers aliases, deletion effects, troubleshooting and persistence.
 
 Automatic replacement is opt-in. Configure only router names that uniquely identify one physical client in your network; aliases can include its previous and current router names:
 
