@@ -57,7 +57,7 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Guía en español](docs/Mesh-options-es.md)
 - [Fresh router API diagnostic export](docs/Router-API-diagnostics.md) (v3.12.0)
   - [Guía en español](docs/Router-API-diagnostics-es.md)
-  - [Prueba voluntaria de compatibilidad por HTTP/SSH](docs/Router-API-community-es.md) (standalone PC tools)
+  - Voluntary HTTP/SSH compatibility testing (standalone PC tools): [English](docs/Router-API-community.md) · [Español](docs/Router-API-community-es.md)
 
 
 ## Supported routers

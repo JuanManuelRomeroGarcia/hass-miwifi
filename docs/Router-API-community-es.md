@@ -1,5 +1,7 @@
 # Comprobar compatibilidad de un router Xiaomi
 
+Español | [English](Router-API-community.md)
+
 Estas herramientas son voluntarias, se ejecutan desde el PC y no necesitan HA.
 Conserva una copia completa del repositorio: el script HTTP utiliza el catálogo
 y el anonimizador de la integración. Necesitas Python 3.11 o posterior. SSH es
