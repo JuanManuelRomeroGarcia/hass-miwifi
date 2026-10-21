@@ -163,3 +163,19 @@ node_modules/
 
 # Archived workflow copies; active workflows remain tracked
 /.github/workflows/*.disable
+
+# Internal documentation, private research and standalone diagnostic captures
+/docs/
+/tests/MESH_SUPPORT.md
+/captures/
+/private/
+/reports/
+/router-api-reports/
+/router-api-inventory/
+/router-api-live/
+/config_entry-miwifi-*.json
+/configuration.yaml
+/secrets.yaml
+/secrets.yml
+/.env.*
+!/.env.example

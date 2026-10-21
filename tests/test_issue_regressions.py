@@ -462,7 +462,7 @@ class RequestRoutingTests(unittest.IsolatedAsyncioTestCase):
         updater = SimpleNamespace(
             _entry_id='node',
             data={'mac': '00:11:22:33:44:55'},
-            ip='10.10.10.1',
+            ip='192.0.2.1',
             luci=SimpleNamespace(get=AsyncMock(return_value={'ok': 1})),
         )
         hass = SimpleNamespace(bus=SimpleNamespace(async_fire=Mock()))
