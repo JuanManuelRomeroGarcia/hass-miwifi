@@ -28,6 +28,14 @@ adapters, and known CB0401 mobile reads. It does not discover every possible
 firmware endpoint. An error on one model does not establish that an endpoint is
 unavailable on all models.
 
+The local post-3.13.0 preparation adds model/role-scoped RC01/RC06 port maps,
+RC01 thermal-control data, mesh preferences, RC06 steering, Multi-WAN configuration
+and WPS/NFC reads. These do not add sensors or change normal polling. RC01 1.1.56
+reports the hottest of seven Celsius inputs and measured-or-estimated fan RPM;
+do not label them exclusive CPU temperature or always-measured fan speed. These
+WPS/NFC fields do not establish per-radio SAE/PMF. A standalone
+live-sampling tool and its [Spanish guide](Router-API-live-es.md) help compare data.
+
 Only a fixed read-only catalogue is used. It does not reboot, update firmware or
 change Wi-Fi, DHCP reservations or NAT rules. Wi-Fi setters are not called with
 empty parameters as a substitute for readers. Requests reuse the integration's

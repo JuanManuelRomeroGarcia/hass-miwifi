@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Export separate `routes.json` and redacted `responses.json` from the standalone API tools. Add an optional SSH-to-HTTP workflow with independent credentials, explicit unqueried routes, an opt-in model-specific read probe and a contributor guide. Preserve the fixed read catalogue and keep this research outside HA polling.
+- Prepare model/role-scoped API diagnostic reads for RC01/RC06 thermal control, port maps, mesh preferences/steering, Multi-WAN and WPS/NFC. Keep them outside normal polling and preserve the existing capture budgets, redaction and explicit skip reasons. RC01 1.1.56 thermal analysis identifies the maximum of seven Celsius inputs and a fan RPM value that can be estimated from PWM below the tachometer threshold. Do not treat it as an always-measured speed, an exclusive CPU temperature or proof of a stopped fan; WPS/NFC fields do not establish per-radio WPA3.
+- Add a standalone bounded live-read tool using a fixed reviewed catalogue, explicit host authentication settings, short sample sequences and redacted comparison reports. Read mesh client lists from the principal and local node information from the node; never invoke routes discovered by SSH automatically.
+
 ## 3.13.0 — 2026-10-20
 
 - Fix mesh leaf counters after their last parent-reported client leaves (#364), preserve auto-purge deadlines across restarts and record failed runs (#366), restore force-load node clients and their saved presence states (#368), and identify a wired mesh node from its own topology on its first refresh (#370). Preserve @brembygit's original commits and integrate the dependent restoration/role fixes together.

@@ -73,6 +73,10 @@ normal de claves y confianza, sin desactivarla.
 Por defecto se guardan en `.cache/router-api-inventory/`, ignorado por Git:
 
 - `IP.json`: datos del firmware y declaraciones de API.
+- `routes.json`: declaraciones por router con alias, modelo y firmware, sin IP
+  de conexión ni cadenas internas del código. Es el inventario para compartir.
+- `responses.json`: resultados HTTP; sin `--probe-http` marca las rutas como
+  `not_queried`, porque SSH no ejecuta los manejadores HTTP.
 - `comparacion.md`: resumen y rutas diferentes entre los routers inspeccionados.
 
 `--output RUTA` cambia el destino. Se reemplazan los informes de las IP
@@ -80,6 +84,27 @@ inspeccionadas; guarda una copia si quieres conservar un inventario anterior.
 `--save-raw` añade los listados originales para investigar problemas del
 analizador. Estos informes contienen IP, modelo y funciones del firmware;
 los listados pueden incluir constantes internas. Revísalos antes de compartirlos.
+
+### Inventario y comprobación HTTP en una ejecución
+
+Requiere Python 3.11+ y conservar el repositorio completo. Añade `--probe-http`:
+
+```powershell
+python tools/router_api_inventory.py --host 192.0.2.1 --password --probe-http --sha256-host 192.0.2.1 --probe-model-specific --output .cache/informe-router
+```
+
+Pide primero la contraseña SSH y luego la contraseña de administración web;
+pueden ser distintas. `--sha256-host` se usa solo cuando el acceso web requiere
+SHA-256; los demás hosts usan SHA-1. No se prueban algoritmos alternativos al
+fallar. Para contraseñas diferentes entre routers, ejecuta una vez por router con
+carpetas de salida diferentes. Marca los nodos con `--mesh-node IP`.
+
+Solo se ejecuta el catálogo fijo de `router_api_live.py`, nunca todas las rutas
+descubiertas. `--probe-model-specific` permite comprobar ese catálogo en modelos
+todavía no verificados, sin cambiar las reglas de rol mesh/principal. Se guardan
+los resultados HTTP en `http/` y se incorporan al `responses.json` principal;
+las demás rutas siguen en `not_queried_routes`. Un error o una lista vacía no
+confirman ausencia de la función. [Guía para colaboradores](Router-API-community-es.md).
 
 ## Cómo usar el inventario para decidir qué consultar
 

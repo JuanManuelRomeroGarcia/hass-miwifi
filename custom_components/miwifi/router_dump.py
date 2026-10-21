@@ -28,6 +28,7 @@ class ReadQuery:
     parameters: tuple[tuple[str, object], ...] = ()
     main_only: bool = False
     rd08_only: bool = False
+    models: tuple[str, ...] = ()
 
 
 # GET alone is not evidence of a read: vendor setters also use GET. Never add a
@@ -42,8 +43,9 @@ READ_QUERIES = (
     ReadQuery("wan_info", "xqnetwork/wan_info", ("network",), main_only=True),
     ReadQuery("multiwan", "misystem/get_ps_service", ("api",), (("service", "multiwan"),), True, True),
     ReadQuery("wan2", "xqnetwork/wan_info", ("api",), (("wan_name", "WAN2"),), True, True),
-    ReadQuery("wan_status", "xqnetwork/get_wan_status", ("api",), main_only=True, rd08_only=True),
-    ReadQuery("port_map", "misystem/get_ps_map", ("api",), main_only=True, rd08_only=True),
+    ReadQuery("wan_status", "xqnetwork/get_wan_status", ("api",), main_only=True,
+              models=("rd08", "rc01", "rc06")),
+    ReadQuery("port_map", "misystem/get_ps_map", ("api",), models=("rd08", "rc01", "rc06")),
     ReadQuery("wifi_detail_all", "xqnetwork/wifi_detail_all", ("network", "wifi_config")),
     ReadQuery("wifi_diag_detail_all", "xqnetwork/wifi_diag_detail_all", ("network", "wifi_config")),
     ReadQuery("wifi_ap_signal", "xqnetwork/wifiap_signal", ("network",)),
@@ -60,6 +62,15 @@ READ_QUERIES = (
     ReadQuery("led", "misystem/led", ("api",)),
     ReadQuery("rom_update", "xqsystem/check_rom_update", ("system",)),
     ReadQuery("flash_permission", "xqsystem/flash_permission", ("system",)),
+    # Explicitly reviewed RC01/RC06 reads, after the existing core catalogue.
+    # Diagnostics only; declarations alone never extend this list or polling.
+    ReadQuery("thermal_control", "misystem/get_temp_control", ("api",), models=("rc01",)),
+    ReadQuery("multiwan_basic", "xqnetwork/get_multiwan_basic_info", ("api",), main_only=True,
+              models=("rc01", "rc06")),
+    ReadQuery("mesh_backhaul_preference", "misystem/get_mesh_bh_mode", ("api",), models=("rc01", "rc06")),
+    ReadQuery("mesh_steering", "xqnetwork/get_aimesh_config", ("api",), models=("rc06",)),
+    ReadQuery("wps_info", "xqnetwork/get_wps_info", ("api",), models=("rc01", "rc06")),
+    ReadQuery("nfc_info", "xqnetwork/get_nfc_info", ("api",), models=("rc01", "rc06")),
 )
 
 
@@ -102,6 +113,7 @@ async def async_collect_reads(updaters: list, options: dict, unsupported: dict) 
     used_bytes = 0
     for index, updater in enumerate(updaters[:MAX_ROUTERS], 1):
         data = updater.data or {}
+        model = str(data.get("model") or str(data.get("device_model", "")).split(".")[-1]).lower()
         main = ((data.get("topo_graph") or {}).get("graph") or {}).get("is_main") is True
         rd08 = str(data.get("model", "")).lower() == "rd08" or str(data.get("device_model", "")).lower() == "xiaomi.router.rd08"
         router = {"router": f"router_{index}", "ip": updater.ip,
@@ -125,6 +137,8 @@ async def async_collect_reads(updaters: list, options: dict, unsupported: dict) 
             if query.main_only and not main:
                 reason = "main_router_only"
             elif query.rd08_only and not rd08:
+                reason = "unverified_model"
+            elif query.models and model not in query.models:
                 reason = "unverified_model"
             elif query.key == "wan2" and not multiwan_enabled:
                 reason = "multiwan_not_confirmed_enabled"

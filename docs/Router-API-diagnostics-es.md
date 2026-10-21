@@ -28,6 +28,13 @@ adaptadores y lecturas móviles conocidas para CB0401. No es un descubrimiento d
 todas las API posibles del firmware: lo no verificado se omite o queda fuera del
 catálogo. Que una ruta responda con error no significa que no exista en otro modelo.
 
+La preparación local posterior a 3.13.0 amplía las lecturas verificadas RC01/RC06:
+mapa de puertos, control térmico RC01, preferencias mesh, steering RC06,
+configuración Multi-WAN y WPS/NFC, con omisiones explícitas por modelo y rol.
+No alimenta nuevos sensores ni cambia el sondeo habitual. Las unidades térmicas
+y el significado de `wpa3_only` requieren la interpretación descrita en la
+[guía de muestras API](Router-API-live-es.md).
+
 Solo se usa un catálogo fijo de lecturas: no hay reinicios, cambios de Wi-Fi,
 reservas DHCP, reglas NAT ni actualizaciones de firmware. Tampoco se llama a los
 métodos de configuración Wi-Fi con parámetros vacíos para intentar leerlos.
