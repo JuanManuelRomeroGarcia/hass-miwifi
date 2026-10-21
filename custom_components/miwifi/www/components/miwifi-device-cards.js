@@ -23,6 +23,10 @@ class MiWiFiDeviceCards extends LitElement {
     _descending: { state: true },
     _wanPending: { state: true },
     _wanError: { state: true },
+    _renaming: { state: true },
+    _renamePending: { state: true },
+    _renameError: { state: true },
+    _nameOverrides: { state: true },
   };
 
   constructor() {
@@ -35,6 +39,10 @@ class MiWiFiDeviceCards extends LitElement {
     this._descending = false;
     this._wanPending = new Set();
     this._wanError = "";
+    this._renaming = null;
+    this._renamePending = new Set();
+    this._renameError = "";
+    this._nameOverrides = {};
     try {
       const saved = JSON.parse(localStorage.getItem(PREFERENCE_KEY));
       if (saved && typeof saved === "object") {
@@ -81,7 +89,12 @@ class MiWiFiDeviceCards extends LitElement {
   _cellValue(device, key, topo) {
     const a = device.attributes || {};
     switch (key) {
-      case "name": return a.friendly_name || device.entity_id;
+      case "name": {
+        // A saved rename is shown until HA pushes the new friendly_name.
+        const saved = this._nameOverrides[device.entity_id];
+        if (saved && saved.previous === a.friendly_name) return saved.name;
+        return a.friendly_name || device.entity_id;
+      }
       case "state": return localize(device.state === "home" ? "status_connected"
         : device.state === "not_home" ? "status_disconnected" : "status_unavailable");
       case "node": return a.connected_via_router_name || topo.routersByMac[this._getViaMac(device)] || this._getViaMac(device) || "—";
@@ -147,6 +160,7 @@ class MiWiFiDeviceCards extends LitElement {
         <p class="table-hint">${localize("devices_table_hint")}</p>
       ` : ""}
       ${this._wanError ? html`<p role="alert">${this._wanError}</p>` : ""}
+      ${this._renameError ? html`<p role="alert">${this._renameError}</p>` : ""}
     `;
   }
 
@@ -164,7 +178,7 @@ class MiWiFiDeviceCards extends LitElement {
           <tbody>${devices.map(device => html`
             <tr class=${device.state === "home" ? "" : "disconnected"}>
               ${columns.map(([key]) => key === "name"
-                ? html`<th scope="row">${this._cellValue(device, key, topo)}</th>`
+                ? html`<th scope="row"><div class="name-cell">${this._renderName(device, topo)}</div></th>`
                 : html`<td>${this._cellValue(device, key, topo)}</td>`)}
             </tr>
           `)}</tbody>
@@ -482,9 +496,7 @@ class MiWiFiDeviceCards extends LitElement {
     return html`
       <div class="device-card ${isOffline ? "disconnected" : ""}">
         <div class="card-header">
-          <div class="device-name" title=${a.friendly_name || device.entity_id}>
-            ${a.friendly_name || device.entity_id}
-          </div>
+          ${this._renderName(device, topo)}
           ${badge ? html`<div class="badge ${isMesh ? "mesh" : "main"}">${badge}</div>` : ""}
         </div>
 
@@ -533,6 +545,67 @@ class MiWiFiDeviceCards extends LitElement {
         </div>
       </div>
     `;
+  }
+
+  _renderName(device, topo) {
+    const name = this._cellValue(device, "name", topo);
+    if (this._renaming === device.entity_id) {
+      return html`<input class="rename-input" .value=${name}
+        aria-label=${localize("devices_rename")} placeholder=${localize("devices_rename_placeholder")}
+        ?disabled=${this._renamePending.has(device.entity_id)}
+        @keydown=${event => this._renameKey(event)}
+        @blur=${event => this._rename(device, event.target.value)}>`;
+    }
+    return html`
+      <div class="device-name" title=${name}>${name}</div>
+      ${this.hass?.user?.is_admin ? html`<button class="rename-button" title=${localize("devices_rename")}
+        aria-label=${`${localize("devices_rename")}: ${name}`}
+        @click=${() => this._startRename(device)}>✏️</button>` : ""}
+    `;
+  }
+
+  async _startRename(device) {
+    if (!this.hass?.user?.is_admin) return;
+    this._renaming = device.entity_id;
+    this._renameError = "";
+    await this.updateComplete;
+    const input = this.renderRoot?.querySelector(".rename-input");
+    input?.focus();
+    input?.select();
+  }
+
+  _renameKey(event) {
+    if (event.key === "Enter") { event.preventDefault(); event.target.blur(); }
+    if (event.key === "Escape") this._renaming = null;
+  }
+
+  // Writes the name to the entity and device registries, like HA's own
+  // rename dialogs. An empty name restores the integration-provided one.
+  async _rename(device, value) {
+    if (this._renaming !== device.entity_id || !this.hass?.user?.is_admin
+      || this._renamePending.has(device.entity_id)) return;
+    const previous = device.attributes?.friendly_name;
+    const name = String(value ?? "").trim() || null;
+    if (name !== null && name === this._cellValue(device, "name")) { this._renaming = null; return; }
+    this._renamePending = new Set([...this._renamePending, device.entity_id]);
+    this._renameError = "";
+    try {
+      const entry = await this.hass.callWS({ type: "config/entity_registry/get", entity_id: device.entity_id });
+      const result = await this.hass.callWS({ type: "config/entity_registry/update", entity_id: device.entity_id, name });
+      if (entry?.device_id) {
+        await this.hass.callWS({ type: "config/device_registry/update", device_id: entry.device_id, name_by_user: name });
+      }
+      const shown = name ?? result?.entity_entry?.original_name ?? entry?.original_name ?? device.entity_id;
+      this._nameOverrides = { ...this._nameOverrides, [device.entity_id]: { name: shown, previous } };
+    } catch (err) {
+      this._renameError = localize("devices_rename_error");
+      // eslint-disable-next-line no-console
+      console.error("[MiWiFi] Failed renaming device:", err);
+    } finally {
+      this._renamePending = new Set([...this._renamePending].filter(id => id !== device.entity_id));
+      this._renaming = null;
+      this.requestUpdate();
+    }
   }
 
   async _toggleWAN(device, checked) {
@@ -636,6 +709,22 @@ class MiWiFiDeviceCards extends LitElement {
       gap: 10px;
       margin-bottom: 10px;
       flex-wrap: nowrap;
+    }
+
+    /* Let long names shrink so the rename button stays inside the card. */
+    .card-header .device-name, .name-cell .device-name { min-width: 0; }
+    .name-cell { display: flex; align-items: center; gap: 4px; }
+    .name-cell .device-name { font-size: inherit; font-weight: inherit; }
+    .rename-button {
+      flex: 0 0 auto; min-width: 44px; padding: 0;
+      border: 0; background: none; opacity: .7;
+    }
+    .rename-button:hover, .rename-button:focus-visible { opacity: 1; }
+    .rename-input {
+      width: 100%; max-width: 280px; min-height: 44px; padding: 6px 10px;
+      font-weight: 700; text-align: center; border-radius: 8px;
+      border: 1px solid var(--divider-color, #ccc);
+      color: var(--primary-text-color, #212121); background: var(--card-background-color, white);
     }
 
     /* ✅ una línea */

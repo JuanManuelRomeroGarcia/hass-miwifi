@@ -94,4 +94,51 @@ for (const language of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"])
   const t = JSON.parse(fs.readFileSync(`custom_components/miwifi/www/translations/${language}.json`, "utf8"));
   for (const key of ["wifi_protocol", "link_tx_rate", "link_rx_rate"]) assert.ok(t[key]);
 }
-console.log("PASS: numeric name/IP sorting, search, columns, preference restore, blocked storage, unavailable state, admin-only WAN writes, duplicate-write guard, failure feedback and eight languages.");
+const ws = [];
+panel.hass.callWS = async message => {
+  ws.push(message);
+  return message.type === "config/entity_registry/get"
+    ? { device_id: "device-1", original_name: "02:00:00:00:00:01" }
+    : { entity_entry: { original_name: "02:00:00:00:00:01" } };
+};
+const named = device("02:00:00:00:00:01", "192.0.2.60", 50);
+panel._renaming = named.entity_id;
+await panel._rename(named, "  Kitchen TV ");
+assert.deepEqual(ws.map(message => message.type),
+  ["config/entity_registry/get", "config/entity_registry/update", "config/device_registry/update"]);
+assert.equal(ws[1].name, "Kitchen TV");
+assert.equal(ws[2].device_id, "device-1");
+assert.equal(ws[2].name_by_user, "Kitchen TV");
+assert.equal(panel._cellValue(named, "name", topo), "Kitchen TV"); // Shown before HA pushes the new state.
+assert.equal(panel._renaming, null);
+named.attributes.friendly_name = "Renamed elsewhere";
+assert.equal(panel._cellValue(named, "name", topo), "Renamed elsewhere"); // Newer HA state wins.
+ws.length = 0;
+panel._renaming = named.entity_id;
+await panel._rename(named, "   ");
+assert.equal(ws[1].name, null);
+assert.equal(ws[2].name_by_user, null);
+assert.equal(panel._cellValue(named, "name", topo), "02:00:00:00:00:01"); // Empty restores the original.
+ws.length = 0;
+await panel._rename(named, "Not editing");
+panel.hass.user.is_admin = false;
+panel._renaming = named.entity_id;
+await panel._rename(named, "Not an admin");
+assert.equal(ws.length, 0);
+panel.hass.user.is_admin = true;
+let releaseRename;
+panel.hass.callWS = message => { ws.push(message); return new Promise(resolve => { releaseRename = resolve; }); };
+const renaming = panel._rename(named, "Once");
+await panel._rename(named, "Twice");
+assert.equal(ws.length, 1);
+releaseRename({}); // Registry entry without a device: only the entity update follows.
+await new Promise(resolve => setTimeout(resolve));
+releaseRename({}); await renaming;
+assert.equal(ws.length, 2);
+panel.hass.callWS = async () => { throw Error("private backend detail"); };
+panel._renaming = named.entity_id;
+await panel._rename(named, "Fails");
+assert.equal(panel._renameError, "devices_rename_error");
+assert.equal(panel._renamePending.size, 0);
+assert.equal(panel._renaming, null);
+console.log("PASS: numeric name/IP sorting, search, columns, preference restore, blocked storage, unavailable state, admin-only WAN writes, duplicate-write guard, failure feedback, admin-only registry renames and eight languages.");
