@@ -135,6 +135,27 @@ releaseRename({}); // Registry entry without a device: only the entity update fo
 await new Promise(resolve => setTimeout(resolve));
 releaseRename({}); await renaming;
 assert.equal(ws.length, 2);
+// Completing one save must preserve an editor opened for another client.
+for (const fail of [false, true]) {
+  let finishFirst;
+  panel.hass.callWS = async message => {
+    if (message.type === "config/entity_registry/get") {
+      return new Promise((resolve, reject) => {
+        finishFirst = () => fail ? reject(Error("registry unavailable")) : resolve({});
+      });
+    }
+    return {};
+  };
+  panel._renaming = named.entity_id;
+  const savingFirst = panel._rename(named, fail ? "Failed save" : "First save");
+  const second = device("Second client", "192.0.2.61", 50);
+  await panel._startRename(second);
+  assert.equal(panel._renaming, second.entity_id);
+  finishFirst();
+  await savingFirst;
+  assert.equal(panel._renaming, second.entity_id);
+  assert.equal(panel._renamePending.has(named.entity_id), false);
+}
 panel.hass.callWS = async () => { throw Error("private backend detail"); };
 panel._renaming = named.entity_id;
 await panel._rename(named, "Fails");

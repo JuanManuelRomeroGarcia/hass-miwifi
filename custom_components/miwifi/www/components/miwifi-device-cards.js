@@ -603,7 +603,8 @@ class MiWiFiDeviceCards extends LitElement {
       console.error("[MiWiFi] Failed renaming device:", err);
     } finally {
       this._renamePending = new Set([...this._renamePending].filter(id => id !== device.entity_id));
-      this._renaming = null;
+      // Another editor may have opened while the registry writes were pending.
+      if (this._renaming === device.entity_id) this._renaming = null;
       this.requestUpdate();
     }
   }
