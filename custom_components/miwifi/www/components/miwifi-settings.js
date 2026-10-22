@@ -3,6 +3,7 @@ import { LitElement, html } from "../vendor/lit.js?v=3.13.0";
 import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.13.0";
 import { localize } from "../translations/localize.js?v=3.13.0";
 import "./miwifi-mac-replacement.js?v=3.13.0";
+import "./miwifi-iot.js?v=3.13.0";
 
 const MIWIFI_VERSION = "3.13.0";
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
@@ -27,6 +28,7 @@ export class MiWiFiSettingsPanel extends LitElement {
 
     // Radios (read-only form + working enable switch)
     radios: { state: true },      // { twoG, fiveG, game }
+    wifiUnified: { state: true },
     _wifisLoaded: { state: true },
 
     // Show/Hide password per radio
@@ -59,6 +61,7 @@ export class MiWiFiSettingsPanel extends LitElement {
     this.guestShowPwd = false;
 
     this.radios = { twoG: null, fiveG: null, game: null };
+    this.wifiUnified = null;
     this._wifisLoaded = false;
 
     this.radioShowPwd = { twoG: false, fiveG: false, game: false };
@@ -80,6 +83,7 @@ export class MiWiFiSettingsPanel extends LitElement {
       });
       const w = res?.wifis;
       if (!w) throw new Error("invalid_response");
+      this.wifiUnified = typeof res.unified === "boolean" ? res.unified : null;
 
       const g = w.guest || {};
       const two = w["2g"] || null;
@@ -494,16 +498,18 @@ export class MiWiFiSettingsPanel extends LitElement {
   }
 
   _renderRadioBlock(key, swEntity, w, selects) {
+    const unified = (this.wifiUnified ?? this.routerSensor?.attributes?.wifi_unified) === true;
+    const available = swEntity && ["on", "off"].includes(swEntity.state);
     const cfg = {
       twoG:  { title: localize("wifi_title_24g") || "2.4G Wi-Fi" },
       fiveG: { title: localize("wifi_title_5g")  || "5G Wi-Fi" },
       game:  { title: localize("wifi_title_game")|| "5G Gaming" },
     }[key];
 
-    const checked = swEntity ? swEntity.state === "on" : !!w?.enabled;
+    const checked = available ? swEntity.state === "on" : !!w?.enabled;
 
     const handleToggle = (e) => {
-      if (!swEntity) return;
+      if (!available) return;
       const entity_id = swEntity.entity_id;
       if (e.target.checked) {
         this.hass.callService("switch", "turn_on", { entity_id }).catch(console.error);
@@ -516,14 +522,14 @@ export class MiWiFiSettingsPanel extends LitElement {
       <div class="wifi-block">
         <div class="header" style="display:flex; align-items:center; justify-content:space-between;">
           <div class="wifi-title">${cfg.title}</div>
-          <div class="switchline" title="${swEntity ? "" : (localize("ui_unavailable") || "Entity not found")}">
-            <label>${localize("wifi_enable") || "Enable"}</label>
+          ${unified && key !== "twoG" ? "" : html`<div class="switchline" title="${available ? "" : (localize("ui_unavailable") || "Entity not found")}">
+            <label>${localize(unified ? "wifi_unified_control" : "wifi_enable")}</label>
             <ha-switch
               .checked=${checked}
-              ?disabled=${!swEntity}
+              ?disabled=${!available}
               @change=${handleToggle}
             ></ha-switch>
-          </div>
+          </div>`}
         </div>
         <div class="body">
           ${this._renderReadonlyWifiForm(w, key, selects)}
@@ -630,6 +636,7 @@ export class MiWiFiSettingsPanel extends LitElement {
 
         <div class="section">
           <h3>${localize("settings_wifi_config") || "Configuración Wi-Fi"}</h3>
+          ${(this.wifiUnified ?? this.routerSensor?.attributes?.wifi_unified) === true ? html`<p class="note">${localize("wifi_unified_hint")}</p>` : ""}
           ${this._renderRadioBlock("twoG", sw24, this.radios.twoG, selects)}
           ${this._renderRadioBlock("fiveG", sw5, this.radios.fiveG, selects)}
           ${(swG || this.radios.game) ? this._renderRadioBlock("game", swG, this.radios.game, selects) : ""}
@@ -710,6 +717,9 @@ export class MiWiFiSettingsPanel extends LitElement {
             </div>
           ` : ""}
         </div>
+
+        ${String(mainGraph.hardware || "").toLowerCase() === "rc01"
+          ? html`<miwifi-iot .hass=${this.hass} .routerMac=${mainGraph.mac}></miwifi-iot>` : ""}
 
         <div class="section">
           <h3>${localize("settings_extra")}</h3>

@@ -771,7 +771,11 @@ class MiWifiTopologyGraphSensor(SensorEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return the topology graph as attributes."""
-        return self._updater.data.get("topo_graph", {})
+        attributes = dict(self._updater.data.get("topo_graph") or {})
+        unified = self._updater.data.get("dual_band")
+        if isinstance(unified, bool):
+            attributes["wifi_unified"] = unified
+        return attributes
 
     async def async_update(self) -> None:
         """No polling, data is pushed from coordinator."""

@@ -10,6 +10,112 @@ from .mac_replacement import get_mac_replacement
 from .registry import get_device
 
 
+@websocket_api.websocket_command({"type": "miwifi/iot_read", "router_mac": str})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_iot_read(hass: HomeAssistant, connection, msg) -> None:
+    from .iot_wifi import IotError, manager, supported
+    normalize = lambda value: str(value or "").lower().replace(":", "").replace("-", "")
+    matches = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        stored = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        updater = stored.get(UPDATER) if isinstance(stored, dict) else None
+        if updater is None or not supported(updater):
+            continue
+        data = updater.data or {}
+        graph = (data.get("topo_graph") or {}).get("graph") or {}
+        if normalize(msg["router_mac"]) and normalize(msg["router_mac"]) in {
+            normalize(data.get(ATTR_DEVICE_MAC_ADDRESS)), normalize(graph.get("mac"))
+        }:
+            matches.append(entry.entry_id)
+    if len(matches) != 1:
+        connection.send_error(msg["id"], "unsupported", "IoT configuration is not verified for this router.")
+        return
+    try:
+        result = await manager(hass, matches[0]).read()
+    except IotError as err:
+        connection.send_error(msg["id"], str(err), "IoT configuration could not be read.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({"type": "miwifi/iot_write", "entry_id": str,
+    "revision": str, "enabled": bool, "bands": [dict]})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_iot_write(hass: HomeAssistant, connection, msg) -> None:
+    from .iot_wifi import IotError, manager
+    try:
+        result = await manager(hass, msg["entry_id"]).write(msg["revision"], msg["enabled"], msg["bands"])
+    except IotError as err:
+        connection.send_error(msg["id"], str(err), "Reload IoT configuration and check the router state.")
+    else:
+        connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({"type": "miwifi/router_wifi_state"})
+@websocket_api.require_admin
+def websocket_router_wifi_state(hass: HomeAssistant, connection, msg) -> None:
+    """Return cached per-router unification flags, without extra router calls."""
+    from homeassistant.helpers import entity_registry as er
+    registry = er.async_get(hass)
+    routers = []
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        stored = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+        updater = stored.get(UPDATER) if isinstance(stored, dict) else None
+        if updater is None:
+            continue
+        data = updater.data or {}
+        graph = (data.get("topo_graph") or {}).get("graph") or {}
+        unified = data.get("dual_band")
+        routers.append({"mac": data.get(ATTR_DEVICE_MAC_ADDRESS) or graph.get("mac"),
+                        "graph_mac": graph.get("mac"), "ip": updater.ip,
+                        "unified": unified if isinstance(unified, bool) else None,
+                        "switches": {band: entity_id for band, key in (
+                            ("2g", "wifi_2_4"), ("5g", "wifi_5_0"), ("game", "wifi_5_0_game"))
+                            if (entity_id := registry.async_get_entity_id("switch", DOMAIN, f"{entry.entry_id}-{key}"))}})
+    connection.send_result(msg["id"], {"routers": routers})
+
+
+@websocket_api.websocket_command({"type": "miwifi/router_specific"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_router_specific(hass: HomeAssistant, connection, msg) -> None:
+    """Read reviewed RC01/RC06 fields only when requested by an administrator."""
+    import asyncio
+    from time import monotonic
+    from .router_panel import MODELS, async_panel_reads, model_of
+
+    domain = hass.data.setdefault(DOMAIN, {})
+    state = domain.setdefault("_router_specific_panel", {"lock": asyncio.Lock()})
+    if state["lock"].locked():
+        connection.send_error(msg["id"], "busy", "Router read already in progress.")
+        return
+    async with state["lock"]:
+        selected = []
+        for entry in hass.config_entries.async_entries(DOMAIN):
+            stored = domain.get(entry.entry_id)
+            updater = stored.get(UPDATER) if isinstance(stored, dict) else None
+            if updater is not None and model_of(updater) in MODELS:
+                selected.append((entry, updater))
+        signature = tuple((entry.entry_id, id(updater)) for entry, updater in selected)
+        if state.get("signature") == signature and monotonic() - state.get("time", 0) < 15:
+            connection.send_result(msg["id"], state["result"])
+            return
+        reads = await async_panel_reads([updater for _, updater in selected])
+        for row, (entry, updater) in zip(reads, selected):
+            row["name"] = _dhcp_router_name(hass, entry, updater)
+            graph = ((updater.data or {}).get("topo_graph") or {}).get("graph") or {}
+            row["is_main"] = graph.get("is_main") is True
+            row["mac"] = (updater.data or {}).get(ATTR_DEVICE_MAC_ADDRESS) or graph.get("mac")
+            row["graph_mac"] = graph.get("mac")
+            row["ip"] = updater.ip
+        from datetime import UTC, datetime
+        result = {"routers": reads, "captured_at": datetime.now(UTC).isoformat()}
+        state.update(signature=signature, time=monotonic(), result=result)
+        connection.send_result(msg["id"], result)
+
+
 def _dhcp_router_name(hass, entry, updater) -> str:
     """Use the HA router name override or router data, rather than its IP title."""
     from homeassistant.helpers import device_registry as dr
@@ -305,4 +411,6 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
         "game": _pack(_find_game()),
     }
 
-    connection.send_result(msg["id"], {"wifis": data})
+    bsd = (details or {}).get("bsd")
+    unified = True if bsd in (1, "1") else False if bsd in (0, "0") else None
+    connection.send_result(msg["id"], {"wifis": data, "unified": unified})
