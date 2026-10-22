@@ -59,6 +59,66 @@ async def test_wifi_dump_uses_readers_not_setters_and_selected_blocks_only():
     assert main.luci.get.await_count == 2
 
 
+async def test_verified_rc01_and_rc06_api_reads_are_scoped_by_model_and_role():
+    main = router(model="rc01")
+    node = router(model="rc06", main=False, ip="192.0.2.2")
+    result = await async_collect_reads([main, node], {"api_diagnostics": True}, {})
+    rows = [{read['id']: read for read in item['requests']} for item in result['routers']]
+    assert rows[0]['thermal_control']['outcome'] == 'ok'
+    assert rows[1]['thermal_control']['reason'] == 'unverified_model'
+    assert rows[0]['mesh_steering']['reason'] == 'unverified_model'
+    assert rows[1]['mesh_steering']['outcome'] == 'ok'
+    assert all(row['port_map']['outcome'] == 'ok' for row in rows)
+    assert rows[0]['wan_status']['outcome'] == 'ok'
+    assert rows[1]['wan_status']['reason'] == 'main_router_only'
+
+
+async def test_new_model_specific_reads_skip_unknown_hardware():
+    unknown = router(model="unknown")
+    result = await async_collect_reads([unknown], {"api_diagnostics": True}, {})
+    rows = {read['id']: read for read in result['routers'][0]['requests']}
+    for key in ('thermal_control', 'port_map', 'mesh_steering', 'wps_info', 'nfc_info'):
+        assert rows[key]['reason'] == 'unverified_model'
+
+
+async def test_verified_read_routes_avoid_broken_firmware_endpoints():
+    main, node = router(model="rc01"), router(model="rc06", main=False)
+    for updater in (main, node):
+        normal = updater.luci.get.side_effect
+
+        async def get(path, parameters, _normal=normal, **kwargs):
+            if path in ("xqnetwork/portforward", "xqnetwork/mode"):
+                raise AssertionError("Broken firmware route must not be queried")
+            return await _normal(path, parameters, **kwargs)
+
+        updater.luci.get.side_effect = get
+    result = await async_collect_reads([main, node], {"nat_rules": True}, {})
+    rows = result["routers"][0]["requests"]
+    assert [(row["path"], row["parameters"], row["outcome"]) for row in rows] == [
+        ("xqsystem/portforward", {"ftype": 1}, "ok"),
+        ("xqsystem/portforward", {"ftype": 2}, "ok"),
+    ]
+    node.luci.get.assert_not_awaited()
+    result = await async_collect_reads([node], {"network": True}, {})
+    mode = next(row for row in result["routers"][0]["requests"] if row["id"] == "mode")
+    assert mode["path"] == "xqnetwork/get_netmode"
+    assert mode["outcome"] == "ok"
+    assert "xqnetwork/mode" not in [call.args[0] for call in node.luci.get.await_args_list]
+
+
+@pytest.mark.parametrize("override,expected", [
+    ("xqsystem/portforward", "xqsystem/portforward"),
+    ("xqnetwork/portforward", "xqnetwork/portforward"),
+    ("xqsystem/reboot", "xqnetwork/portforward"),
+])
+async def test_nat_read_respects_only_reviewed_compatibility_override(override, expected):
+    main = router()
+    main.luci._api_paths = {"portforward": override}
+    result = await async_collect_reads([main], {"nat_rules": True}, {})
+    assert all(row["path"] == expected for row in result["routers"][0]["requests"])
+    assert all(call.args[0] == expected for call in main.luci.get.await_args_list)
+
+
 async def test_vendor_error_body_is_retained_and_other_queries_continue():
     main = router()
     normal = main.luci.get.side_effect

@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import tempfile
+import types
 import unittest
 from unittest.mock import patch
 
@@ -75,6 +77,57 @@ end
 
 
 class InventoryTests(unittest.TestCase):
+    def test_optional_http_phase_uses_fixed_tool_not_discovered_routes(self):
+        capture = ('__MIWIFI_META_BEGIN__\naarch64\n__MIWIFI_META_END__\n'
+                   '__MIWIFI_CONTROLLER_BEGIN__ /usr/lib/lua/luci/controller/api/misystem.lua\n'
+                   + LISTING + '\n__MIWIFI_CONTROLLER_END__\n')
+        def fake_http(argv):
+            self.assertNotIn('misystem/start_test', argv)
+            self.assertNotIn('--password-file', argv)
+            output = Path(argv[argv.index('--output') + 1])
+            output.mkdir()
+            (output / 'responses.json').write_text(json.dumps({'routers': [{
+                'id': 'router_1', 'role': 'main_or_standalone', 'samples': [{'reads': [{
+                    'path': 'misystem/device_list', 'outcome': 'ok_empty', 'response': {'devices': []}
+                }]}]
+            }]}), encoding='utf-8')
+            return 0
+        with tempfile.TemporaryDirectory() as folder:
+            with patch.object(inventory, 'client_path', return_value='ssh'), patch.object(
+                inventory, 'collect', return_value=capture
+            ), patch.dict('sys.modules', {'router_api_live': types.SimpleNamespace(main=fake_http)}):
+                result = inventory.main(['--host', '192.0.2.1', '--backend', 'ssh',
+                                         '--probe-http', '--output', folder])
+            self.assertEqual(result, 0)
+            responses = json.loads((Path(folder) / 'responses.json').read_text(encoding='utf-8'))
+            self.assertEqual(responses['routers'][0]['http_state'], 'captured')
+            self.assertIn('misystem/start_test', responses['routers'][0]['not_queried_routes'])
+
+    def test_exchange_reports_do_not_publish_local_capture_or_infer_support(self):
+        report = inventory.parse_capture('__MIWIFI_META_BEGIN__\naarch64\n__MIWIFI_META_END__\n')
+        report.update(connection={'host': '192.0.2.99', 'user': 'private-user'},
+                      controllers=[{'routes': inventory.parse_disassembly(LISTING)}])
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder)
+            inventory.write_exchange_reports([report], output)
+            routes = json.loads((output / 'routes.json').read_text(encoding='utf-8'))
+            responses = json.loads((output / 'responses.json').read_text(encoding='utf-8'))
+            self.assertEqual(len(routes['routers'][0]['routes']), 3)
+            self.assertEqual(responses['routers'][0]['http_state'], 'not_queried')
+            self.assertEqual(len(responses['routers'][0]['not_queried_routes']), 3)
+            for route in routes['routers'][0]['routes']:
+                self.assertFalse(route['runtime_verified'])
+            self.assertNotIn('192.0.2.99', json.dumps(routes) + json.dumps(responses))
+            self.assertNotIn('private-user', json.dumps(routes) + json.dumps(responses))
+            http = {'routers': [{'id': 'router_1', 'role': 'mesh_node', 'samples': [
+                {'reads': [{'path': 'misystem/device_list', 'outcome': 'ok_empty', 'response': {'devices': []}}]}
+            ]}]}
+            inventory.write_exchange_reports([report], output, http)
+            responses = json.loads((output / 'responses.json').read_text(encoding='utf-8'))
+            self.assertEqual(responses['routers'][0]['http_state'], 'captured')
+            self.assertNotIn('misystem/device_list', responses['routers'][0]['not_queried_routes'])
+            self.assertEqual(responses['routers'][0]['samples'][0]['reads'][0]['response'], {'devices': []})
+
     def test_stock_and_remapped_listing_are_unverified_declarations(self):
         routes = {r['path']: r for r in inventory.parse_disassembly(LISTING)}
         self.assertEqual(set(routes), {'misystem/device_list', 'misystem/start_test', 'xqsystem/get_cpu_load'})
@@ -192,6 +245,9 @@ __MIWIFI_TRUNCATED__
             with patch.object(inventory, 'client_path', return_value='plink'), patch.object(inventory.getpass, 'getpass', return_value='synthetic-password'), patch.object(inventory, 'collect', side_effect=fail):
                 result = inventory.main(['--host', '192.0.2.1', '--backend', 'plink', '--password', '--output', folder])
             self.assertEqual(result, 1)
+            responses = json.loads((Path(folder) / 'responses.json').read_text(encoding='utf-8'))
+            self.assertEqual(responses['failed_inventories'], 1)
+            self.assertEqual(responses['routers'], [])
         self.assertTrue(observed)
         self.assertFalse(observed[0].exists())
 

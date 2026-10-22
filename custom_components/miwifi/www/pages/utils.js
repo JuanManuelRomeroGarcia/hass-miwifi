@@ -1,15 +1,17 @@
 import { html } from "../vendor/lit.js?v=3.13.0";
 import { localize } from "../translations/localize.js?v=3.13.0";
 
-export function renderToggle(hass, entity) {
+export function renderToggle(hass, entity, label) {
+  const available = ["on", "off"].includes(entity.state);
   return html`
     <div class="setting-row">
-      <span>${entity.attributes.friendly_name}</span>
+      <span>${label || entity.attributes.friendly_name}</span>
       <label class="switch">
         <input type="checkbox"
           .checked=${entity.state === "on"}
+          ?disabled=${!available}
           @change=${(e) =>
-            hass.callService(entity.entity_id.split(".")[0],
+            available && hass.callService(entity.entity_id.split(".")[0],
               e.target.checked ? "turn_on" : "turn_off",
               { entity_id: entity.entity_id })} />
         <span class="slider"></span>
@@ -33,13 +35,14 @@ export function renderSelects(hass, selects) {
           <label>${entity.attributes.friendly_name}</label>
           <select
             .value=${entity.state}
+            ?disabled=${["unknown", "unavailable"].includes(entity.state)}
             @change=${(e) =>
-              hass.callService("select", "select_option", {
+              !["unknown", "unavailable"].includes(entity.state) && hass.callService("select", "select_option", {
                 entity_id: entity.entity_id,
                 option: e.target.value,
               })}
           >
-            ${entity.attributes.options.map(opt => html`
+            ${(entity.attributes.options || []).map(opt => html`
               <option value="${opt}" ?selected=${opt === entity.state}>${opt}</option>`)}
           </select>
         </div>

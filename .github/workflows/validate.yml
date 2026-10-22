@@ -23,6 +23,9 @@ jobs:
       - run: node tools/test_mac_replacement_ui.mjs
       - run: node tools/test_dhcp_ui.mjs
       - run: node tools/test_devices_ui.mjs
+      - run: node tools/test_iot_ui.mjs
+      - run: node tools/test_router_specific_ui.mjs
+      - run: node tools/test_wifi_unified_ui.mjs
       - run: node tools/test_status_wan_ui.mjs
       - run: node tools/test_status_view_ui.mjs
       - run: node tools/test_panel_preview.mjs

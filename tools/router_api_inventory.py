@@ -2,7 +2,8 @@
 """Inventory Xiaomi LuCI declarations over SSH without running API handlers.
 
 Standalone standard-library tool; it does not import Home Assistant or change
-the integration. Static declarations are NOT proof of runtime support or safety.
+the integration. Optional --probe-http runs a separate fixed read catalogue.
+Static declarations are NOT proof of runtime support or safety.
 """
 from __future__ import annotations
 
@@ -298,6 +299,49 @@ def write_comparison(reports: list[dict], output: Path) -> None:
     (output/'comparacion.md').write_text('\n'.join(lines)+'\n', encoding='utf-8')
 
 
+def write_exchange_reports(reports: list[dict], output: Path, http: dict | None = None,
+                           failed_inventories: int = 0) -> None:
+    """Share route declarations separately from actual, redacted HTTP results.
+
+    SSH output and host addresses remain in the legacy local files, never in
+    these exchange files. Missing HTTP execution is explicitly not_queried.
+    """
+    routes = {'schema_version': 1, 'kind': 'ssh_static_declarations', 'routers': []}
+    responses = {'schema_version': 1, 'kind': 'http_read_results',
+                 'captured_at': datetime.now(timezone.utc).isoformat(), 'routers': []}
+    routes['failed_inventories'] = responses['failed_inventories'] = failed_inventories
+    if http:
+        responses['limits'] = http.get('limits')
+        responses['error'] = http.get('error')
+    for index, report in enumerate(reports, 1):
+        router_id = f'router_{index}'
+        identity = {k: report['router'].get(k) for k in ('hardware', 'rom', 'architecture')}
+        declarations = []
+        for controller in report['controllers']:
+            for route in controller['routes']:
+                declarations.append({
+                    'path': route['path'], 'classification': route['classification'],
+                    'runtime_verified': False, 'read_safety_verified': False,
+                })
+        routes['routers'].append({'id': router_id, 'identity': identity, 'captured_at': report.get('created_at'),
+                                  'summary': report['summary'], 'routes': declarations})
+        actual = next((r for r in (http or {}).get('routers', []) if r['id'] == router_id), {})
+        queried = {read['path'] for sample in actual.get('samples', [])
+                   for read in sample['reads'] if read['outcome'] != 'skipped'}
+        responses['routers'].append({
+            'id': router_id, 'identity': identity,
+            'http_identity': actual.get('identity'),
+            'role': actual.get('role', 'not_specified'),
+            'http_state': actual.get('error') or ('stopped' if actual.get('stopped') else
+                                                 'captured' if actual.get('samples') else 'not_queried'),
+            'samples': actual.get('samples', []),
+            'not_queried_routes': sorted({r['path'] for r in declarations} - queried),
+            'stopped': actual.get('stopped', False),
+        })
+    for name, payload in (('routes.json', routes), ('responses.json', responses)):
+        (output / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--host', action='append', required=True, type=validate_host)
@@ -312,7 +356,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--output', type=Path, default=Path('.cache/router-api-inventory'))
     parser.add_argument('--timeout', type=int, default=120)
     parser.add_argument('--save-raw', action='store_true', help='Guardar también los listados estáticos privados.')
+    parser.add_argument('--probe-http', action='store_true', help='Tras SSH, pedir contraseña web y consultar solo el catálogo fijo de lecturas revisadas (Python 3.11+).')
+    parser.add_argument('--sha256-host', action='append', default=[], help='Host HTTP con SHA-256; los demás usan SHA-1. Solo con --probe-http.')
+    parser.add_argument('--mesh-node', action='append', default=[], help='Host que es nodo mesh. Solo con --probe-http.')
+    parser.add_argument('--probe-model-specific', action='store_true', help='Con --probe-http, probar rutas del catálogo en modelos todavía no verificados.')
     args = parser.parse_args(argv)
+    if (args.sha256_host or args.mesh_node or args.probe_model_specific) and not args.probe_http:
+        parser.error('Las opciones de comprobación HTTP requieren --probe-http.')
+    if not set(args.sha256_host + args.mesh_node) <= set(args.host):
+        parser.error('Las opciones HTTP deben indicar un --host solicitado.')
+    if args.probe_http and (sys.version_info < (3, 11) or len(set(args.host)) > 4):
+        parser.error('--probe-http requiere Python 3.11+ y como máximo cuatro routers.')
     if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_-]*', args.user) or not 1 <= args.port <= 65535:
         parser.error('Usuario o puerto SSH inválido.')
     if not 1 <= args.timeout <= 600:
@@ -327,6 +381,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error('Para OpenSSH usa known_hosts y autenticación por clave/agente.')
     temporary = None
     reports = []
+    failed_inventories = 0
     failed = False
     try:
         executable = client_path(args.backend)
@@ -361,6 +416,7 @@ def main(argv: list[str] | None = None) -> int:
                     failed = True
             except (OSError, ValueError) as error:
                 failed = True
+                failed_inventories += 1
                 print(f'{host}: {error}', file=sys.stderr)
         if reports:
             write_comparison(reports, args.output)
@@ -368,9 +424,34 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError) as error:
         print(str(error), file=sys.stderr)
         failed = True
+        failed_inventories += 1
     finally:
         if temporary:
             Path(temporary).unlink(missing_ok=True)
+    if args.output.is_dir():
+        write_exchange_reports(reports, args.output, failed_inventories=failed_inventories)
+    if reports:
+        if args.probe_http:
+            # Discovery never grants permission to execute arbitrary handlers.
+            # A second, independent prompt obtains the HTTP admin credential.
+            import router_api_live
+            http_args = ['--output', str(args.output / 'http')]
+            if args.probe_model_specific:
+                http_args += ['--probe-model-specific']
+            for report in reports:
+                host = report['connection']['host']
+                http_args += ['--host', host]
+                if host in args.sha256_host:
+                    http_args += ['--sha256-host', host]
+                if host in args.mesh_node:
+                    http_args += ['--mesh-node', host]
+            try:
+                failed = bool(router_api_live.main(http_args)) or failed
+                payload = json.loads((args.output / 'http' / 'responses.json').read_text(encoding='utf-8'))
+                write_exchange_reports(reports, args.output, payload, failed_inventories)
+            except (OSError, ValueError):
+                print('No se completó la comprobación HTTP; consulta responses.json.', file=sys.stderr)
+                failed = True
     return 1 if failed else 0
 
 
