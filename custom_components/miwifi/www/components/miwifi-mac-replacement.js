@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.13.0";
-import { localize } from "../translations/localize.js?v=3.13.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.13.1";
+import { localize } from "../translations/localize.js?v=3.13.1";
 
 export class MiWiFiMacReplacement extends LitElement {
   static properties = {

@@ -29,8 +29,9 @@ class MiWifiExportView(HomeAssistantView):
         if not _EXPORT_NAME.fullmatch(filename):
             raise web.HTTPNotFound()
 
-        path = Path(request.app[KEY_HASS].config.path(DOMAIN, "exports", filename))
-        if not path.is_file():
+        hass = request.app[KEY_HASS]
+        path = Path(hass.config.path(DOMAIN, "exports", filename))
+        if not await hass.async_add_executor_job(path.is_file):
             raise web.HTTPNotFound()
 
         return web.FileResponse(

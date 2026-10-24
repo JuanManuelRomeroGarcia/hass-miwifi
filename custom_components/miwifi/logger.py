@@ -1,11 +1,10 @@
 import logging
+import asyncio
 import os
 import time
-from logging.handlers import RotatingFileHandler
-from homeassistant.helpers import storage
-
-log_dir = os.path.join(storage.STORAGE_DIR, '..', 'miwifi', 'logs')
-os.makedirs(log_dir, exist_ok=True)
+from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
+from queue import SimpleQueue
+from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 
 _LOGGER = logging.getLogger("miwifi")
 _LOGGER.setLevel(logging.NOTSET)
@@ -32,23 +31,36 @@ class RateLimitFilter(logging.Filter):
 
 _LOGGER.addFilter(RateLimitFilter(max_per_minute=30))
 
-def _create_handler(path):
-    return RotatingFileHandler(path, maxBytes=2_000_000, backupCount=3, delay=False)
+def _create_handler(path, level):
+    """Open files in the executor and emit/rotate only on the listener thread."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    sink = RotatingFileHandler(path, maxBytes=2_000_000, backupCount=3, encoding="utf-8")
+    sink.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+    queue = SimpleQueue()
+    handler = QueueHandler(queue)
+    handler.addFilter(lambda record: record.levelno == level)
+    handler._miwifi_path = path
+    handler._miwifi_sink = sink
+    handler._miwifi_listener = QueueListener(queue, sink)
+    handler._miwifi_listener.start()
+    return handler
+
+
+def _close_handler(handler):
+    handler._miwifi_listener.stop()
+    handler._miwifi_sink.close()
+    handler.close()
 
 async def async_add_level_handler(hass, level, filename):
-    path = os.path.join(log_dir, filename)
-    handler = await hass.async_add_executor_job(_create_handler, path)
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    handler.setLevel(logging.NOTSET)
-    handler.addFilter(lambda record: record.levelno == level)
-    # Evitar añadir duplicados
+    path = hass.config.path("miwifi", "logs", filename)
+    # Avoid opening a duplicate file at all.
     for existing in _LOGGER.handlers:
-        if isinstance(existing, RotatingFileHandler) and existing.baseFilename == handler.baseFilename:
+        if getattr(existing, "_miwifi_path", None) == path:
             return
+    handler = await hass.async_add_executor_job(_create_handler, path, level)
     _LOGGER.addHandler(handler)
 
-async def async_init_log_handlers(hass):
+async def _init_log_handlers(hass):
     """Initialize log handlers only once."""
     if hass.data.get("_miwifi_logger_initialized"):
         return
@@ -61,39 +73,44 @@ async def async_init_log_handlers(hass):
 
     hass.data["_miwifi_logger_initialized"] = True
 
+
+async def _remove_log_handlers(hass):
+    for handler in list(_LOGGER.handlers):
+        if getattr(handler, "_miwifi_listener", None) is not None:
+            _LOGGER.removeHandler(handler)
+            await hass.async_add_executor_job(_close_handler, handler)
+    hass.data["_miwifi_logger_initialized"] = False
+
+
+async def async_init_log_handlers(hass):
+    async with hass.data.setdefault("_miwifi_logger_lock", asyncio.Lock()):
+        try:
+            await _init_log_handlers(hass)
+        except BaseException:
+            await _remove_log_handlers(hass)
+            raise
+        if not hass.data.get("_miwifi_logger_stop_registered"):
+            async def stop(_event):
+                async with hass.data["_miwifi_logger_lock"]:
+                    await _remove_log_handlers(hass)
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STOP, stop)
+            hass.data["_miwifi_logger_stop_registered"] = True
+
 async def async_warmup_log_handlers(hass):
-    """Force open of all log files by doing an initial emit in executor."""
-    def _warmup():
-        for handler in _LOGGER.handlers:
-            try:
-                handler.acquire()
-                handler.emit(logging.LogRecord(
-                    name="miwifi",
-                    level=logging.DEBUG,
-                    pathname=__file__,
-                    lineno=0,
-                    msg="Pre-opening log file",
-                    args=(),
-                    exc_info=None
-                ))
-            finally:
-                handler.release()
-    await hass.async_add_executor_job(_warmup)
+    """Compatibility hook: files were already opened in the setup executor."""
+    return
 
 __all__ = ["_LOGGER", "async_init_log_handlers", "async_recreate_log_handlers", "async_warmup_log_handlers"]
 
-async def async_recreate_log_handlers(hass):
+async def _recreate_log_handlers(hass):
     """Recreate all handlers and empty log files asynchronously."""
     global _LOGGER
 
-    for handler in list(_LOGGER.handlers):
-        try:
-            handler.close()
-        except Exception:
-            pass
-        _LOGGER.removeHandler(handler)
+    await _remove_log_handlers(hass)
 
     def _clear_logs():
+        log_dir = hass.config.path("miwifi", "logs")
+        os.makedirs(log_dir, exist_ok=True)
         for file in os.listdir(log_dir):
             if file.startswith("miwifi_") and (file.endswith(".log") or ".log." in file):
                 try:
@@ -102,6 +119,12 @@ async def async_recreate_log_handlers(hass):
                     _LOGGER.warning("Log could not be eliminated %s: %s", file, e)
     await hass.async_add_executor_job(_clear_logs)
     hass.data["_miwifi_logger_initialized"] = False 
-    await async_init_log_handlers(hass)
+    await _init_log_handlers(hass)
     await async_warmup_log_handlers(hass)
     await hass.async_add_executor_job(_LOGGER.info, "🧹 MiWiFi logs cleared and handlers recreated.")
+
+
+async def async_recreate_log_handlers(hass):
+    """Serialize reset with setup; all file work happens off the event loop."""
+    async with hass.data.setdefault("_miwifi_logger_lock", asyncio.Lock()):
+        await _recreate_log_handlers(hass)

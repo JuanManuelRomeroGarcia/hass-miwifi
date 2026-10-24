@@ -116,6 +116,18 @@ async def _save_raw(hass: HomeAssistant, data: dict[str, Any]) -> None:
     await _store(hass).async_save(data)
 
 
+def _read_legacy_user_file():
+    """Inspect and load the legacy file entirely within an executor."""
+    if not LEGACY_USER_FILE.exists():
+        return {}
+    spec = importlib.util.spec_from_file_location(f"{DOMAIN}.unsupported_user_legacy", str(LEGACY_USER_FILE))
+    if spec is None or spec.loader is None:
+        return {}
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return getattr(mod, "UNSUPPORTED", {})
+
+
 async def _migrate_legacy_py_if_needed(hass: HomeAssistant) -> None:
     """If legacy unsupported_user.py exists, migrate it once into HA Storage."""
     data = hass.data.setdefault(DOMAIN, {})
@@ -123,18 +135,8 @@ async def _migrate_legacy_py_if_needed(hass: HomeAssistant) -> None:
         return
     data[_MIGRATED_KEY] = True
 
-    if not LEGACY_USER_FILE.exists():
-        return
-
     try:
-        spec = importlib.util.spec_from_file_location(f"{DOMAIN}.unsupported_user_legacy", str(LEGACY_USER_FILE))
-        if spec is None or spec.loader is None:
-            return
-
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        legacy = getattr(mod, "UNSUPPORTED", {})
+        legacy = await hass.async_add_executor_job(_read_legacy_user_file)
         if not isinstance(legacy, dict):
             return
 
