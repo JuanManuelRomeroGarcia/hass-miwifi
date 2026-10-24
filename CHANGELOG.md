@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.13.2 — 2026-10-25
+
+- Strip query strings before storing request paths in diagnostics or logging authentication retries. Also sanitize old diagnostic request keys on export and omit URL-bearing exception text, preventing Wi-Fi passwords from leaking through these paths.
+- Recognize explicit login rejection, raise Home Assistant's authentication failure and stop scheduled polling until credentials are updated. Expired sessions still receive one login retry; connection failures remain connection failures.
+- Add a reauthentication form in all eight languages. Validate the new administrator password, update the existing entry (including a saved options override), preserve router identity and settings, and reload it without creating a duplicate.
+- Add regressions for Wi-Fi request privacy, authentication errors, coordinator setup/polling and reauthentication recovery. Update bundled frontend cache references to 3.13.2.
+
 ## 3.13.1 — 2026-10-24
 
 - Move manual main-router MAC directory creation, file reads and removal to Home Assistant's executor. Refresh the router coordinator after saving or clearing the override.

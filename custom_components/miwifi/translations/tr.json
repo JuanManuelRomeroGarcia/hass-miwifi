@@ -35,6 +35,13 @@
           "scan_interval": "Planlanan sorgular arasındaki süre. İstekler ek zaman alır. Kısa aralıklar yönlendirici yükünü artırır. En yavaş bilgi veren mesh düğümünü hesaba katın.",
           "timeout": "Yönlendiriciye yapılan bir isteğin bekleme süresi. Bazı sorgular daha kısa sınırlar kullanır. Tam bir sorgulama döngüsünün en uzun süresi veya evde kalma süresi değildir."
         }
+      },
+      "reauth_confirm": {
+        "title": "MiWiFi kimliğini yeniden doğrula",
+        "description": "{ip_address} adresindeki yönlendirici kayıtlı parolayı reddetti. Geçerli yönetici parolasını girin.",
+        "data": {
+          "password": "Parola"
+        }
       }
     }
   },

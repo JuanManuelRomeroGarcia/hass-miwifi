@@ -35,6 +35,13 @@
           "scan_interval": "Intervalo entre consultas programadas. As requisições acrescentam tempo. Intervalos menores aumentam a carga do roteador. Considere o nó mesh que informa mais lentamente.",
           "timeout": "Tempo de espera por requisição ao roteador. Algumas consultas usam limites menores. Não é a duração máxima de um ciclo completo nem o tempo de presença."
         }
+      },
+      "reauth_confirm": {
+        "title": "Autenticar o MiWiFi novamente",
+        "description": "O roteador {ip_address} rejeitou a senha salva. Digite a senha atual de administrador.",
+        "data": {
+          "password": "Senha"
+        }
       }
     }
   },
