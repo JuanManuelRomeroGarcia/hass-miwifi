@@ -283,6 +283,39 @@ async def test_pushed_client_keeps_what_the_main_pushed(nodes, node_lists, first
     assert _values(leaf.devices[PUSHED], LISTED) == PUSHED_VALUES
 
 
+@pytest.mark.parametrize("meanwhile", ["main_census_misses_it", "node_pushes_to_itself"])
+async def test_pushed_client_keeps_what_the_main_pushed_between_its_pushes(
+    hass, nodes, meanwhile
+):
+    """The node's last census is not one that has the client, the main's push of it is recent.
+
+    The main's device list can miss a client for a poll, e.g. without an active
+    address that time, and a node that lists clients under itself pushes them
+    to itself. The tracker must not see the client switch to the radio's data
+    and back at each of them.
+    """
+    main = nodes(MAIN_IP, MAIN_MAC, Mode.ACCESS_POINT, ap_mode=True)
+    leaf = nodes(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
+    seen: list[dict] = []
+    hass.data[DOMAIN]["device_tracker_entities"] = {
+        f"{DOMAIN}-{PUSHED.lower()}": SimpleNamespace(update_from_router=seen.append),
+    }
+    other = _row(OTHER, ip="192.0.2.145", uptime=100, speed=10, parent=LEAF_MAC)
+    _radio(leaf, {PUSHED: 70, OTHER: 50})
+    if meanwhile == "node_pushes_to_itself":
+        _census(leaf, [other])
+    for _ in range(2):
+        await _push(main)
+        await _poll(leaf)
+        if meanwhile == "main_census_misses_it":
+            _census(main, [other])
+            await _poll(main)
+        await _poll(leaf)
+
+    assert len(seen) == 6
+    assert [_values(record, LISTED) for record in seen] == [PUSHED_VALUES] * 6
+
+
 @pytest.mark.parametrize("push_ends", ["dropped_from_census", "census_stale"])
 async def test_node_refreshes_a_client_again_once_the_main_stops_pushing_it(nodes, push_ends):
     main = nodes(MAIN_IP, MAIN_MAC, Mode.ACCESS_POINT, ap_mode=True)
@@ -293,15 +326,14 @@ async def test_node_refreshes_a_client_again_once_the_main_stops_pushing_it(node
     assert _values(leaf.devices[PUSHED], LISTED) == PUSHED_VALUES
 
     _radio(leaf, {PUSHED: 50}, band=2)
-    if push_ends == "dropped_from_census":
-        # The main's census, still recent, no longer routes the client to the node.
-        _census(main, [_row(OTHER, ip="192.0.2.145", uptime=100, speed=10, parent=LEAF_MAC)])
-        await _poll(main)
+    # Past the window after the main's last push of the client.
+    with patch("custom_components.miwifi.updater.monotonic", return_value=monotonic() + 3600):
+        if push_ends == "dropped_from_census":
+            # The main's census, recent, has not routed the client to the node since.
+            _census(main, [_row(OTHER, ip="192.0.2.145", uptime=100, speed=10, parent=LEAF_MAC)])
+            await _poll(main)
+            assert leaf._has_recent_parent_census()
         await _poll(leaf)
-    else:
-        # No census since the last one, now past the window.
-        with patch("custom_components.miwifi.updater.monotonic", return_value=monotonic() + 3600):
-            await _poll(leaf)
 
     record = leaf.devices[PUSHED]
     assert _values(record, RADIO) == {

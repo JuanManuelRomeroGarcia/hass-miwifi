@@ -389,9 +389,9 @@ class LuciUpdater(DataUpdateCoordinator):
         self._parent_push_pending = False
         self._parent_census_at: float | None = None
         self._parent_census_source: LuciUpdater | None = None
-        # Clients in the parent's last census of this node, and in this node's
-        # own last device list: see add_device.
-        self._parent_census_macs: frozenset[str] = frozenset()
+        # The parent and time of the last push that had each client, and the
+        # clients in this node's own last device list: see add_device.
+        self._parent_census_clients: dict[str, tuple[LuciUpdater, float]] = {}
         self._device_list_macs: frozenset[str] = frozenset()
         # The MAC a main lists this node under in `parent`, when it is not the
         # one the node reports for itself. Set by the main's device list.
@@ -2283,7 +2283,18 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
             updater._parent_census_at = monotonic()
             updater._parent_census_source = self
-            updater._parent_census_macs = frozenset(row[ATTR_TRACKER_MAC] for row in devices)
+            # A client stays the parent's for the window after the last push
+            # that had it (see add_device): a census can miss a client the
+            # next one has again, and a node that lists clients under itself
+            # also pushes to itself. Kept while the node has a record of it.
+            updater._parent_census_clients = {
+                mac: census
+                for mac, census in getattr(updater, "_parent_census_clients", {}).items()
+                if mac in updater.devices
+            } | dict.fromkeys(
+                (row[ATTR_TRACKER_MAC] for row in devices),
+                (self, updater._parent_census_at),
+            )
             trace = getattr(updater, "_mesh_trace", None)
             if trace is not None:
                 trace.event("parent_push_complete", updater.data,
@@ -2493,17 +2504,14 @@ class LuciUpdater(DataUpdateCoordinator):
                 }
             else:
                 # A device list knows more than this node's own lists. The
-                # parent's keeps what it pushed, while it still pushes the
-                # client; this node's own keeps what it listed against its
-                # radio list, whose rows have no address and come first in a
-                # poll. Anything else this census refreshes, but for the MAC
-                # that stands in for a name the row does not give.
+                # parent's keeps what it pushed, while its last push of the
+                # client is recent; this node's own keeps what it listed
+                # against its radio list, whose rows have no address and come
+                # first in a poll. Anything else this census refreshes, but
+                # for the MAC that stands in for a name the row does not give.
                 mac = device[ATTR_TRACKER_MAC]
                 skip: tuple = ()
-                if (
-                    mac in getattr(self, "_parent_census_macs", ())
-                    and self._has_recent_parent_census()
-                ) or (
+                if self._has_recent_parent_census(mac) or (
                     not device.get("ip")
                     and mac in getattr(self, "_device_list_macs", ())
                 ):
@@ -3063,11 +3071,19 @@ class LuciUpdater(DataUpdateCoordinator):
                     return leaf
         return None
 
-    def _has_recent_parent_census(self) -> bool:
-        """Prefer a recent completed census from a still-loaded parent."""
+    def _has_recent_parent_census(self, mac: str | None = None) -> bool:
+        """Prefer a recent completed census from a still-loaded parent.
 
-        observed_at = getattr(self, "_parent_census_at", None)
-        source = getattr(self, "_parent_census_source", None)
+        :param mac: str | None: judge the last census that had this client
+        """
+
+        if mac is None:
+            observed_at = getattr(self, "_parent_census_at", None)
+            source = getattr(self, "_parent_census_source", None)
+        else:
+            source, observed_at = getattr(self, "_parent_census_clients", {}).get(
+                mac, (None, None)
+            )
         if observed_at is None or source is None:
             return False
         integration = async_get_integrations(self.hass).get(source.ip)
