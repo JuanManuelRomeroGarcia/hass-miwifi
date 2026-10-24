@@ -1854,7 +1854,20 @@ class LuciUpdater(DataUpdateCoordinator):
             trace.census(response, {}, source="xqnetwork/wifi_connect_devices")
 
         # A fresh successful Wi-Fi census must not retain obsolete signals.
-        self._signals.clear()
+        # Swap the new map in whole, before the first await below: the main's
+        # device list can push this node's clients meanwhile and reads their
+        # signal here. An emptied map gave them none until its next push.
+        # Mesh nodes are left out, as in the loop below.
+        nodes: set[str] = set()
+        if self.is_repeater and self.is_force_load:
+            nodes, _ = _known_mesh_nodes(self.hass)
+        signals: dict[str, int | None] = {}
+        for device in response.get("list") or ():
+            mac = device.get(ATTR_TRACKER_MAC) if isinstance(device, dict) else None
+            if isinstance(mac, str) and mac.strip() and mac.strip().upper() not in nodes:
+                signals[mac.strip().upper()] = device.get("signal")
+        self._signals = signals
+
         now = dt_util.utcnow()
         macfilter_info: Optional[dict] = None
 
@@ -1962,8 +1975,6 @@ class LuciUpdater(DataUpdateCoordinator):
                 if mac in node_macs:
                     self._forget_mesh_node(mac, integrations)
                     continue
-
-                self._signals[mac] = device.get("signal")
 
                 if mac in self.devices:
                     self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
