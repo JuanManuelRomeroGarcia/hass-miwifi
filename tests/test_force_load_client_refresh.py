@@ -60,6 +60,12 @@ LISTED = (
     "wifi_protocol", "link_tx_rate", "link_rx_rate",
 )
 RADIO = (ATTR_TRACKER_SIGNAL, "signal_unit", "signal_source", ATTR_TRACKER_CONNECTION)
+# What a radio list row has no value for. A value missing from a node's own
+# census does not erase one: the record keeps the last.
+NOT_RADIO = (
+    ATTR_TRACKER_IP, ATTR_TRACKER_UP_SPEED, ATTR_TRACKER_DOWN_SPEED,
+    "wifi_protocol", "link_tx_rate", "link_rx_rate",
+)
 
 
 @pytest.fixture
@@ -231,10 +237,16 @@ async def test_radio_list_takes_over_while_the_device_list_fails(nodes):
         _radio(main, {WIFI: signal})
         await _poll(main)
 
-    assert _values(main.devices[WIFI], (ATTR_TRACKER_NAME, *RADIO)) == {
+    record = main.devices[WIFI]
+    assert _values(record, (ATTR_TRACKER_NAME, *RADIO)) == {
         ATTR_TRACKER_NAME: "Phone", ATTR_TRACKER_SIGNAL: 30, "signal_unit": "%",
         "signal_source": "wifi_connect_devices", ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
     }
+    # No uptime in the radio list; the rest is the last device list's.
+    assert record[ATTR_TRACKER_ONLINE] == ""
+    assert _values(record, NOT_RADIO) == _values(
+        _listed("Phone", "192.0.2.141", "0:01:40", 10, -43, 2401), NOT_RADIO
+    )
 
 
 async def test_node_refreshes_a_client_the_main_does_not_push(nodes):
@@ -350,6 +362,8 @@ async def test_node_refreshes_a_client_again_once_the_main_stops_pushing_it(node
         ATTR_TRACKER_NAME: "Client 43", ATTR_TRACKER_IP: "192.0.2.143",
         ATTR_TRACKER_INTERNET_BLOCKED: True,
     }
+    # Nor speeds or link metrics: the main's last ones stay too.
+    assert _values(record, NOT_RADIO) == _values(PUSHED_VALUES, NOT_RADIO)
 
 
 async def test_restored_client_keeps_its_name_address_and_blocking_from_the_radio_list(nodes):
