@@ -31,6 +31,7 @@ from custom_components.miwifi.const import (
     ATTR_TRACKER_CONNECTION,
     ATTR_TRACKER_DOWN_SPEED,
     ATTR_TRACKER_ENTRY_ID,
+    ATTR_TRACKER_INTERNET_BLOCKED,
     ATTR_TRACKER_IP,
     ATTR_TRACKER_IS_RESTORED,
     ATTR_TRACKER_NAME,
@@ -103,13 +104,14 @@ def _radio(updater, signals, band=1):
     ]})
 
 
-def _row(mac, *, ip, uptime, speed, parent="", name=None, wired=False):
+def _row(mac, *, ip, uptime, speed, parent="", name=None, wired=False, blocked=False):
     """A client as misystem/devicelist lists it."""
     return {
         "mac": mac, "name": name or f"Client {mac[-2:]}", "isap": 0, "parent": parent,
         "online": 1, "type": 0 if wired else 1,
         "ip": [{"ip": ip, "active": 1, "online": str(uptime),
                 "upspeed": str(speed), "downspeed": str(2 * speed)}],
+        **({"authority": {"wan": 0}} if blocked else {}),
     }
 
 
@@ -256,10 +258,10 @@ async def test_node_refreshes_a_client_the_main_does_not_push(nodes):
 PUSHED_VALUES = _listed("Client 43", "192.0.2.143", "0:01:40", 10, -43, 2401)
 
 
-async def _push(main, rssi=-43):
+async def _push(main, rssi=-43, blocked=False):
     _census(
         main,
-        [_row(PUSHED, ip="192.0.2.143", uptime=100, speed=10, parent=LEAF_MAC)],
+        [_row(PUSHED, ip="192.0.2.143", uptime=100, speed=10, parent=LEAF_MAC, blocked=blocked)],
         [_detail(PUSHED, ip="192.0.2.143", rssi=rssi, rate=2401, parent=LEAF_MAC)],
     )
     await _poll(main)
@@ -320,7 +322,7 @@ async def test_pushed_client_keeps_what_the_main_pushed_between_its_pushes(
 async def test_node_refreshes_a_client_again_once_the_main_stops_pushing_it(nodes, push_ends):
     main = nodes(MAIN_IP, MAIN_MAC, Mode.ACCESS_POINT, ap_mode=True)
     leaf = nodes(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
-    await _push(main)
+    await _push(main, blocked=True)
     _radio(leaf, {PUSHED: 70})
     await _poll(leaf)
     assert _values(leaf.devices[PUSHED], LISTED) == PUSHED_VALUES
@@ -342,13 +344,15 @@ async def test_node_refreshes_a_client_again_once_the_main_stops_pushing_it(node
     }
     # The radio list has no uptime: the main's is not current any more.
     assert record[ATTR_TRACKER_ONLINE] == ""
-    # Nor a name or an address: those the main gave are kept.
-    assert _values(record, (ATTR_TRACKER_NAME, ATTR_TRACKER_IP)) == {
+    # Nor a name or an address, and its "not blocked" is only a default, as
+    # the node's filter list does not name the client: the main's are kept.
+    assert _values(record, (ATTR_TRACKER_NAME, ATTR_TRACKER_IP, ATTR_TRACKER_INTERNET_BLOCKED)) == {
         ATTR_TRACKER_NAME: "Client 43", ATTR_TRACKER_IP: "192.0.2.143",
+        ATTR_TRACKER_INTERNET_BLOCKED: True,
     }
 
 
-async def test_restored_client_keeps_its_name_and_address_from_the_radio_list(nodes):
+async def test_restored_client_keeps_its_name_address_and_blocking_from_the_radio_list(nodes):
     """A record restored from the store, reported again by the node's radio only."""
     leaf = nodes(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
     leaf.devices[OWN] = {
@@ -357,17 +361,24 @@ async def test_restored_client_keeps_its_name_and_address_from_the_radio_list(no
         ATTR_TRACKER_IP: "192.0.2.144", ATTR_TRACKER_CONNECTION: Connection.WIFI_2_4,
         ATTR_TRACKER_ONLINE: "", "last_activity": "2026-01-01T10:00:00",
         "first_seen": "2026-01-01T10:00:00", ATTR_TRACKER_IS_RESTORED: True,
+        ATTR_TRACKER_INTERNET_BLOCKED: True,
     }
     _radio(leaf, {OWN: 35}, band=2)
     await _poll(leaf)
 
     record = leaf.devices[OWN]
     assert ATTR_TRACKER_IS_RESTORED not in record
-    assert _values(record, (ATTR_TRACKER_NAME, ATTR_TRACKER_IP, *RADIO)) == {
+    assert _values(record, (ATTR_TRACKER_NAME, ATTR_TRACKER_IP, ATTR_TRACKER_INTERNET_BLOCKED, *RADIO)) == {
         ATTR_TRACKER_NAME: "Client named", ATTR_TRACKER_IP: "192.0.2.144",
+        ATTR_TRACKER_INTERNET_BLOCKED: True,
         ATTR_TRACKER_SIGNAL: 35, "signal_unit": "%", "signal_source": "wifi_connect_devices",
         ATTR_TRACKER_CONNECTION: Connection.WIFI_5_0,
     }
+
+    # A filter list that names the client does say whether it is blocked.
+    leaf.luci.macfilter_info = AsyncMock(return_value={"list": [{"mac": OWN, "authority": {"wan": 1}}]})
+    await _poll(leaf)
+    assert leaf.devices[OWN][ATTR_TRACKER_INTERNET_BLOCKED] is False
 
 
 @pytest.mark.parametrize(

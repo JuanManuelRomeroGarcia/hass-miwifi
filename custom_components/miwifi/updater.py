@@ -2508,7 +2508,10 @@ class LuciUpdater(DataUpdateCoordinator):
                 # client is recent; this node's own keeps what it listed
                 # against its radio list, whose rows have no address and come
                 # first in a poll. Anything else this census refreshes, but
-                # for the MAC that stands in for a name the row does not give.
+                # for what the row only defaults: the MAC that stands in for a
+                # name the row does not give, and "not blocked" for a client
+                # neither this node's filter list nor its device list has a
+                # state for.
                 mac = device[ATTR_TRACKER_MAC]
                 skip: tuple = ()
                 if self._has_recent_parent_census(mac) or (
@@ -2516,8 +2519,11 @@ class LuciUpdater(DataUpdateCoordinator):
                     and mac in getattr(self, "_device_list_macs", ())
                 ):
                     skip = REPEATER_SKIP_ATTRS
-                elif "name" not in device:
-                    skip = (ATTR_TRACKER_NAME,)
+                else:
+                    if "name" not in device:
+                        skip += (ATTR_TRACKER_NAME,)
+                    if mac not in getattr(self, "_filter_macs", {}):
+                        skip += (ATTR_TRACKER_INTERNET_BLOCKED,)
                 self.devices[mac] |= {
                     key: value
                     for key, value in _device.items()
