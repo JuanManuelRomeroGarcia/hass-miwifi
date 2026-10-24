@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.13.1 — 2026-10-24
+
+- Move manual main-router MAC directory creation, file reads and removal to Home Assistant's executor. Refresh the router coordinator after saving or clearing the override.
+- Queue file logging outside the event loop, including rotation, initialization, reset and shutdown. Store logs in Home Assistant's configuration directory and clean up partially initialized handlers.
+- Move private-download file checks and legacy user-override loading to the executor.
+- Add regression coverage for filesystem thread ownership, concurrent logging setup, rotation, failure cleanup and shutdown. Document UTC for the legacy test suite.
+- Update the bundled frontend cache version to 3.13.1. Restart Home Assistant and refresh the panel after updating.
+
 ## 3.13.0 — 2026-10-20
 
 - Fix mesh leaf counters after their last parent-reported client leaves (#364), preserve auto-purge deadlines across restarts and record failed runs (#366), restore force-load node clients and their saved presence states (#368), and identify a wired mesh node from its own topology on its first refresh (#370). Preserve @brembygit's original commits and integrate the dependent restoration/role fixes together.
