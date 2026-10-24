@@ -35,6 +35,13 @@
           "scan_interval": "Abstand zwischen geplanten Abfragen. Anfragen benötigen zusätzliche Zeit. Kürzere Intervalle belasten den Router stärker. Berücksichtige den langsamsten meldenden Mesh-Knoten.",
           "timeout": "Wartezeit pro Routeranfrage. Einige Endpunkte verwenden kürzere Grenzen. Dies ist nicht die maximale Dauer einer vollständigen Abfrage und nicht die Anwesenheitsdauer."
         }
+      },
+      "reauth_confirm": {
+        "title": "MiWiFi erneut authentifizieren",
+        "description": "Der Router unter {ip_address} hat das gespeicherte Passwort abgelehnt. Gib sein aktuelles Administratorpasswort ein.",
+        "data": {
+          "password": "Passwort"
+        }
       }
     }
   },

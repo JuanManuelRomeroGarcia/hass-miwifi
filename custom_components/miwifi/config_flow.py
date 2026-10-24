@@ -95,6 +95,38 @@ class MiWifiConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> MiWifiOptionsFlow:
         return MiWifiOptionsFlow(config_entry)
 
+    async def async_step_reauth(self, entry_data: dict) -> FlowResult:
+        """Reauthenticate only the existing router entry."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None) -> FlowResult:
+        entry = self._get_reauth_entry()
+        errors = {}
+        if user_input is not None:
+            password = user_input[CONF_PASSWORD]
+            code, _reason = await async_verify_access(
+                self.hass,
+                get_config_value(entry, CONF_IP_ADDRESS),
+                password,
+                get_config_value(entry, CONF_ENCRYPTION_ALGORITHM, EncryptionAlgorithm.SHA1),
+                get_config_value(entry, CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                get_config_value(entry, CONF_PROTOCOL, DEFAULT_PROTOCOL),
+            )
+            if codes.is_success(code):
+                options = dict(entry.options)
+                if CONF_PASSWORD in options:
+                    options[CONF_PASSWORD] = password
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_PASSWORD: password}, options=options,
+                )
+            errors["base"] = "password.not_matched" if code == codes.FORBIDDEN else "connection"
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): str}),
+            errors=errors,
+            description_placeholders={"ip_address": get_config_value(entry, CONF_IP_ADDRESS)},
+        )
+
     async def async_step_ssdp(self, discovery_info: ssdp.SsdpServiceInfo) -> FlowResult:
         return await self._async_discovery_handoff()
 

@@ -1,6 +1,6 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.13.1";
-import { localize } from "../translations/localize.js?v=3.13.1";
-import { logToBackend } from "../pages/utils.js?v=3.13.1";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.13.2";
+import { localize } from "../translations/localize.js?v=3.13.2";
+import { logToBackend } from "../pages/utils.js?v=3.13.2";
 
 
 class MiWiFiPortForwarding extends LitElement {

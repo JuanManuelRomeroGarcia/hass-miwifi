@@ -63,7 +63,10 @@ async def async_get_config_entry_diagnostics(
             _data["devices"] = async_redact_data(_updater.devices, TO_REDACT)
 
         if len(_updater.luci.diagnostics) > 0:
-            _data["requests"] = async_redact_data(_updater.luci.diagnostics, TO_REDACT)
+            _data["requests"] = async_redact_data(
+                {path.split("?", 1)[0]: value for path, value in _updater.luci.diagnostics.items()},
+                TO_REDACT,
+            )
 
     return _data
 

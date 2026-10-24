@@ -120,7 +120,8 @@ from .enum import (
     Model,
     Wifi,
 )
-from .exceptions import LuciConnectionError, LuciError, LuciRequestError
+from .exceptions import LuciAuthenticationError, LuciConnectionError, LuciError, LuciRequestError
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from .luci import LuciClient
 from .self_check import async_self_check
 from .mesh_diagnostics import MeshTrace
@@ -464,6 +465,20 @@ class LuciUpdater(DataUpdateCoordinator):
         return timedelta(seconds=self._scan_interval)
 
     async def update(self, retry: int = 1) -> dict:
+        """Let HA stop polling and start reauthentication after rejected credentials."""
+        try:
+            data = await self._async_update(retry)
+        except LuciAuthenticationError as err:
+            self.code = codes.FORBIDDEN
+            raise ConfigEntryAuthFailed("Router rejected the login credentials") from err
+        # Optional endpoint handlers may catch LuciError. Do not let them hide
+        # a failed re-login or keep polling with the rejected credentials.
+        if self.luci.authentication_failed is True:
+            self.code = codes.FORBIDDEN
+            raise ConfigEntryAuthFailed("Router rejected the login credentials")
+        return data
+
+    async def _async_update(self, retry: int = 1) -> dict:
         """Update miwifi information.
 
         :param retry: int: Retry count
