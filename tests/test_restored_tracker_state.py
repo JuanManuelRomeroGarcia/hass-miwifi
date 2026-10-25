@@ -14,7 +14,7 @@ API, its real device store, and the real device_tracker platform.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -31,6 +31,7 @@ from homeassistant.const import (
 from homeassistant.core import State, callback
 from homeassistant.helpers import entity_registry as er, restore_state
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     MockEntityPlatform,
@@ -63,6 +64,24 @@ CLIENT = "02:00:00:00:00:42"
 ENTITY_ID = f"device_tracker.{DOMAIN}_{CLIENT.lower().replace(':', '_')}"
 # Within this every node polls once more, one request timing out.
 POLL_PERIOD = DEFAULT_SCAN_INTERVAL + DEFAULT_TIMEOUT
+# On 25 October 2026 Rome's clocks go back from 03:00 CEST to 02:00 CET.
+REPEATED_HOUR = {
+    "02:20_CEST": "2026-10-25T00:20:00+00:00",
+    "02:20_CET": "2026-10-25T01:20:00+00:00",
+}
+
+
+@pytest.fixture(autouse=True, params=["now", *REPEATED_HOUR])
+async def clock(request, hass):
+    """Each case runs now, and twice in the hour Rome's clocks repeat.
+
+    A client the routers list at 02:20 CEST, or an hour later at 02:20 CET, gets
+    a last activity that names both.
+    """
+    if request.param in REPEATED_HOUR:
+        await hass.config.async_set_time_zone("Europe/Rome")
+        request.getfixturevalue("freezer").move_to(REPEATED_HOUR[request.param])
+    yield
 
 
 @pytest.fixture
@@ -103,7 +122,7 @@ def _node(hass, kind, entry=None):
 
 
 def _stored(entry):
-    seen = (datetime.now() - timedelta(days=2)).replace(microsecond=0).isoformat()
+    seen = (dt_util.now() - timedelta(days=2)).replace(tzinfo=None, microsecond=0).isoformat()
     return {
         ATTR_TRACKER_ENTRY_ID: entry.entry_id,
         ATTR_TRACKER_UPDATER_ENTRY_ID: entry.entry_id,

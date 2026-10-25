@@ -13,7 +13,7 @@ platform on a mock entity platform.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 import json
 import time
 from types import SimpleNamespace
@@ -29,6 +29,7 @@ from homeassistant.const import (
 )
 from homeassistant.core import State, callback
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     MockEntityPlatform,
@@ -146,7 +147,7 @@ def _radio(client, *macs):
 
 def _stored(mac, entry, *, days_ago=2):
     """A record as the node saved it at its last stop."""
-    seen = (datetime.now() - timedelta(days=days_ago)).replace(microsecond=0).isoformat()
+    seen = (dt_util.now() - timedelta(days=days_ago)).replace(tzinfo=None, microsecond=0).isoformat()
     return {
         ATTR_TRACKER_ENTRY_ID: entry.entry_id,
         ATTR_TRACKER_UPDATER_ENTRY_ID: entry.entry_id,

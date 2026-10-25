@@ -4,7 +4,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 import math
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
@@ -14,7 +14,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
-from homeassistant.util import slugify
+from homeassistant.util import dt as dt_util, slugify
 from httpx import codes, HTTPError, ConnectError, TimeoutException
 
 from .const import (
@@ -180,11 +180,30 @@ def get_store(hass: HomeAssistant, ip: str) -> Store:
     return Store(hass, STORAGE_VERSION, f"{DOMAIN}/{ip}.json", encoder=JSONEncoder)
 
 
+# How far ahead of the clock a last activity may be and still be read as the
+# later of the two times it names in the hour the clocks repeat: the clock can
+# be set back a little after a router's list was read.
+LAST_ACTIVITY_CLOCK_SLACK: Final = 60
+
+
 def parse_last_activity(last_activity: str) -> int:
-    """Convert last activity datetime string to timestamp."""
-    return int(
-        time.mktime(datetime.strptime(last_activity, "%Y-%m-%dT%H:%M:%S").timetuple())
+    """Convert last activity datetime string to timestamp.
+
+    The string is Home Assistant's local time without an offset, as the updater
+    writes it. In the hour the clocks repeat when they go back, it names two
+    times an hour apart: it is the later one, unless that is still to come.
+    Read as the earlier one, a client seen a moment ago was an hour old, and
+    away, for the whole repeated hour. The other way round, a client last seen
+    in the first occurrence reads as seen again when the clock reaches that
+    time in the second: only an offset in the string would tell them apart.
+    """
+    wall = datetime.strptime(last_activity, "%Y-%m-%dT%H:%M:%S").replace(
+        tzinfo=dt_util.get_default_time_zone()
     )
+    first, second = (int(wall.replace(fold=fold).timestamp()) for fold in (0, 1))
+    if first < second <= time.time() + LAST_ACTIVITY_CLOCK_SLACK:
+        return second
+    return first
 
 
 def pretty_size(speed: float) -> str:
