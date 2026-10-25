@@ -210,12 +210,12 @@ def parse_last_activity(last_activity: str) -> int:
 class LastActivityReader:
     """A client's last activity as a timestamp, each value read once.
 
-    A tracker reads its client's last activity in the poll that writes it, or
-    the next one for a new client, when parse_last_activity gets the repeated
-    hour right, and keeps that reading while the value stays: a client last
-    listed in the first occurrence is not seen again an hour later. Only a
-    tracker added in the second occurrence, at a restart or a reload, reads
-    such a value afresh.
+    A tracker or a client sensor reads its client's last activity in the poll
+    that writes it, or the next one for a new client, when parse_last_activity
+    gets the repeated hour right, and keeps that reading while the value stays:
+    a client last listed in the first occurrence is not seen again an hour
+    later. Only an entity added in the second occurrence, at a restart or a
+    reload, reads such a value afresh.
     """
 
     def __init__(self) -> None:

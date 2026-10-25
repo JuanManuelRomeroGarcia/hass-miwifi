@@ -14,12 +14,14 @@ on the time zone of the host that runs it.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import logging
 import time
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
 from homeassistant.const import CONF_IP_ADDRESS, STATE_HOME, STATE_NOT_HOME
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEntityPlatform
 
@@ -28,6 +30,7 @@ from custom_components.miwifi.const import (
     ATTR_DEVICE_MAC_ADDRESS,
     ATTR_SENSOR_MODE,
     ATTR_STATE,
+    ATTR_TRACKER_FIRST_SEEN,
     ATTR_TRACKER_LAST_ACTIVITY,
     CONF_IS_TRACK_DEVICES,
     DEFAULT_STAY_ONLINE,
@@ -36,6 +39,7 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.enum import Mode
 from custom_components.miwifi.helper import get_store, parse_last_activity
+from custom_components.miwifi.sensor import MIWIFI_DEVICE_SENSORS, MiWifiDeviceAttributeSensor
 from custom_components.miwifi.updater import LuciUpdater
 
 ROME = dt_util.get_time_zone("Europe/Rome")
@@ -181,6 +185,7 @@ async def test_updater_writes_home_assistants_local_time(hass, router, freezer):
     try:
         await _poll(hass, node, CLIENT)
         assert node.devices[CLIENT][ATTR_TRACKER_LAST_ACTIVITY] == "2026-10-25T02:30:00"
+        assert node.devices[CLIENT][ATTR_TRACKER_FIRST_SEEN] == "2026-10-25T02:30:00"
 
         freezer.move_to(_utc(1, 30))
         await _poll(hass, node, CLIENT)
@@ -259,3 +264,29 @@ async def test_client_listed_through_the_change_stays_home(hass, router, freezer
             assert hass.states.get(ENTITY_ID).state == STATE_HOME, dt_util.now()
     finally:
         await node.async_shutdown()
+
+
+@pytest.mark.parametrize("key", [ATTR_TRACKER_LAST_ACTIVITY, ATTR_TRACKER_FIRST_SEEN])
+async def test_client_sensor_shows_when_the_client_was_listed(hass, freezer, key):
+    """The client's sensor reads the time as its tracker does.
+
+    Listed at 02:30 CET, it shows 02:30 CET, not CEST. Listed at 02:30 CEST,
+    it still shows 02:30 CEST at 02:35 CET.
+    """
+    await hass.config.async_set_time_zone("Europe/Rome")
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    updater = DataUpdateCoordinator(
+        hass, logging.getLogger(__name__), name="client", config_entry=entry
+    )
+    updater.data = {}
+    updater.devices = {CLIENT: {"mac": CLIENT, key: "2026-10-25T02:30:00"}}
+    description = next(desc for desc in MIWIFI_DEVICE_SENSORS if desc.key == key)
+
+    for seen, later in ((_utc(1, 30), _utc(1, 30, 20)), (_utc(0, 30), _utc(1, 35))):
+        sensor = MiWifiDeviceAttributeSensor(updater, updater.devices[CLIENT], description)
+        sensor.hass = hass
+        freezer.move_to(seen)
+        assert sensor.native_value == seen
+        freezer.move_to(later)
+        assert sensor.native_value == seen, later

@@ -277,8 +277,9 @@ def _local_now() -> datetime:
     """Home Assistant's local time to the second, without the offset.
 
     A client's last activity and first seen are stored as this, in ISO form:
-    helper.parse_last_activity and the client sensors read them back in Home
-    Assistant's time zone, which is not always the system's.
+    helper.parse_last_activity reads them back, for the trackers and the
+    client sensors, in Home Assistant's time zone, which is not always the
+    system's.
     """
 
     return dt_util.now().replace(tzinfo=None, microsecond=0)
