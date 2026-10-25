@@ -193,9 +193,10 @@ def parse_last_activity(last_activity: str) -> int:
     writes it. In the hour the clocks repeat when they go back, it names two
     times an hour apart: it is the later one, unless that is still to come.
     Read as the earlier one, a client seen a moment ago was an hour old, and
-    away, for the whole repeated hour. The other way round, a client last seen
-    in the first occurrence reads as seen again when the clock reaches that
-    time in the second: only an offset in the string would tell them apart.
+    away, for the whole repeated hour. That holds while the value is new: one
+    written in the first occurrence and read again from a minute before the
+    clock reaches that time in the second gives the second, as if the client
+    had just been seen. LastActivityReader keeps the first reading.
     """
     wall = datetime.strptime(last_activity, "%Y-%m-%dT%H:%M:%S").replace(
         tzinfo=dt_util.get_default_time_zone()
@@ -204,6 +205,30 @@ def parse_last_activity(last_activity: str) -> int:
     if first < second <= time.time() + LAST_ACTIVITY_CLOCK_SLACK:
         return second
     return first
+
+
+class LastActivityReader:
+    """A client's last activity as a timestamp, each value read once.
+
+    A tracker reads its client's last activity in the poll that writes it, or
+    the next one for a new client, when parse_last_activity gets the repeated
+    hour right, and keeps that reading while the value stays: a client last
+    listed in the first occurrence is not seen again an hour later. Only a
+    tracker added in the second occurrence, at a restart or a reload, reads
+    such a value afresh.
+    """
+
+    def __init__(self) -> None:
+        """Nothing read yet."""
+        self._value: str | None = None
+        self._timestamp: int = 0
+
+    def read(self, last_activity: str) -> int:
+        """The timestamp of this value, as parse_last_activity first read it."""
+        if last_activity != self._value:
+            self._timestamp = parse_last_activity(last_activity)
+            self._value = last_activity
+        return self._timestamp
 
 
 def pretty_size(speed: float) -> str:

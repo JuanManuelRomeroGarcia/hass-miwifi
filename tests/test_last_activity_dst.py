@@ -76,6 +76,10 @@ def rome():
         pytest.param(
             "2026-10-25T02:10:00", _utc(0, 10), 3300, id="first_occurrence_read_in_the_second"
         ),
+        # Read at 02:08:59 CET: 02:10 CET is 61 seconds to come, beyond the slack.
+        pytest.param(
+            "2026-10-25T02:10:00", _utc(0, 10), 3539, id="first_occurrence_a_minute_before_it"
+        ),
         pytest.param(
             "2026-10-25T01:59:59", _utc(23, 59, 59, day=24), 20, id="before_the_repeated_hour"
         ),
@@ -213,6 +217,33 @@ async def test_reported_client_is_home_for_the_stay_online_window(hass, router, 
             freezer.move_to(seen + timedelta(seconds=after))
             await _poll(hass, node)
             assert hass.states.get(ENTITY_ID).state == state, after
+    finally:
+        await node.async_shutdown()
+
+
+async def test_client_that_left_in_the_first_occurrence_stays_away(hass, router, freezer):
+    """Listed at 02:30 CEST and not since: not_home at 02:30 CET too.
+
+    From a minute before 02:30 CET its last activity also names a time that has
+    come; the tracker keeps the reading it had when the routers listed it.
+    """
+    seen = _utc(0, 30)
+    freezer.move_to(seen)
+    node = await _gateway(hass)
+    try:
+        await _poll(hass, node, CLIENT)
+        assert hass.states.get(ENTITY_ID).state == STATE_HOME
+
+        for after in (
+            DEFAULT_STAY_ONLINE + 5,
+            3541,
+            3600,
+            3600 + DEFAULT_STAY_ONLINE - 5,
+            3600 + DEFAULT_STAY_ONLINE + 5,
+        ):
+            freezer.move_to(seen + timedelta(seconds=after))
+            await _poll(hass, node)
+            assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME, after
     finally:
         await node.async_shutdown()
 
