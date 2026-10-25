@@ -3,12 +3,13 @@ from copy import deepcopy
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
+import httpx
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.miwifi.const import DOMAIN, UPDATER
 from custom_components.miwifi.enum import Connection, Mode, Model
-from custom_components.miwifi.exceptions import LuciConnectionError, LuciError
+from custom_components.miwifi.exceptions import LuciConnectionError, LuciError, LuciRequestError
 from custom_components.miwifi.helper import map_signal_quality
 from custom_components.miwifi.luci import LuciClient
 from custom_components.miwifi.sensor import MIWIFI_DEVICE_SENSORS, MiWifiDeviceAttributeSensor
@@ -41,7 +42,7 @@ def make_updater(hass, ip="192.0.2.1", mac="02:00:00:00:00:01"):
 
 
 async def census(updater, rows, payload, integrations):
-    reader = AsyncMock(side_effect=payload) if isinstance(payload, BaseException) else AsyncMock(return_value=payload)
+    reader = AsyncMock(side_effect=payload) if isinstance(payload, BaseException) or callable(payload) else AsyncMock(return_value=payload)
     updater.luci = SimpleNamespace(device_list=AsyncMock(return_value={"code": 0, "list": deepcopy(rows)}), client_details=reader)
     with (
         patch("custom_components.miwifi.updater.async_get_integrations", return_value=integrations),
@@ -126,6 +127,51 @@ async def test_api_uses_distinct_path_and_bounded_timeout():
     client.get = AsyncMock(return_value={"devices": []})
     await client.client_details()
     client.get.assert_awaited_once_with("misystem/device_list", timeout=5.0)
+
+
+NOT_FOUND_PAGE = b"<html><head><title>404 Not Found</title></head><body><h1>Not Found</h1></body></html>"
+
+
+def router_answering(answer):
+    """A logged-in LuciClient whose router answers every GET with `answer`."""
+    client = LuciClient(Mock(), ip="192.0.2.1", password="synthetic")
+    client._token = "synthetic"
+    client._url = "http://192.0.2.1/cgi-bin/luci"
+    reply = AsyncMock(side_effect=answer) if isinstance(answer, BaseException) else AsyncMock(return_value=answer)
+    client._client = SimpleNamespace(get=reply)
+    return client
+
+
+@pytest.mark.parametrize(("method", "answer", "error"), [
+    # A firmware without misystem/device_list answers HTTP 404 with a page.
+    ("client_details", httpx.Response(404, content=NOT_FOUND_PAGE), LuciRequestError),
+    ("client_details", httpx.Response(404), LuciRequestError),
+    ("client_details", httpx.Response(200, content=b"<html><body>synthetic</body></html>"), LuciRequestError),
+    ("client_details", httpx.Response(500, content=b"Internal Server Error"), LuciRequestError),
+    ("client_details", httpx.ConnectError("synthetic"), LuciConnectionError),
+    ("client_details", httpx.ReadTimeout("synthetic"), LuciConnectionError),
+    # Other endpoints keep reporting a page as a connection error.
+    ("device_list", httpx.Response(404, content=NOT_FOUND_PAGE), LuciConnectionError),
+], ids=["404_page", "404_empty", "200_page", "500_page", "connect_error", "timeout", "devicelist_404_page"])
+async def test_client_details_answer_without_json_is_unsupported_not_a_network_failure(method, answer, error):
+    with pytest.raises(error):
+        await getattr(router_answering(answer), method)()
+
+
+@pytest.mark.parametrize(("answer", "back_off"), [
+    (httpx.Response(404, content=NOT_FOUND_PAGE), 3600),
+    (httpx.ConnectError("synthetic"), 60),
+    (httpx.ReadTimeout("synthetic"), 60),
+], ids=["404_page", "connect_error", "timeout"])
+async def test_missing_route_is_asked_again_after_an_hour_a_network_failure_after_a_minute(hass, answer, back_off):
+    updater = make_updater(hass)
+    router = router_answering(answer)
+    for elapsed, requests in ((0, 1), (back_off - 1, 1), (back_off, 2)):
+        with patch("custom_components.miwifi.updater.monotonic", return_value=1000.0 + elapsed):
+            await census(updater, [ROW], router.client_details, {updater.ip: {UPDATER: updater}})
+        assert router._client.get.await_count == requests, f"after {elapsed} s"
+        assert updater.devices[MAC]["signal"] == 82
+        assert updater.devices[MAC]["wifi_protocol"] is None
 
 
 async def test_force_load_parent_can_clear_obsolete_metrics(hass):
