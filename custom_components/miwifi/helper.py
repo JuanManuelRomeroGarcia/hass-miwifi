@@ -181,9 +181,15 @@ def get_store(hass: HomeAssistant, ip: str) -> Store:
 
 
 # How far ahead of the clock a last activity may be and still be read as the
-# later of the two times it names in the hour the clocks repeat: the clock can
-# be set back a little after a router's list was read.
+# later of the two times it names in the hour the clocks repeat, and in Home
+# Assistant's time zone: the clock can be set back a little after a router's
+# list was read.
 LAST_ACTIVITY_CLOCK_SLACK: Final = 60
+
+
+def _system_timestamp(wall: datetime) -> int:
+    """A wall time without an offset as a timestamp, in the system's time zone."""
+    return int(wall.timestamp())
 
 
 def parse_last_activity(last_activity: str) -> int:
@@ -197,12 +203,22 @@ def parse_last_activity(last_activity: str) -> int:
     written in the first occurrence and read again from a minute before the
     clock reaches that time in the second gives the second, as if the client
     had just been seen. LastActivityReader keeps the first reading.
+
+    Earlier versions wrote the system's time: where the system's zone is ahead
+    of Home Assistant's, such a time can still be to come in Home Assistant's.
+    One that is, by more than the slack, is read in the system's zone, or a
+    client that left in the hours before the upgrade would be home until then.
     """
     wall = datetime.strptime(last_activity, "%Y-%m-%dT%H:%M:%S").replace(
         tzinfo=dt_util.get_default_time_zone()
     )
     first, second = (int(wall.replace(fold=fold).timestamp()) for fold in (0, 1))
-    if first < second <= time.time() + LAST_ACTIVITY_CLOCK_SLACK:
+    latest = time.time() + LAST_ACTIVITY_CLOCK_SLACK
+    if first > latest:
+        system = _system_timestamp(wall.replace(tzinfo=None))
+        if system <= latest:
+            return system
+    if first < second <= latest:
         return second
     return first
 

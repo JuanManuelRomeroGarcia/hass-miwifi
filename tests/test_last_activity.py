@@ -1,14 +1,18 @@
-"""A client's last activity in the hour the clocks repeat when they go back.
+"""A client's last activity: when the routers last listed it.
 
-The updater stores a client's last activity as Home Assistant's local time,
-without an offset. On 25 October 2026 Rome's clocks go back from 03:00 CEST to
-02:00 CET, and every time from 02:00 to 03:00 names two instants an hour
-apart. It was read as the first: a client the routers had reported seconds
-before, in the second, was an hour old, and every tracker of the mesh went
-not_home at 02:00 CET and came back home at 03:00.
+The updater stores it as Home Assistant's local time, without an offset, and
+the trackers and the client sensors read it back in that zone, whatever the
+system's. Earlier versions wrote the system's.
 
-The time zone is Home Assistant's and the clock is frozen, so no case depends
-on the time zone of the host that runs it.
+On 25 October 2026 Rome's clocks go back from 03:00 CEST to 02:00 CET, and
+every time from 02:00 to 03:00 names two instants an hour apart. It was read as
+the first: a client the routers had reported seconds before, in the second,
+was an hour old, and every tracker of the mesh went not_home at 02:00 CET and
+came back home at 03:00.
+
+The time zone is Home Assistant's, the system's is UTC where a case needs it,
+and the clock is frozen, so no case depends on the time zone of the host that
+runs it.
 """
 
 from __future__ import annotations
@@ -21,17 +25,24 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from homeassistant.const import CONF_IP_ADDRESS, STATE_HOME, STATE_NOT_HOME
+from homeassistant.core import State
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEntityPlatform
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    MockEntityPlatform,
+    mock_restore_cache,
+)
 
 from custom_components.miwifi import device_tracker
 from custom_components.miwifi.const import (
     ATTR_DEVICE_MAC_ADDRESS,
     ATTR_SENSOR_MODE,
     ATTR_STATE,
+    ATTR_TRACKER_ENTRY_ID,
     ATTR_TRACKER_FIRST_SEEN,
     ATTR_TRACKER_LAST_ACTIVITY,
+    ATTR_TRACKER_UPDATER_ENTRY_ID,
     CONF_IS_TRACK_DEVICES,
     DEFAULT_STAY_ONLINE,
     DOMAIN,
@@ -112,19 +123,49 @@ def test_old_last_activity_still_reads_as_old(rome, freezer, last_activity):
     assert time.time() - parse_last_activity(last_activity) > 300 * 86400
 
 
+@pytest.fixture
+def ha_zone():
+    """Sets Home Assistant's time zone, whatever the host's."""
+    original = dt_util.get_default_time_zone()
+    yield lambda zone: dt_util.set_default_time_zone(dt_util.get_time_zone(zone))
+    dt_util.set_default_time_zone(original)
+
+
+@pytest.fixture
+def system_in_utc():
+    """The system's time zone is UTC, as in a container started without TZ."""
+    with patch(
+        "custom_components.miwifi.helper._system_timestamp",
+        lambda wall: int(wall.replace(tzinfo=UTC).timestamp()),
+    ):
+        yield
+
+
 @pytest.mark.parametrize(
     ("zone", "seen"),
     [("UTC", _utc(2, 30)), ("America/New_York", _utc(6, 30))],
 )
-def test_last_activity_is_in_home_assistants_time_zone(freezer, zone, seen):
+def test_last_activity_is_in_home_assistants_time_zone(ha_zone, freezer, zone, seen):
     """Not the system's: the client sensors read it in this zone too."""
-    original = dt_util.get_default_time_zone()
-    dt_util.set_default_time_zone(dt_util.get_time_zone(zone))
-    try:
-        freezer.move_to(seen + timedelta(seconds=20))
-        assert parse_last_activity("2026-10-25T02:30:00") == int(seen.timestamp())
-    finally:
-        dt_util.set_default_time_zone(original)
+    ha_zone(zone)
+    freezer.move_to(seen + timedelta(seconds=20))
+    assert parse_last_activity("2026-10-25T02:30:00") == int(seen.timestamp())
+
+
+@pytest.mark.parametrize(
+    ("zone", "read_as"),
+    [
+        # Home Assistant's zone is 7 hours behind: still to come in it.
+        pytest.param("America/Los_Angeles", _utc(3, 0, day=24), id="west_of_utc"),
+        # 2 hours ahead: 2 hours older in it.
+        pytest.param("Europe/Rome", _utc(1, 0, day=24), id="east_of_utc"),
+    ],
+)
+def test_last_activity_of_an_earlier_version(system_in_utc, ha_zone, freezer, zone, read_as):
+    """The system's time, UTC, an hour before the restart onto this version."""
+    ha_zone(zone)
+    freezer.move_to(_utc(4, 0, day=24))
+    assert parse_last_activity("2026-10-24T03:00:00") == int(read_as.timestamp())
 
 
 @pytest.fixture
@@ -141,9 +182,13 @@ def router():
         yield
 
 
-async def _gateway(hass):
-    """A router that lists its clients, and its trackers."""
-    await hass.config.async_set_time_zone("Europe/Rome")
+async def _gateway(hass, zone="Europe/Rome", stored=None):
+    """A router that lists its clients, and its trackers.
+
+    stored: the client's last activity in the store of the run before, which
+    the router restores in its first refresh.
+    """
+    await hass.config.async_set_time_zone(zone)
     entry = MockConfigEntry(
         domain=DOMAIN, title=NODE_IP, data={CONF_IP_ADDRESS: NODE_IP},
         options={CONF_IS_TRACK_DEVICES: True},
@@ -153,11 +198,25 @@ async def _gateway(hass):
         hass, NODE_IP, "test-password", store=get_store(hass, NODE_IP), entry_id=entry.entry_id,
     )
     node.update_interval = None
-    node._is_first_update = False
     node.data = {
         ATTR_STATE: True, ATTR_SENSOR_MODE: Mode.DEFAULT, ATTR_DEVICE_MAC_ADDRESS: NODE_MAC,
     }
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {CONF_IP_ADDRESS: NODE_IP, UPDATER: node}
+    if stored is not None:
+        await get_store(hass, NODE_IP).async_save({CLIENT: {
+            ATTR_TRACKER_ENTRY_ID: entry.entry_id,
+            ATTR_TRACKER_UPDATER_ENTRY_ID: entry.entry_id,
+            "mac": CLIENT,
+            "router_mac": NODE_MAC,
+            "name": "Client 42",
+            "ip": "192.0.2.66",
+            "connection": 1,
+            "online": "",
+            ATTR_TRACKER_LAST_ACTIVITY: stored,
+            ATTR_TRACKER_FIRST_SEEN: "2026-01-01T10:00:00",
+        }})
+        await node._async_prepare_device_restore(node.data)
+    node._is_first_update = False
 
     platform = MockEntityPlatform(hass, domain="device_tracker", platform_name=DOMAIN)
     platform.config_entry = entry
@@ -247,6 +306,30 @@ async def test_client_that_left_in_the_first_occurrence_stays_away(hass, router,
             3600 + DEFAULT_STAY_ONLINE + 5,
         ):
             freezer.move_to(seen + timedelta(seconds=after))
+            await _poll(hass, node)
+            assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME, after
+    finally:
+        await node.async_shutdown()
+
+
+async def test_client_that_left_before_the_upgrade_stays_away(
+    hass, router, freezer, system_in_utc
+):
+    """The system is in UTC, Home Assistant in Los Angeles, 7 hours behind.
+
+    The client left at 20:00 PDT, an hour before the restart onto this version,
+    and its record says 03:00, the time in UTC an earlier version wrote. Read as
+    03:00 PDT, 6 hours to come, it would be home until then. At 03:00 PDT that
+    reading is no longer to come: the tracker keeps the one it had.
+    """
+    restart = _utc(4, 0, day=24)
+    freezer.move_to(restart)
+    mock_restore_cache(hass, [State(ENTITY_ID, STATE_NOT_HOME)])
+    node = await _gateway(hass, "America/Los_Angeles", stored="2026-10-24T03:00:00")
+    try:
+        assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME
+        for after in (30, 3600, 6 * 3600):
+            freezer.move_to(restart + timedelta(seconds=after))
             await _poll(hass, node)
             assert hass.states.get(ENTITY_ID).state == STATE_NOT_HOME, after
     finally:
