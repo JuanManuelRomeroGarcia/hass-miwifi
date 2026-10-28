@@ -625,7 +625,15 @@ class LuciClient:
 
     async def client_details(self) -> dict:
         """Read extended client metrics; not a replacement for the client census."""
-        return await self.get(self._api_paths["client_details"], timeout=5.0)
+        try:
+            return await self.get(self._api_paths["client_details"], timeout=5.0)
+        except LuciConnectionError as _e:
+            # get() also reports an answer that is not JSON as a connection error.
+            # A firmware without this route answers HTTP 404 with a page: the
+            # router was reached, and asking again in a minute will not help.
+            if isinstance(_e.__cause__, ValueError):
+                raise LuciRequestError("Client details not available") from _e
+            raise
 
     async def wifi_connect_devices(self) -> dict:
         """xqnetwork/wifi_connect_devices method.
