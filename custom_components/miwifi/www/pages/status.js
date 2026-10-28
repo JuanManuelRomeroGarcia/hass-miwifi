@@ -1,4 +1,5 @@
 import "../components/miwifi-status-data.js?v=3.13.3";
+import "../components/miwifi-router-specific.js?v=3.13.3";
 import { html } from "../vendor/lit.js?v=3.13.3";
 import { getMainRouterMac, formatSignal, logToBackend } from "./utils.js?v=3.13.3";
 import { localize } from "../translations/localize.js?v=3.13.3";
@@ -228,5 +229,6 @@ export async function renderStatus(hass) {
       items: countItems(readDeviceCounts(node._macNorm)),
     })),
   ];
-  return html`<miwifi-status-data .sections=${sections}></miwifi-status-data>`;
+  return html`<miwifi-status-data .sections=${sections}></miwifi-status-data>
+    <miwifi-router-specific .hass=${hass}></miwifi-router-specific>`;
 }

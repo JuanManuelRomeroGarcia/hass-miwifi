@@ -1,4 +1,6 @@
 import { getRouterImage } from "./utils.js?v=3.13.3";
+import "../components/miwifi-router-specific.js?v=3.13.3";
+import "../components/miwifi-wifi-switches.js?v=3.13.3";
 import { html } from "../vendor/lit.js?v=3.13.3";
 import { renderToggle, renderSelects } from "./utils.js?v=3.13.3";
 import { localize } from "../translations/localize.js?v=3.13.3";
@@ -111,16 +113,17 @@ export async function renderMesh(hass) {
               .replace(/:/g, "_");
 
             const icon = getRouterImage(leaf.hardware);
+            const unified = sensor?.attributes?.wifi_unified === true;
 
             const switches = mac
               ? Object.values(hass.states).filter((e) =>
-                  e.entity_id.startsWith("switch.miwifi_" + mac)
+                  e.entity_id.startsWith("switch.miwifi_" + mac + "_")
                 )
               : [];
 
             const selects = mac
               ? Object.values(hass.states).filter((e) =>
-                  e.entity_id.startsWith("select.miwifi_" + mac)
+                  e.entity_id.startsWith("select.miwifi_" + mac + "_")
                 )
               : [];
 
@@ -137,12 +140,16 @@ export async function renderMesh(hass) {
                   ${localize("estado")}: ${localize("status_connected")}
                 </div>
 
+                ${["rc01", "rc06"].includes(String(leaf.hardware || sensor?.attributes?.graph?.hardware || "").toLowerCase())
+                  ? html`<miwifi-router-specific embedded .hass=${hass} .scope=${"mesh"}
+                      .routerMac=${sensor?.attributes?.graph?.mac || leaf.mac || ""}
+                      .routerIp=${leaf.ip || ""}></miwifi-router-specific>` : ""}
+
                 ${mac
                   ? html`
-                      <div class="section">
-                        <h3>${localize("settings_wifi_switches")}</h3>
-                        ${switches.map((sw) => renderToggle(hass, sw))}
-                      </div>
+                      <miwifi-wifi-switches .hass=${hass} .switches=${switches}
+                        .routerMac=${sensor?.attributes?.graph?.mac || leaf.mac || ""}
+                        .routerIp=${leaf.ip || ""} .unified=${unified}></miwifi-wifi-switches>
 
                       <div class="section">
                         <h3>${localize("settings_channels")}</h3>
