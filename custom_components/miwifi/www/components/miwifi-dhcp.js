@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.13.0";
-import { localize } from "../translations/localize.js?v=3.13.0";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.13.2";
+import { localize } from "../translations/localize.js?v=3.13.2";
 
 export class MiWiFiDhcp extends LitElement {
   static properties = {

@@ -2,9 +2,27 @@
 
 ## Unreleased
 
+- Keep the trial branch synchronized with stable 3.13.1/3.13.2, including non-blocking file operations, credential privacy and reauthentication. Include #382's client-details backoff, #380's atomic signal snapshot and #372's registry renaming.
+- Prevent IoT writes from following redirects, reject invalid Unicode SSIDs and isolate pending forms and responses when switching routers. Keep full names visible in device cards and preserve unified Wi-Fi controls and model-specific experimental panels.
+
 - Export separate `routes.json` and redacted `responses.json` from the standalone API tools. Add an optional SSH-to-HTTP workflow with independent credentials, explicit unqueried routes, an opt-in model-specific read probe and a contributor guide. Preserve the fixed read catalogue and keep this research outside HA polling.
 - Prepare model/role-scoped API diagnostic reads for RC01/RC06 thermal control, port maps, mesh preferences/steering, Multi-WAN and WPS/NFC. Keep them outside normal polling and preserve the existing capture budgets, redaction and explicit skip reasons. RC01 1.1.56 thermal analysis identifies the maximum of seven Celsius inputs and a fan RPM value that can be estimated from PWM below the tachometer threshold. Do not treat it as an always-measured speed, an exclusive CPU temperature or proof of a stopped fan; WPS/NFC fields do not establish per-radio WPA3.
 - Add a standalone bounded live-read tool using a fixed reviewed catalogue, explicit host authentication settings, short sample sequences and redacted comparison reports. Read mesh client lists from the principal and local node information from the node; never invoke routes discovered by SSH automatically.
+
+## 3.13.2 — 2026-10-25
+
+- Strip query strings before storing request paths in diagnostics or logging authentication retries. Also sanitize old diagnostic request keys on export and omit URL-bearing exception text, preventing Wi-Fi passwords from leaking through these paths.
+- Recognize explicit login rejection, raise Home Assistant's authentication failure and stop scheduled polling until credentials are updated. Expired sessions still receive one login retry; connection failures remain connection failures.
+- Add a reauthentication form in all eight languages. Validate the new administrator password, update the existing entry (including a saved options override), preserve router identity and settings, and reload it without creating a duplicate.
+- Add regressions for Wi-Fi request privacy, authentication errors, coordinator setup/polling and reauthentication recovery. Update bundled frontend cache references to 3.13.2.
+
+## 3.13.1 — 2026-10-24
+
+- Move manual main-router MAC directory creation, file reads and removal to Home Assistant's executor. Refresh the router coordinator after saving or clearing the override.
+- Queue file logging outside the event loop, including rotation, initialization, reset and shutdown. Store logs in Home Assistant's configuration directory and clean up partially initialized handlers.
+- Move private-download file checks and legacy user-override loading to the executor.
+- Add regression coverage for filesystem thread ownership, concurrent logging setup, rotation, failure cleanup and shutdown. Document UTC for the legacy test suite.
+- Update the bundled frontend cache version to 3.13.1. Restart Home Assistant and refresh the panel after updating.
 
 ## 3.13.0 — 2026-10-20
 

@@ -32,7 +32,7 @@ from .const import (
     DEFAULT_PROTOCOL,
 )
 from .enum import EncryptionAlgorithm
-from .exceptions import LuciConnectionError, LuciError, LuciRequestError
+from .exceptions import LuciAuthenticationError, LuciConnectionError, LuciError, LuciRequestError
 
 API_PATHS = {
     "login": "xqsystem/login",
@@ -135,6 +135,7 @@ class LuciClient:
         self._url = None
 
         self.diagnostics: dict[str, Any] = {}
+        self.authentication_failed = False
         self._api_paths = API_PATHS.copy()
         self._mode_retry_at = 0.0
         self._mode_fallback_logged = False
@@ -239,6 +240,11 @@ class LuciClient:
             )
 
 
+            if response.status_code in (401, 403):
+                self._token = None
+                self.authentication_failed = True
+                raise LuciAuthenticationError("Router rejected the login credentials")
+
             self._debug("Successful request", _url, response.content, _method)
 
             _data: dict = json.loads(response.content)
@@ -247,11 +253,17 @@ class LuciClient:
 
             raise LuciConnectionError("Connection error") from _e
 
+        if _data.get("code") in (401, "401"):
+            self._token = None
+            self.authentication_failed = True
+            raise LuciAuthenticationError("Router rejected the login credentials")
+
         if response.status_code != 200 or "token" not in _data:
             self._debug("Failed to get token", _url, _data, _method)
 
             raise LuciRequestError("Failed to get token")
 
+        self.authentication_failed = False
         self._token = _data["token"]
 
         return _data
@@ -296,6 +308,9 @@ class LuciClient:
         :return dict: dict with api data.
         """
 
+        if self.authentication_failed:
+            raise LuciAuthenticationError("Router rejected the login credentials")
+
         if use_stok and self._token is None:
             raise LuciRequestError("Token not found")
 
@@ -339,7 +354,7 @@ class LuciClient:
             # Si el router devuelve invalid token, hacemos re-login y reintentamos 1 vez
             msg = str(_data.get("msg", "")).lower()
             if use_stok and ("invalid token" in msg):
-                _LOGGER.debug("[MiWiFi] Invalid token detected on GET %s -> re-login and retry once", path)
+                _LOGGER.debug("[MiWiFi] Invalid token detected on GET %s -> re-login and retry once", path.split("?", 1)[0])
 
                 async with self._login_lock:
                     # otro refresh pudo haber relogueado ya; si aun falla, login de nuevo
@@ -622,7 +637,15 @@ class LuciClient:
 
     async def client_details(self) -> dict:
         """Read extended client metrics; not a replacement for the client census."""
-        return await self.get(self._api_paths["client_details"], timeout=5.0)
+        try:
+            return await self.get(self._api_paths["client_details"], timeout=5.0)
+        except LuciConnectionError as _e:
+            # get() also reports an answer that is not JSON as a connection error.
+            # A firmware without this route answers HTTP 404 with a page: the
+            # router was reached, and asking again in a minute will not help.
+            if isinstance(_e.__cause__, ValueError):
+                raise LuciRequestError("Client details not available") from _e
+            raise
 
     async def wifi_connect_devices(self) -> dict:
         """xqnetwork/wifi_connect_devices method.
@@ -894,6 +917,9 @@ class LuciClient:
             # These responses contain Wi-Fi keys; never keep them in diagnostics.
             return
 
+        if isinstance(content, BaseException):
+            content = type(content).__name__
+
         _content: dict | str = {}
 
         try:
@@ -901,6 +927,8 @@ class LuciClient:
         except (ValueError, TypeError):
             _content = str(content)
 
+        # Query strings may contain Wi-Fi passwords. Never retain them as keys.
+        path = path.split("?", 1)[0]
         self.diagnostics[path] = {
             DIAGNOSTIC_DATE_TIME: datetime.now().replace(microsecond=0).isoformat(),
             DIAGNOSTIC_MESSAGE: message,

@@ -33,6 +33,13 @@
           "scan_interval": "Time between scheduled polls. Requests add time, so actual readings may be farther apart. Lower values increase router load; allow enough presence time for the slowest reporting node.",
           "timeout": "How long to wait for a router request. Some endpoints use shorter limits; this is not the maximum duration of a complete poll. It is separate from presence time."
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate MiWiFi",
+        "description": "The router at {ip_address} rejected the stored password. Enter its current administrator password.",
+        "data": {
+          "password": "[%key:common::config_flow::data::password%]"
+        }
       }
     }
   },

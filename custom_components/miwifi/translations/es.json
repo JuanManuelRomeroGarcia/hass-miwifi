@@ -35,6 +35,13 @@
           "scan_interval": "Tiempo entre consultas programadas. Las peticiones añaden tiempo: las lecturas reales pueden estar más separadas. Reducirlo aumenta la carga del router. El margen de presencia debe cubrir al nodo que informa más despacio.",
           "timeout": "Espera de una petición al router. Algunas consultas usan límites más cortos; no es el tiempo máximo de un ciclo completo. Es distinto del margen de presencia."
         }
+      },
+      "reauth_confirm": {
+        "title": "Volver a autenticar MiWiFi",
+        "description": "El router {ip_address} ha rechazado la contraseña guardada. Introduce su contraseña de administrador actual.",
+        "data": {
+          "password": "Contraseña"
+        }
       }
     }
   },

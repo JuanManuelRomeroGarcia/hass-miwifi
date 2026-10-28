@@ -1,4 +1,5 @@
 from __future__ import annotations
+from homeassistant.exceptions import ConfigEntryAuthFailed
 
 import math
 import time
@@ -136,6 +137,9 @@ async def async_verify_access(
         await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] Login OK - código %s", updater.code)
         return updater.code, ""
     
+    except ConfigEntryAuthFailed:
+        return codes.FORBIDDEN, "Invalid password"
+
     except (ConnectError, TimeoutException) as e:
         await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] Error de conexión o timeout con %s: %s", ip, str(e))
         return codes.REQUEST_TIMEOUT, str(e)

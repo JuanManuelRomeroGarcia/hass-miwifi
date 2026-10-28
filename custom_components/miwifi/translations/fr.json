@@ -35,6 +35,13 @@
           "scan_interval": "Intervalle entre les lectures programmées. Les requêtes ajoutent du temps. Un intervalle court sollicite davantage le routeur. Tenez compte du nœud mesh le plus lent.",
           "timeout": "Délai d’attente par requête au routeur. Certaines requêtes ont une limite plus courte. Ce n’est ni la durée maximale d’un cycle complet ni le délai de présence."
         }
+      },
+      "reauth_confirm": {
+        "title": "Authentifier à nouveau MiWiFi",
+        "description": "Le routeur {ip_address} a refusé le mot de passe enregistré. Saisissez son mot de passe administrateur actuel.",
+        "data": {
+          "password": "Mot de passe"
+        }
       }
     }
   },

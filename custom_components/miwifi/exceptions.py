@@ -15,3 +15,7 @@ class LuciConnectionError(LuciError):
 
 class LuciRequestError(LuciError):
     """Luci request error"""
+
+
+class LuciAuthenticationError(LuciError):
+    """The router explicitly rejected the login credentials."""
