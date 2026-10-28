@@ -1,4 +1,4 @@
-"""Local review checks for parent freshness, replacement and wired clients."""
+"""Regressions for parent freshness, replacement and wired client sensors."""
 from unittest.mock import patch
 
 import pytest
