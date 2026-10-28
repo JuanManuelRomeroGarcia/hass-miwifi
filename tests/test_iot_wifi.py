@@ -115,6 +115,21 @@ async def test_luci_posts_keys_in_body_without_diagnostic_retention():
         assert not client.diagnostics
 
 
+async def test_iot_write_never_follows_a_redirect_with_passwords():
+    requests = []
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(307, headers={"Location": "http://192.0.2.99/elsewhere"})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle), follow_redirects=True) as transport:
+        client = LuciClient(transport, ip="192.0.2.1", password="test", protocol="http")
+        client._url = "http://192.0.2.1/cgi-bin/luci"
+        client._token = "test-session"
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.set_iot_wifi({"password2g": "secret-test-key"})
+        assert len(requests) == 1
+        assert requests[0].url.host == "192.0.2.1"
+
+
 @pytest.mark.parametrize("write", [False, True])
 async def test_iot_websockets_require_admin(hass, hass_ws_client, hass_read_only_user, write):
     for handler in (ws_api.websocket_iot_read, ws_api.websocket_iot_write):

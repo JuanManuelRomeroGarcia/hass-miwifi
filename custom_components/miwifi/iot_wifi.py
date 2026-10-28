@@ -42,7 +42,13 @@ def _parse(payload) -> dict:
 
 
 def _ssid(value):
-    if not isinstance(value, str) or not 1 <= len(value.encode("utf-8")) <= 32 or any(ord(c) < 32 or ord(c) == 127 for c in value):
+    if not isinstance(value, str):
+        raise IotError("invalid")
+    try:
+        length = len(value.encode("utf-8"))
+    except UnicodeError:
+        raise IotError("invalid") from None
+    if not 1 <= length <= 32 or any(ord(c) < 32 or ord(c) == 127 for c in value):
         raise IotError("invalid")
     return value
 

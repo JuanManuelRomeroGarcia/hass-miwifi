@@ -25,6 +25,7 @@ def _read_json_file(path) -> dict:
 
 
 def _write_json_file(path: str, data: dict) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as file:
         json.dump(data, file)
 
@@ -79,7 +80,6 @@ async def async_save_manual_main_mac(hass: HomeAssistant, mac: str):
     """Save manually selected MAC to a JSON file."""
     path = hass.config.path(MAIN_ROUTER_STORE_FILE)
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
         await hass.async_add_executor_job(_write_json_file, path, {"manual_main_mac": mac})
         await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] ✅ MAC Manual saved correctly in %s", path)
         
@@ -87,7 +87,7 @@ async def async_save_manual_main_mac(hass: HomeAssistant, mac: str):
         integrations = async_get_integrations(hass)
         for integ in integrations.values():
             try:
-                await integ["updater"].coordinator.async_request_refresh()
+                await integ["updater"].async_request_refresh()
             except Exception:
                 pass
 
@@ -98,9 +98,6 @@ async def async_save_manual_main_mac(hass: HomeAssistant, mac: str):
 async def async_load_manual_main_mac(hass: HomeAssistant) -> str | None:
     """Load manually selected MAC from file."""
     path = hass.config.path(MAIN_ROUTER_STORE_FILE)
-    if not os.path.exists(path):
-        await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] No manual MAC file found at %s", path)
-        return None
     try:
         data = await hass.async_add_executor_job(_read_json_file, path)
         if isinstance(data, dict):
@@ -110,6 +107,9 @@ async def async_load_manual_main_mac(hass: HomeAssistant) -> str | None:
         else:
             await hass.async_add_executor_job(_LOGGER.warning, "[MiWiFi] ❌ Unexpected format in file: %s (expected: dict, received: %s)", path, type(data).__name__)
             return None
+    except FileNotFoundError:
+        await hass.async_add_executor_job(_LOGGER.debug, "[MiWiFi] No manual MAC file found at %s", path)
+        return None
     except Exception as e:
         await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error reading manual MAC: %s", e)
         return None
@@ -119,9 +119,10 @@ async def async_clear_manual_main_mac(hass: HomeAssistant):
     """Remove stored MAC file."""
     path = hass.config.path(MAIN_ROUTER_STORE_FILE)
     try:
-        if os.path.exists(path):
-            await hass.async_add_executor_job(os.remove, path)
-            await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🗑️Manual MAC file deleted: %s", path)
+        await hass.async_add_executor_job(os.remove, path)
+        await hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] 🗑️Manual MAC file deleted: %s", path)
+    except FileNotFoundError:
+        pass
     except Exception as e:
         await hass.async_add_executor_job(_LOGGER.error, "[MiWiFi] ❌ Error deleting file from MAC manually: %s", e)
 

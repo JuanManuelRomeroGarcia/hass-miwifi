@@ -375,7 +375,7 @@ class LuciClient:
         if self._url is None or self._token is None:
             raise LuciRequestError("IoT session not ready")
         url = f"{self._url}/;stok={self._token}/api/xqnetwork/set_iotwifi_info"
-        response = await self._client.post(url, data=data, timeout=timeout)
+        response = await self._client.post(url, data=data, timeout=timeout, follow_redirects=False)
         response.raise_for_status()
         result = response.json()
         if not isinstance(result, dict) or result.get("code") != 0:

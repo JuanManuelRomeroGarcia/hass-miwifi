@@ -48,6 +48,23 @@ await panel._save();
 assert.equal(panel.error, "iot_unverified");
 assert.equal(panel.snapshot, null);
 assert.equal(panel.busy, false);
+// Switching main routers must discard a late response and prevent cross-router saves.
+const stale = new context.Panel();
+stale.routerMac = "router-a";
+let releaseOld;
+let staleCalls = 0;
+stale.hass = {user: {is_admin: true}, callWS: () => { staleCalls++; return new Promise(resolve => { releaseOld = resolve; }); }};
+const oldRead = stale._load();
+stale.routerMac = "router-b";
+stale.updated(new Map([["routerMac", "router-a"]]));
+releaseOld(snapshot);
+await oldRead;
+assert.equal(stale.snapshot, null);
+stale._accept(snapshot);
+stale._edit(0, "ssid", "Changed");
+stale.routerMac = "router-c";
+await stale._save();
+assert.equal(staleCalls, 1);
 for (const lang of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"]) {
   const t = JSON.parse(fs.readFileSync(`custom_components/miwifi/www/translations/${lang}.json`, "utf8"));
   for (const key of ["title", "hint", "error", "saved", "unsupported", "stale", "unverified", "invalid", "show_password", "hide_password"]) assert.ok(t[`iot_${key}`]);

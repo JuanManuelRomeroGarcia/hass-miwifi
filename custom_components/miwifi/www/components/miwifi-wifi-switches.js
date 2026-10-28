@@ -8,7 +8,10 @@ class MiWiFiWifiSwitches extends LitElement {
   static properties = { hass: {}, switches: {}, routerMac: {}, routerIp: {}, unified: {}, _unified: {state: true}, _radioIds: {state: true} };
   constructor() { super(); this.switches = []; this._unified = null; this._radioIds = {}; this._attempted = false; }
   createRenderRoot() { return this; }
-  updated() {
+  updated(changed = new Map()) {
+    if ((changed.has("routerMac") || changed.has("routerIp")) && this._attempted) {
+      this._unified = null; this._radioIds = {}; this._attempted = false;
+    }
     if (!this._attempted && this.hass?.user?.is_admin) { this._attempted = true; this._load(); }
   }
   async _load() {
