@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.13.2";
-import { localize } from "../translations/localize.js?v=3.13.2";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.13.3";
+import { localize } from "../translations/localize.js?v=3.13.3";
 
 const COLUMNS = [
   ["name", "label_name"], ["state", "nav_status"], ["ip", "ip"],
@@ -105,9 +105,33 @@ class MiWiFiDeviceCards extends LitElement {
       case "wifi_protocol": return this._getConnectionKey(a.connection) === "lan" ? "—" : a.wifi_protocol || "—";
       case "up": return a.up_speed ?? "—";
       case "down": return a.down_speed ?? "—";
-      case "last": return a.last_activity || "—";
+      case "last": return this._formatLastActivity(a.last_activity);
       case "wan": return localize(a.internet_blocked ? "wan_blocked" : "wan_allowed");
       default: return a[key] || "—";
+    }
+  }
+
+  _lastActivityDate(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T/.test(value)) return null;
+    // Offset-free values are router/HA wall time. Keep those clock fields
+    // unchanged even when the browser runs in a different time zone.
+    const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
+    const date = new Date(explicitZone ? value : `${value}Z`);
+    return Number.isFinite(date.getTime()) ? date : null;
+  }
+
+  _formatLastActivity(value) {
+    const date = this._lastActivityDate(value);
+    if (!date) return "—";
+    const explicitZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
+    const options = {
+      dateStyle: "medium", timeStyle: "medium",
+      timeZone: explicitZone ? this.hass?.config?.time_zone : "UTC",
+    };
+    try {
+      return new Intl.DateTimeFormat(this.hass?.locale?.language || this.hass?.language || undefined, options).format(date);
+    } catch {
+      return new Intl.DateTimeFormat(undefined, { ...options, timeZone: "UTC" }).format(date);
     }
   }
 
@@ -128,6 +152,9 @@ class MiWiFiDeviceCards extends LitElement {
   }
 
   _sortValue(device, topo) {
+    if (this._sort === "last") {
+      return this._lastActivityDate(device.attributes?.last_activity)?.getTime() ?? -Infinity;
+    }
     const value = this._cellValue(device, this._sort, topo);
     if (["up", "down"].includes(this._sort)) {
       const match = String(value).match(/^([\d.]+)\s*([KMGT]?)B\/s$/i);
@@ -520,7 +547,7 @@ class MiWiFiDeviceCards extends LitElement {
 
         <div class="device-info">↑ ${a.up_speed ?? "0 B/s"}</div>
         <div class="device-info">↓ ${a.down_speed ?? "0 B/s"}</div>
-        <div class="device-info">${localize("last_activity")}: ${a.last_activity ?? "-"}</div>
+        <div class="device-info">${localize("last_activity")}: ${this._cellValue(device, "last", topo)}</div>
 
         <div class="device-info">
           ${localize("wan_access")}:
@@ -557,10 +584,10 @@ class MiWiFiDeviceCards extends LitElement {
         @blur=${event => this._rename(device, event.target.value)}>`;
     }
     return html`
-      <div class="device-name" title=${name}>${name}</div>
       ${this.hass?.user?.is_admin ? html`<button class="rename-button" title=${localize("devices_rename")}
         aria-label=${`${localize("devices_rename")}: ${name}`}
         @click=${() => this._startRename(device)}>✏️</button>` : ""}
+      <div class="device-name" title=${name}>${name}</div>
     `;
   }
 
@@ -707,13 +734,13 @@ class MiWiFiDeviceCards extends LitElement {
       display: flex;
       justify-content: center;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
       margin-bottom: 10px;
       flex-wrap: nowrap;
     }
 
-    /* Let long names shrink so the rename button stays inside the card. */
-    .card-header .device-name, .name-cell .device-name { min-width: 0; }
+    /* Keep the edit control on the left and let complete names wrap. */
+    .card-header .device-name, .name-cell .device-name { min-width: 0; flex: 1 1 auto; }
     .name-cell { display: flex; align-items: center; gap: 4px; }
     .name-cell .device-name { font-size: inherit; font-weight: inherit; }
     .rename-button {
@@ -728,14 +755,13 @@ class MiWiFiDeviceCards extends LitElement {
       color: var(--primary-text-color, #212121); background: var(--card-background-color, white);
     }
 
-    /* ✅ una línea */
+    /* Long hostnames remain fully visible at every card width. */
     .device-name {
       font-size: 22px;
       font-weight: 700;
       line-height: 1.2;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow-wrap: anywhere;
       max-width: 100%;
     }
 

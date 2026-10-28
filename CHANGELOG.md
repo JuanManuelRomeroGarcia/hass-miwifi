@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.13.3 — 2026-10-28
+
+- Refresh clients from a force-load AP or Mesh node's own lists when no parent provides a recent snapshot (#378). Keep recent parent data authoritative and resume local observations after it expires. Preserve client names and blocking decisions when the radio list lacks them.
+- Publish each Wi-Fi signal census atomically, preventing parent pushes from reading a temporarily empty signal map (#380). Back off for one hour when the optional client-details route returns non-JSON data, while retaining short retries for transport failures (#382).
+- Add administrator-only client renaming in card and table views (#372), with persistent registry updates, reset to the original name and protection for overlapping edits.
+- Put the edit control to the left of the client name and wrap complete names instead of truncating them. Show last activity as a localized date and time in both views, preserving wall time for values without an offset and chronological sorting.
+- Add parent-freshness boundary, main-reload and LAN sensor regressions. Validate on HA 2026.10.0 and 2026.9.3; live checks on BE10000 with BE7000 Mesh confirmed renaming, metric refresh, LAN field visibility and no new MiWiFi log errors.
+- Update integration, bundled frontend and cache references together to 3.13.3. Restart Home Assistant and refresh the panel after updating. Experimental router API and IoT configuration remain in PR #373 and are not included in this release.
+
 ## 3.13.2 — 2026-10-25
 
 - Strip query strings before storing request paths in diagnostics or logging authentication retries. Also sanitize old diagnostic request keys on export and omit URL-bearing exception text, preventing Wi-Fi passwords from leaking through these paths.
