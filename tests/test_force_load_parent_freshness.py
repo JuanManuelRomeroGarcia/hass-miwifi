@@ -17,8 +17,11 @@ from tests.test_force_load_client_refresh import (
 async def test_parent_snapshot_expires_at_the_actual_default_boundary(nodes, age, signal, unit):
     main = nodes(MAIN_IP, MAIN_MAC, Mode.ACCESS_POINT, ap_mode=True)
     leaf = nodes(LEAF_IP, LEAF_MAC, Mode.MESH_NODE)
-    await _push(main)
-    observed = leaf._parent_census_clients[PUSHED][1]
+    # Use an exactly representable clock origin: adding 110 to an arbitrary
+    # fractional monotonic value can round its subtraction just above 110.
+    observed = 1024.0
+    with patch("custom_components.miwifi.updater.monotonic", return_value=observed):
+        await _push(main)
     _radio(leaf, {PUSHED: 35}, band=2)
     with patch("custom_components.miwifi.updater.monotonic", return_value=observed + age):
         await _poll(leaf)
