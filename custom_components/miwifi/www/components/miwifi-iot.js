@@ -1,5 +1,5 @@
-import { LitElement, html } from "../vendor/lit.js?v=3.13.2";
-import { localize } from "../translations/localize.js?v=3.13.2";
+import { LitElement, html } from "../vendor/lit.js?v=3.13.3";
+import { localize } from "../translations/localize.js?v=3.13.3";
 
 class MiWiFiIot extends LitElement {
   static properties = {hass: {}, routerMac: {}, snapshot: {state: true}, form: {state: true}, busy: {state: true}, error: {state: true}, saved: {state: true}, showPasswords: {state: true}};

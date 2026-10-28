@@ -1,5 +1,5 @@
-import { LitElement, html, css } from "../vendor/lit.js?v=3.13.2";
-import { localize } from "../translations/localize.js?v=3.13.2";
+import { LitElement, html, css } from "../vendor/lit.js?v=3.13.3";
+import { localize } from "../translations/localize.js?v=3.13.3";
 
 const PREFERENCE_KEY = "miwifi.status-view.v1";
 

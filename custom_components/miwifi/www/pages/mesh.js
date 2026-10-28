@@ -1,10 +1,10 @@
-import { getRouterImage } from "./utils.js?v=3.13.2";
-import "../components/miwifi-router-specific.js?v=3.13.2";
-import "../components/miwifi-wifi-switches.js?v=3.13.2";
-import { html } from "../vendor/lit.js?v=3.13.2";
-import { renderToggle, renderSelects } from "./utils.js?v=3.13.2";
-import { localize } from "../translations/localize.js?v=3.13.2";
-import { logToBackend } from "./utils.js?v=3.13.2";
+import { getRouterImage } from "./utils.js?v=3.13.3";
+import "../components/miwifi-router-specific.js?v=3.13.3";
+import "../components/miwifi-wifi-switches.js?v=3.13.3";
+import { html } from "../vendor/lit.js?v=3.13.3";
+import { renderToggle, renderSelects } from "./utils.js?v=3.13.3";
+import { localize } from "../translations/localize.js?v=3.13.3";
+import { logToBackend } from "./utils.js?v=3.13.3";
 
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 

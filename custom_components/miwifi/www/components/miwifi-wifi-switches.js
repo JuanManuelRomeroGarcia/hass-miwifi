@@ -1,6 +1,6 @@
-import { LitElement, html } from "../vendor/lit.js?v=3.13.2";
-import { localize } from "../translations/localize.js?v=3.13.2";
-import { renderToggle } from "../pages/utils.js?v=3.13.2";
+import { LitElement, html } from "../vendor/lit.js?v=3.13.3";
+import { localize } from "../translations/localize.js?v=3.13.3";
+import { renderToggle } from "../pages/utils.js?v=3.13.3";
 
 const pendingReads = new WeakMap();
 

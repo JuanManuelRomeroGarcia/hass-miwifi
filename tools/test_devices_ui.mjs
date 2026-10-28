@@ -162,4 +162,46 @@ await panel._rename(named, "Fails");
 assert.equal(panel._renameError, "devices_rename_error");
 assert.equal(panel._renamePending.size, 0);
 assert.equal(panel._renaming, null);
+// Complete names remain in the template, with the edit control first.
+const completeName = "S21-Ultra-de-Juan-Manuel-con-un-nombre-completo";
+const longNamed = device(completeName, "192.0.2.70", 50);
+const flatten = value => {
+  if (Array.isArray(value)) return value.map(flatten).join("");
+  if (value?.strings) return value.strings.reduce((out, part, index) => out + part + flatten(value.values[index]), "");
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+};
+panel.hass.user.is_admin = true;
+const renderedName = flatten(panel._renderName(longNamed, topo));
+assert.ok(renderedName.includes(completeName));
+assert.ok(renderedName.indexOf("rename-button") < renderedName.indexOf("device-name"));
+panel.hass.user.is_admin = false;
+assert.ok(!flatten(panel._renderName(longNamed, topo)).includes("rename-button"));
+assert.ok(flatten(panel._renderName(longNamed, topo)).includes(completeName));
+
+// Both views use a localized date, while sorting still uses chronology.
+panel.hass.language = "es";
+panel.hass.config = { time_zone: "America/New_York" };
+const wallTime = "2026-10-28T16:26:27";
+const dateOptions = { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" };
+const spanishWallTime = new Intl.DateTimeFormat("es", dateOptions).format(new Date(`${wallTime}Z`));
+assert.equal(panel._formatLastActivity(wallTime), spanishWallTime); // Do not shift an offset-free HA wall time.
+longNamed.attributes.last_activity = wallTime;
+assert.equal(panel._cellValue(longNamed, "last", topo), spanishWallTime);
+assert.ok(flatten(panel._renderCard(longNamed, topo, {})).includes(spanishWallTime));
+assert.ok(!flatten(panel._renderCard(longNamed, topo, {})).includes(wallTime));
+const utcTime = `${wallTime}Z`;
+assert.equal(panel._formatLastActivity(utcTime), new Intl.DateTimeFormat("es", { ...dateOptions, timeZone: "America/New_York" }).format(new Date(utcTime)));
+panel.hass.language = "en";
+assert.equal(panel._formatLastActivity(wallTime), new Intl.DateTimeFormat("en", dateOptions).format(new Date(utcTime)));
+for (const invalid of [null, undefined, "", "bad date", "2026-99-99T00:00:00"]) assert.equal(panel._formatLastActivity(invalid), "—");
+panel.hass.config.time_zone = "not-a-time-zone";
+assert.doesNotThrow(() => panel._formatLastActivity(utcTime));
+const earlier = device("Earlier", "192.0.2.71", 50);
+earlier.attributes.last_activity = "2026-10-31T23:59:59";
+const later = device("Later", "192.0.2.72", 50);
+later.attributes.last_activity = "2026-11-01T00:00:00";
+panel._search = "";
+panel._sort = "last";
+panel._descending = false;
+assert.deepEqual(Array.from(panel._visibleDevices([later, earlier], topo), d => d.entity_id), [earlier.entity_id, later.entity_id]);
 console.log("PASS: numeric name/IP sorting, search, columns, preference restore, blocked storage, unavailable state, admin-only WAN writes, duplicate-write guard, failure feedback, admin-only registry renames and eight languages.");
