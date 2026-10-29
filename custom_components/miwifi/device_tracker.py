@@ -78,8 +78,8 @@ from .helper import (
     device_config_entry_ids,
     device_registry_rows,
     get_config_value,
+    LastActivityReader,
     map_signal_quality,
-    parse_last_activity,
     pretty_size,
 )
 from .logger import _LOGGER
@@ -670,6 +670,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         self._device = dict(device)
         self._updater = updater
         self._stay_online = max(int(stay_online or 0), 10)
+        self._last_activity = LastActivityReader()
 
         self.entity_id = entity_id
         self._attr_unique_id = unique_id
@@ -1027,7 +1028,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         if device is None:
             last_ts: int = self._last_seen(
                 self._device,
-                parse_last_activity(str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))),
+                self._last_activity.read(str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))),
             )
             is_connected = False
             if last_ts:
@@ -1049,11 +1050,11 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
 
         # Connectivity: last_activity aging window. If router reports the device but we
         # can't parse a timestamp, treat it as connected.
-        current_ts: int = parse_last_activity(
+        current_ts: int = self._last_activity.read(
             str(device.get(ATTR_TRACKER_LAST_ACTIVITY))
         )
         if not current_ts:
-            current_ts = parse_last_activity(
+            current_ts = self._last_activity.read(
                 str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))
             )
         current_ts = self._last_seen(device, current_ts)

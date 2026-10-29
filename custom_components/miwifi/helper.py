@@ -4,7 +4,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 import math
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Final
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
@@ -14,7 +14,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.json import JSONEncoder
 from homeassistant.helpers.storage import Store
 from homeassistant.loader import async_get_integration
-from homeassistant.util import slugify
+from homeassistant.util import dt as dt_util, slugify
 from httpx import codes, HTTPError, ConnectError, TimeoutException
 
 from .const import (
@@ -180,11 +180,71 @@ def get_store(hass: HomeAssistant, ip: str) -> Store:
     return Store(hass, STORAGE_VERSION, f"{DOMAIN}/{ip}.json", encoder=JSONEncoder)
 
 
+# How far ahead of the clock a last activity may be and still be read as the
+# later of the two times it names in the hour the clocks repeat, and in Home
+# Assistant's time zone: the clock can be set back a little after a router's
+# list was read.
+LAST_ACTIVITY_CLOCK_SLACK: Final = 60
+
+
+def _system_timestamp(wall: datetime) -> int:
+    """A wall time without an offset as a timestamp, in the system's time zone."""
+    return int(wall.timestamp())
+
+
 def parse_last_activity(last_activity: str) -> int:
-    """Convert last activity datetime string to timestamp."""
-    return int(
-        time.mktime(datetime.strptime(last_activity, "%Y-%m-%dT%H:%M:%S").timetuple())
+    """Convert last activity datetime string to timestamp.
+
+    The string is Home Assistant's local time without an offset, as the updater
+    writes it. In the hour the clocks repeat when they go back, it names two
+    times an hour apart: it is the later one, unless that is still to come.
+    Read as the earlier one, a client seen a moment ago was an hour old, and
+    away, for the whole repeated hour. That holds while the value is new: one
+    written in the first occurrence and read again from a minute before the
+    clock reaches that time in the second gives the second, as if the client
+    had just been seen. LastActivityReader keeps the first reading.
+
+    Earlier versions wrote the system's time: where the system's zone is ahead
+    of Home Assistant's, such a time can still be to come in Home Assistant's.
+    One that is, by more than the slack, is read in the system's zone, or a
+    client that left in the hours before the upgrade would be home until then.
+    """
+    wall = datetime.strptime(last_activity, "%Y-%m-%dT%H:%M:%S").replace(
+        tzinfo=dt_util.get_default_time_zone()
     )
+    first, second = (int(wall.replace(fold=fold).timestamp()) for fold in (0, 1))
+    latest = time.time() + LAST_ACTIVITY_CLOCK_SLACK
+    if first > latest:
+        system = _system_timestamp(wall.replace(tzinfo=None))
+        if system <= latest:
+            return system
+    if first < second <= latest:
+        return second
+    return first
+
+
+class LastActivityReader:
+    """A client's last activity as a timestamp, each value read once.
+
+    A tracker or a client sensor reads its client's last activity in the poll
+    that writes it, or the next one for a new client, when parse_last_activity
+    gets the repeated hour right, and keeps that reading while the value stays:
+    a client last listed in the first occurrence is not seen again an hour
+    later. Only an entity added in the second occurrence, at a restart or a
+    reload, reads such a value afresh.
+    """
+
+    def __init__(self) -> None:
+        """Nothing read yet."""
+        self._value: str | None = None
+        self._timestamp: int = 0
+
+    def read(self, last_activity: str) -> int:
+        """The timestamp of this value, as parse_last_activity first read it."""
+        if last_activity != self._value:
+            self._timestamp = parse_last_activity(last_activity)
+            self._value = last_activity
+        return self._timestamp
 
 
 def pretty_size(speed: float) -> str:
