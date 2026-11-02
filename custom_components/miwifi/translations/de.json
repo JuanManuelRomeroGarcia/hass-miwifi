@@ -70,7 +70,11 @@
           "log_level": "Log-Level (global)",
           "auto_purge_every_days": "Automatische Bereinigung alle X Tage (0 = deaktiviert) [PRO]",
           "auto_purge_at": "Zeit für automatische Bereinigung (HH:MM) [PRO]",
-          "enable_device_sensors": "Gerätesensoren erstellen (Clients)"
+          "enable_device_sensors": "Gerätesensoren erstellen (Clients)",
+          "device_sensor_types": "Zu erstellende Gerätesensoren"
+        },
+        "data_description": {
+          "device_sensor_types": "Gilt für alle verbundenen Geräte. Sensoren nicht ausgewählter Typen werden nicht erstellt, vorhandene werden entfernt."
         }
       },
       "device_settings": {
@@ -96,6 +100,26 @@
           "scan_interval": "Abstand zwischen geplanten Abfragen. Anfragen benötigen zusätzliche Zeit. Kürzere Intervalle belasten den Router stärker. Berücksichtige den langsamsten meldenden Mesh-Knoten.",
           "timeout": "Wartezeit pro Routeranfrage. Einige Endpunkte verwenden kürzere Grenzen. Dies ist nicht die maximale Dauer einer vollständigen Abfrage und nicht die Anwesenheitsdauer."
         }
+      }
+    }
+  },
+  "selector": {
+    "device_sensor_types": {
+      "options": {
+        "ip": "IP-Adresse",
+        "connection": "Verbindung",
+        "online": "Verbindungsdauer",
+        "down_speed": "Downloadgeschwindigkeit",
+        "up_speed": "Uploadgeschwindigkeit",
+        "total_usage": "Übertragene Daten",
+        "signal": "Signal",
+        "wifi_protocol": "WLAN-Protokoll",
+        "link_tx_rate": "TX-Verbindungsrate",
+        "link_rx_rate": "RX-Verbindungsrate",
+        "signal_quality": "Signalqualität",
+        "last_activity": "Letzte Aktivität",
+        "first_seen": "Erstmals erkannt",
+        "internet_blocked": "Internetzugang gesperrt"
       }
     }
   },

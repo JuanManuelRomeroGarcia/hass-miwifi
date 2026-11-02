@@ -70,7 +70,11 @@
           "log_level": "Nível de log (global)",
           "auto_purge_every_days": "Limpeza automática a cada X dias (0 = desativado) [PRO]",
           "auto_purge_at": "Hora da limpeza automática (HH:MM) [PRO]",
-          "enable_device_sensors": "Criar sensores de dispositivo (clientes)"
+          "enable_device_sensors": "Criar sensores de dispositivo (clientes)",
+          "device_sensor_types": "Sensores de dispositivo a criar"
+        },
+        "data_description": {
+          "device_sensor_types": "Aplica-se a todos os dispositivos conectados. Sensores dos tipos não selecionados não são criados, e os existentes são removidos."
         }
       },
       "device_settings": {
@@ -96,6 +100,26 @@
           "scan_interval": "Intervalo entre consultas programadas. As requisições acrescentam tempo. Intervalos menores aumentam a carga do roteador. Considere o nó mesh que informa mais lentamente.",
           "timeout": "Tempo de espera por requisição ao roteador. Algumas consultas usam limites menores. Não é a duração máxima de um ciclo completo nem o tempo de presença."
         }
+      }
+    }
+  },
+  "selector": {
+    "device_sensor_types": {
+      "options": {
+        "ip": "Endereço IP",
+        "connection": "Conexão",
+        "online": "Tempo conectado",
+        "down_speed": "Velocidade de download",
+        "up_speed": "Velocidade de upload",
+        "total_usage": "Dados transferidos",
+        "signal": "Sinal",
+        "wifi_protocol": "Protocolo Wi-Fi",
+        "link_tx_rate": "Taxa de enlace TX",
+        "link_rx_rate": "Taxa de enlace RX",
+        "signal_quality": "Qualidade do sinal",
+        "last_activity": "Última atividade",
+        "first_seen": "Primeira detecção",
+        "internet_blocked": "Acesso à Internet bloqueado"
       }
     }
   },

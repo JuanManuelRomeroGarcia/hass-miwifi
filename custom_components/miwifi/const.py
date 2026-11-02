@@ -35,7 +35,7 @@ DIAGNOSTIC_CONTENT: Final = "content"
 """Helper const"""
 UPDATER: Final = "updater"
 UPDATE_LISTENER: Final = "update_listener"
-# hass.data[DOMAIN] key: the mesh-wide client sensor setting the entries were set up with.
+# hass.data[DOMAIN] key: the mesh-wide client sensor settings the entries were set up with.
 DEVICE_SENSORS_MESH: Final = "device_sensors_mesh"
 OPTION_IS_FROM_FLOW: Final = "is_from_flow"
 STORAGE_VERSION: Final = 1
@@ -67,6 +67,9 @@ DEFAULT_WAN_SPEED_UNIT: Final = "Mbps"
 WAN_SPEED_UNIT_OPTIONS: Final = ["B/s", "Mbps"]
 CONF_ENABLE_DEVICE_SENSORS = "enable_device_sensors"
 DEFAULT_ENABLE_DEVICE_SENSORS = False
+# Client sensor types to create, by key. Saved with the global client-sensor
+# setting; without a saved selection every type is created.
+CONF_DEVICE_SENSOR_TYPES: Final = "device_sensor_types"
 # Save counter of the global client-sensor setting; the highest one wins.
 CONF_DEVICE_SENSORS_GLOBAL: Final = "device_sensors_global"
 CONF_ENABLE_PORT_PROBE: Final = "enable_port_probe"

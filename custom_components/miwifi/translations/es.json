@@ -70,7 +70,11 @@
           "log_level": "Nivel de log (global)",
           "auto_purge_every_days": "Autopurga cada X días (0 = desactivada) [PRO]",
           "auto_purge_at": "Hora diaria de la autopurga (HH:MM)",
-          "enable_device_sensors": "Crear sensores de dispositivos (clientes)"
+          "enable_device_sensors": "Crear sensores de dispositivos (clientes)",
+          "device_sensor_types": "Sensores de dispositivo a crear"
+        },
+        "data_description": {
+          "device_sensor_types": "Se aplica a todos los dispositivos conectados. Los sensores de los tipos no seleccionados no se crean y los existentes se eliminan."
         }
       },
       "device_settings": {
@@ -96,6 +100,26 @@
           "scan_interval": "Tiempo entre consultas programadas. Las peticiones añaden tiempo: las lecturas reales pueden estar más separadas. Reducirlo aumenta la carga del router. El margen de presencia debe cubrir al nodo que informa más despacio.",
           "timeout": "Espera de una petición al router. Algunas consultas usan límites más cortos; no es el tiempo máximo de un ciclo completo. Es distinto del margen de presencia."
         }
+      }
+    }
+  },
+  "selector": {
+    "device_sensor_types": {
+      "options": {
+        "ip": "Dirección IP",
+        "connection": "Conexión",
+        "online": "Tiempo conectado",
+        "down_speed": "Velocidad de descarga",
+        "up_speed": "Velocidad de subida",
+        "total_usage": "Datos transferidos",
+        "signal": "Señal",
+        "wifi_protocol": "Protocolo Wi-Fi",
+        "link_tx_rate": "Velocidad de enlace TX",
+        "link_rx_rate": "Velocidad de enlace RX",
+        "signal_quality": "Calidad de señal",
+        "last_activity": "Última actividad",
+        "first_seen": "Primera detección",
+        "internet_blocked": "Acceso a Internet bloqueado"
       }
     }
   },

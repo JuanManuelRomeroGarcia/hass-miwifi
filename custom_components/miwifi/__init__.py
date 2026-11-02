@@ -61,7 +61,7 @@ from .helper import (
 )
 from .auto_purge import schedule_auto_purge, cancel_auto_purge
 from .services import SERVICES
-from .sensor import _device_sensors_enabled
+from .sensor import _device_sensors_mesh
 from .updater import LuciUpdater
 from .frontend import (
     async_register_panel,
@@ -183,7 +183,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_IP_ADDRESS: _ip,
         UPDATER: _updater,
     }
-    hass.data[DOMAIN][DEVICE_SENSORS_MESH] = _device_sensors_enabled(hass)
+    hass.data[DOMAIN][DEVICE_SENSORS_MESH] = _device_sensors_mesh(hass)
     hass.data[DOMAIN][entry.entry_id][UPDATE_LISTENER] = entry.add_update_listener(
         async_update_options
     )
@@ -236,9 +236,10 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     # every entry here made one save reload the whole mesh, once more for each
     # entry whose options changed with it.
     # Client sensors are the exception: they are mesh-wide (on when any entry
-    # enables them), so a change of that value reloads every entry.
+    # enables them, and one selection of types), so a change of either reloads
+    # every entry.
     domain_data = hass.data.setdefault(DOMAIN, {})
-    device_sensors = _device_sensors_enabled(hass)
+    device_sensors = _device_sensors_mesh(hass)
     mesh_changed = domain_data.get(DEVICE_SENSORS_MESH, device_sensors) != device_sensors
     domain_data[DEVICE_SENSORS_MESH] = device_sensors
 
