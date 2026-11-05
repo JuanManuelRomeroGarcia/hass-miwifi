@@ -34,6 +34,7 @@ from .const import (
     DEFAULT_AUTO_PURGE_EVERY_DAYS,
     CONF_ENABLE_DEVICE_SENSORS,
     DEFAULT_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSOR_TYPES,
     CONF_DEVICE_SENSORS_GLOBAL,
     UPDATER,
     )
@@ -106,6 +107,29 @@ def get_mesh_device_sensors_enabled(hass: HomeAssistant) -> bool:
         )
         for entry in entries
     )
+
+
+def get_mesh_device_sensor_types(
+    hass: HomeAssistant, known: tuple[str, ...]
+) -> frozenset[str]:
+    """Return the client sensor types selected for the whole mesh.
+
+    The selection is saved with the global client-sensor setting, so the
+    latest save wins the same way. A save without a selection keeps every
+    type, as before the option existed and for types added by later releases.
+    Types this version does not know, from an older or a newer one, are
+    ignored.
+    """
+    all_types = frozenset(known)
+    entries = hass.config_entries.async_entries(DOMAIN)
+    latest = max(entries, key=_device_sensors_save, default=None)
+    if latest is None or not _device_sensors_save(latest):
+        return all_types
+
+    selected = get_config_value(latest, CONF_DEVICE_SENSOR_TYPES)
+    if not isinstance(selected, (list, tuple)):
+        return all_types
+    return all_types.intersection(selected)
 
 
 async def async_verify_access(

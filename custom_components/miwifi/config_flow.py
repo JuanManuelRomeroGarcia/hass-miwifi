@@ -12,6 +12,11 @@ from homeassistant.const import (
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.selector import (
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 from httpx import codes
 
 try:
@@ -49,6 +54,7 @@ from .const import (
     PROTOCOL_OPTIONS,
     CONF_ENABLE_DEVICE_SENSORS,
     DEFAULT_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSOR_TYPES,
     CONF_DEVICE_SENSORS_GLOBAL,
     CONF_ENABLE_PORT_PROBE,
     DEFAULT_ENABLE_PORT_PROBE,
@@ -67,9 +73,11 @@ from .helper import (
     set_global_panel_state,
     get_global_auto_purge,
     set_global_auto_purge,
+    get_mesh_device_sensor_types,
     get_mesh_device_sensors_enabled,
     get_mesh_device_sensors_save,
 )
+from .sensor import DEVICE_SENSOR_TYPES
 
 from .updater import LuciUpdater, async_get_updater
 
@@ -332,6 +340,20 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                 CONF_ENABLE_DEVICE_SENSORS,
                 get_mesh_device_sensors_enabled(self.hass),
             )
+            # The selection of client sensor types goes with that setting. All
+            # types are saved as no selection, so types added by later releases
+            # are created too, as they are where nothing was selected yet.
+            selected = user_input.get(
+                CONF_DEVICE_SENSOR_TYPES,
+                get_mesh_device_sensor_types(self.hass, DEVICE_SENSOR_TYPES),
+            )
+            device_sensor_types = [
+                key for key in DEVICE_SENSOR_TYPES if key in selected
+            ]
+            if len(device_sensor_types) == len(DEVICE_SENSOR_TYPES):
+                options.pop(CONF_DEVICE_SENSOR_TYPES, None)
+            else:
+                options[CONF_DEVICE_SENSOR_TYPES] = device_sensor_types
             options[CONF_DEVICE_SENSORS_GLOBAL] = (
                 get_mesh_device_sensors_save(self.hass) + 1
             )
@@ -340,6 +362,9 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
         panel_state = await get_global_panel_state(self.hass)
         log_level = await get_global_log_level(self.hass)
         global_cfg = await get_global_auto_purge(self.hass)
+        device_sensor_types = get_mesh_device_sensor_types(
+            self.hass, DEVICE_SENSOR_TYPES
+        )
         schema = vol.Schema(
             {
                 vol.Optional(CONF_ENABLE_PANEL, default=panel_state): cv.boolean,
@@ -362,6 +387,21 @@ class MiWifiOptionsFlow(config_entries.OptionsFlow):
                     CONF_ENABLE_DEVICE_SENSORS,
                     default=get_mesh_device_sensors_enabled(self.hass),
                 ): cv.boolean,
+                vol.Optional(
+                    CONF_DEVICE_SENSOR_TYPES,
+                    default=[
+                        key
+                        for key in DEVICE_SENSOR_TYPES
+                        if key in device_sensor_types
+                    ],
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=list(DEVICE_SENSOR_TYPES),
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                        translation_key=CONF_DEVICE_SENSOR_TYPES,
+                    )
+                ),
             }
         )
         return self.async_show_form(

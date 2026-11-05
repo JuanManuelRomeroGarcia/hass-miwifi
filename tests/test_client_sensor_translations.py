@@ -10,9 +10,9 @@ from homeassistant.helpers.translation import async_get_translations
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEntityPlatform
 
-from custom_components.miwifi.const import DOMAIN
+from custom_components.miwifi.const import CONF_DEVICE_SENSOR_TYPES, DOMAIN
 from custom_components.miwifi.enum import Connection
-from custom_components.miwifi.sensor import MIWIFI_DEVICE_SENSORS, MiWifiDeviceAttributeSensor
+from custom_components.miwifi.sensor import DEVICE_SENSOR_TYPES, MIWIFI_DEVICE_SENSORS, MiWifiDeviceAttributeSensor
 
 
 @pytest.mark.parametrize(("language", "label", "no_signal"), [
@@ -32,6 +32,21 @@ async def test_ha_loads_all_client_entity_names_and_states(hass, language, label
         for state in desc.options or []:
             assert re.fullmatch(r"[a-z0-9]+(?:[_-][a-z0-9]+)*", state)
             assert translations[prefix + desc.key + ".state." + state]
+
+
+@pytest.mark.parametrize("language", ["es", "en", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"])
+async def test_ha_loads_the_client_sensor_type_option(hass, language):
+    """Each type is offered under the name its sensors have."""
+    options = await async_get_translations(hass, language, "options", {DOMAIN})
+    step = "component.miwifi.options.step.global_settings."
+    assert options[step + f"data.{CONF_DEVICE_SENSOR_TYPES}"]
+    assert options[step + f"data_description.{CONF_DEVICE_SENSOR_TYPES}"]
+    selector = await async_get_translations(hass, language, "selector", {DOMAIN})
+    entity = await async_get_translations(hass, language, "entity", {DOMAIN})
+    prefix = f"component.miwifi.selector.{CONF_DEVICE_SENSOR_TYPES}.options."
+    assert {key[len(prefix):] for key in selector if key.startswith(prefix)} == set(DEVICE_SENSOR_TYPES)
+    for key in DEVICE_SENSOR_TYPES:
+        assert selector[prefix + key] == entity[f"component.miwifi.entity.sensor.{key}.name"]
 
 
 async def test_translated_client_keeps_registry_id_and_custom_name(hass):
