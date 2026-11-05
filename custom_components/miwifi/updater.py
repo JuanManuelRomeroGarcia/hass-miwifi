@@ -1994,6 +1994,7 @@ class LuciUpdater(DataUpdateCoordinator):
                     device |= {
                         ATTR_TRACKER_ENTRY_ID: self._entry_id,
                         ATTR_TRACKER_UPDATER_ENTRY_ID: self._entry_id,
+                        "online": 1,
                     }
 
                     action: DeviceAction = DeviceAction.ADD

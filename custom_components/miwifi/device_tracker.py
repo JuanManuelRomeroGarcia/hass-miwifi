@@ -669,6 +669,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
 
         self._device = dict(device)
         self._updater = updater
+        self._listened_updaters: set[LuciUpdater] = {updater}
         self._stay_online = max(int(stay_online or 0), 10)
 
         self.entity_id = entity_id
@@ -740,16 +741,28 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
     @callback
     def update_from_router(self, device: dict) -> None:
         """Refresh a live client and its registry ownership after a mesh update."""
-        self._device = dict(device)
-        entry_id = self._device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
+        entry_id = device.get(ATTR_TRACKER_UPDATER_ENTRY_ID)
         if entry_id:
             _reparent_client_device(
                 self.hass,
                 self.mac_address,
                 entry_id,
-                self._device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
+                device.get(ATTR_TRACKER_ROUTER_MAC_ADDRESS),
             )
-        self.async_write_ha_state()
+        self._update_device_state(dict(device), force_write=True)
+
+    @callback
+    def _set_updater(self, updater: LuciUpdater) -> None:
+        """Follow the serving node without duplicating coordinator listeners."""
+        self._updater = updater
+        self.coordinator = updater
+        if updater not in self._listened_updaters:
+            self.async_on_remove(
+                updater.async_add_listener(
+                    self._handle_coordinator_update, self.coordinator_context
+                )
+            )
+            self._listened_updaters.add(updater)
 
     async def async_will_remove_from_hass(self) -> None:
         """Cleanup when entity is removed."""
@@ -1044,8 +1057,13 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             self.async_write_ha_state()
             return
 
-        # Found device data (either from this updater or mesh-wide cache).
-        device = self._update_entry(dict(device))
+        self._update_device_state(dict(device))
+
+    @callback
+    def _update_device_state(self, device: dict, *, force_write: bool = False) -> None:
+        """Apply router and coordinator updates through the same presence logic."""
+        device = self._update_entry(device)
+        is_available: bool = self._updater.data.get(ATTR_STATE, False)
 
         # Connectivity: last_activity aging window. If router reports the device but we
         # can't parse a timestamp, treat it as connected.
@@ -1072,7 +1090,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             attr_changed.append(ATTR_TRACKER_LAST_ACTIVITY)
 
         if (
-            self._attr_available == is_available
+            not force_write
+            and self._attr_available == is_available
             and self._is_connected == is_connected
             and not attr_changed
         ):
@@ -1089,7 +1108,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
 
     def _update_entry(self, track_device: dict) -> dict:
         """Update device entry."""
-        entry_id: str | None = track_device.get(ATTR_TRACKER_ENTRY_ID)
+        entry_id: str | None = track_device.get(
+            ATTR_TRACKER_UPDATER_ENTRY_ID
+        ) or track_device.get(ATTR_TRACKER_ENTRY_ID)
 
         device_registry: dr.DeviceRegistry = dr.async_get(self.hass)
         rows: list = device_registry_rows(
@@ -1114,7 +1135,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             entry_id in self.hass.data.get(DOMAIN, {})
             and self._updater != self.hass.data[DOMAIN][entry_id][UPDATER]
         ):
-            self._updater = self.hass.data[DOMAIN][entry_id][UPDATER]
+            self._set_updater(self.hass.data[DOMAIN][entry_id][UPDATER])
             self._device[ATTR_TRACKER_ENTRY_ID] = entry_id
             mac_key = self.mac_address.upper()
             track_device = self._updater.devices.get(mac_key, track_device)
