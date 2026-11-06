@@ -273,6 +273,18 @@ def _channel_of(adapter: dict) -> str | None:
     return str(channel)
 
 
+def _local_now() -> datetime:
+    """Home Assistant's local time to the second, without the offset.
+
+    A client's last activity and first seen are stored as this, in ISO form:
+    helper.parse_last_activity reads them back, for the trackers and the
+    client sensors, in Home Assistant's time zone, which is not always the
+    system's.
+    """
+
+    return dt_util.now().replace(tzinfo=None, microsecond=0)
+
+
 # Wait after an ask of the diagnostics endpoint that recovered no channel. It
 # doubles with every miss in a row, from the first value up to the second.
 WIFI_DIAG_RETRY_FIRST: Final = timedelta(minutes=1)
@@ -1982,7 +1994,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
                 if mac in self.devices:
                     self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
-                        datetime.now().replace(microsecond=0).isoformat()
+                        _local_now().isoformat()
                     )
 
                 if mac in filter_macs:
@@ -2226,9 +2238,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
             # Refresh last_activity only when seen online this cycle
             if mac and mac in self.devices:
-                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = datetime.now().replace(
-                    microsecond=0
-                ).isoformat()
+                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = _local_now().isoformat()
 
             action: DeviceAction = DeviceAction.ADD
             if self._mass_update_device(device, integrations):
@@ -2719,7 +2729,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         # ✅ last_activity: solo “now” si está online.
         # Si está offline, mantenemos el último valor real (o ponemos uno antiguo si no existe).
-        now_iso = datetime.now().replace(microsecond=0).isoformat()
+        now_iso = _local_now().isoformat()
         last_activity = None
 
         if is_online:
@@ -2727,7 +2737,7 @@ class LuciUpdater(DataUpdateCoordinator):
         else:
             last_activity = existing.get(ATTR_TRACKER_LAST_ACTIVITY)
             if not last_activity:
-                last_activity = (datetime.now() - timedelta(days=365)).replace(microsecond=0).isoformat()
+                last_activity = (_local_now() - timedelta(days=365)).isoformat()
 
         # ✅ online uptime: solo si online (si no, vacío)
         online_uptime = ""
@@ -2825,7 +2835,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 device[ATTR_TRACKER_MAC], {}
             ).get(
                 ATTR_TRACKER_FIRST_SEEN,
-                datetime.now().replace(microsecond=0).isoformat(),
+                _local_now().isoformat(),
             ),
             # ✅ Avoid KeyError when ip is missing / not in integrations
             ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_value][UPDATER]
@@ -2938,7 +2948,7 @@ class LuciUpdater(DataUpdateCoordinator):
         if self._activity_days == 0 or len(self.devices) == 0:
             return
 
-        now = datetime.now().replace(microsecond=0)
+        now = _local_now()
         integrations: dict[str, dict] = async_get_integrations(self.hass)
 
         # Recorremos copia para poder borrar
@@ -2947,7 +2957,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 device[ATTR_TRACKER_LAST_ACTIVITY], str
             ):
                 self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
-                    datetime.now().replace(microsecond=0).isoformat()
+                    _local_now().isoformat()
                 )
                 continue
 

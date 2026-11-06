@@ -103,6 +103,7 @@ from .helper import (
     async_get_serving_node,
     detect_manufacturer,
     get_mesh_device_sensors_enabled,
+    LastActivityReader,
     map_signal_quality,
 )
 from .logger import _LOGGER
@@ -800,6 +801,8 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
         )
 
         self._mac = str(device.get(ATTR_TRACKER_MAC, "")).upper()
+        # Last activity or first seen, read as the client's tracker reads them.
+        self._time = LastActivityReader()
 
         base_unique = _device_base_unique_id(self._mac)
         self._attr_unique_id = f"{base_unique}-{description.key}"
@@ -875,8 +878,11 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
         if key in (ATTR_TRACKER_LAST_ACTIVITY, ATTR_TRACKER_FIRST_SEEN):
             value = dev.get(key)
             if isinstance(value, str) and value:
-                dt = dt_util.parse_datetime(value)
-                return dt_util.as_local(dt) if dt else None
+                try:
+                    return dt_util.utc_from_timestamp(self._time.read(value))
+                except ValueError:
+                    dt = dt_util.parse_datetime(value)
+                    return dt_util.as_local(dt) if dt else None
             return None
 
         if key == ATTR_TRACKER_ONLINE:
