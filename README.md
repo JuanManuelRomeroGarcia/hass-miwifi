@@ -65,6 +65,7 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Mesh-options-es)
 - [Fresh router API diagnostic export](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-diagnostics) (v3.12.0)
   - [Guía en español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-diagnostics-es)
+  - Voluntary HTTP/SSH compatibility testing (standalone PC tools): [English](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-community) · [Español](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Router-API-community-es)
 
 
 ## Supported routers

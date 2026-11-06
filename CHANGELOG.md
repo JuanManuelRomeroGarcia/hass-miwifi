@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Keep the trial branch synchronized with stable 3.13.3, including non-blocking file operations, credential privacy and reauthentication. Include #378's force-load client refresh, #382's client-details backoff, #380's atomic signal snapshot and #372's registry renaming.
+- Prevent IoT writes from following redirects, reject invalid Unicode SSIDs and isolate pending forms and responses when switching routers. Keep full names visible in device cards and preserve unified Wi-Fi controls and model-specific experimental panels.
+
+- Export separate `routes.json` and redacted `responses.json` from the standalone API tools. Add an optional SSH-to-HTTP workflow with independent credentials, explicit unqueried routes, an opt-in model-specific read probe and a contributor guide. Preserve the fixed read catalogue and keep this research outside HA polling.
+- Prepare model/role-scoped API diagnostic reads for RC01/RC06 thermal control, port maps, mesh preferences/steering, Multi-WAN and WPS/NFC. Keep them outside normal polling and preserve the existing capture budgets, redaction and explicit skip reasons. RC01 1.1.56 thermal analysis identifies the maximum of seven Celsius inputs and a fan RPM value that can be estimated from PWM below the tachometer threshold. Do not treat it as an always-measured speed, an exclusive CPU temperature or proof of a stopped fan; WPS/NFC fields do not establish per-radio WPA3.
+- Add a standalone bounded live-read tool using a fixed reviewed catalogue, explicit host authentication settings, short sample sequences and redacted comparison reports. Read mesh client lists from the principal and local node information from the node; never invoke routes discovered by SSH automatically.
+
 ## 3.13.3 — 2026-10-28
 
 - Refresh clients from a force-load AP or Mesh node's own lists when no parent provides a recent snapshot (#378). Keep recent parent data authoritative and resume local observations after it expires. Preserve client names and blocking decisions when the radio list lacks them.

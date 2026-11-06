@@ -385,6 +385,18 @@ class LuciClient:
 
         return _data
 
+    async def set_iot_wifi(self, data: dict, timeout: float = 4) -> dict:
+        """One form POST; do not put Wi-Fi keys in URLs or retry mutations."""
+        if self._url is None or self._token is None:
+            raise LuciRequestError("IoT session not ready")
+        url = f"{self._url}/;stok={self._token}/api/xqnetwork/set_iotwifi_info"
+        response = await self._client.post(url, data=data, timeout=timeout, follow_redirects=False)
+        response.raise_for_status()
+        result = response.json()
+        if not isinstance(result, dict) or result.get("code") != 0:
+            raise LuciRequestError("IoT configuration refused")
+        return result
+
     async def topo_graph(self) -> dict:
         """misystem/topo_graph method.
 
@@ -899,6 +911,10 @@ class LuciClient:
         #_LOGGER.debug("%s (%s): %s", message, url, str(content))
 
         if is_only_log:
+            return
+
+        if path.split("?", 1)[0] in ("xqnetwork/get_iotwifi_info", "xqnetwork/set_iotwifi_info"):
+            # These responses contain Wi-Fi keys; never keep them in diagnostics.
             return
 
         if isinstance(content, BaseException):

@@ -128,6 +128,10 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     websocket_api.async_register_command(hass, ws_api.websocket_dhcp_routers)
     websocket_api.async_register_command(hass, ws_api.websocket_dhcp_read)
     websocket_api.async_register_command(hass, ws_api.websocket_dhcp_write)
+    websocket_api.async_register_command(hass, ws_api.websocket_router_specific)
+    websocket_api.async_register_command(hass, ws_api.websocket_router_wifi_state)
+    websocket_api.async_register_command(hass, ws_api.websocket_iot_read)
+    websocket_api.async_register_command(hass, ws_api.websocket_iot_write)
 
     # Remove exports left by older releases even if a router entry cannot load.
     await async_register_http_views(hass)
