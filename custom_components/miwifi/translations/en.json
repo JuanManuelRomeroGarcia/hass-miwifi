@@ -1,5 +1,5 @@
 {
-  "title": "MiWifi",
+  "title": "MiWiFi (Xiaohack Edition)",
   "config": {
     "error": {
       "ip_address.not_matched": "Invalid IP",
