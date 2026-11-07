@@ -1,10 +1,10 @@
-import { getRouterImage } from "../pages/utils.js?v=3.13.2";
-import { LitElement, html } from "../vendor/lit.js?v=3.13.2";
-import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=3.13.2";
-import { localize } from "../translations/localize.js?v=3.13.2";
-import "./miwifi-mac-replacement.js?v=3.13.2";
+import { getRouterImage } from "../pages/utils.js?v=__MIWIFI_VERSION__";
+import { LitElement, html } from "../vendor/lit.js?v=__MIWIFI_VERSION__";
+import { renderToggle, renderSelects, logToBackend } from "../pages/utils.js?v=__MIWIFI_VERSION__";
+import { localize } from "../translations/localize.js?v=__MIWIFI_VERSION__";
+import "./miwifi-mac-replacement.js?v=__MIWIFI_VERSION__";
 
-const MIWIFI_VERSION = "3.13.2";
+const MIWIFI_VERSION = "__MIWIFI_VERSION__";
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 
 export class MiWiFiSettingsPanel extends LitElement {

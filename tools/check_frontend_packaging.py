@@ -1,5 +1,5 @@
 """Standalone packaging checks; HA API doubles do not replace a live HA test."""
-import ast, asyncio, importlib.util, json, re, subprocess, sys, types
+import ast, asyncio, importlib.util, json, re, shutil, subprocess, sys, tempfile, types
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -10,10 +10,12 @@ for path in component.glob('*.py'):
 for path in component.rglob('*.json'):
     json.loads(path.read_text(encoding='utf-8'))
 assets = component/'www'
-assert json.loads((component/'manifest.json').read_text())['version'] == json.loads((assets/'version.json').read_text())['version']
+assert json.loads((assets/'version.json').read_text())['version'] == '__MIWIFI_VERSION__'
+manifest_version = json.loads((component/'manifest.json').read_text())['version']
 for path in assets.rglob('*.js'):
     text = path.read_text(encoding='utf-8')
-    assert '__MIWIFI_VERSION__' not in text and '/local/miwifi' not in text, path
+    assert '/local/miwifi' not in text, path
+    assert not re.search(r'\?v=(?!__MIWIFI_VERSION__)[\w.\-]+', text), (path, 'version must be templated')
     assert not re.search(r'(?:from\s*|import\s*|import\s*\()\s*[\"\']https?://', text), path
     assert 'miwifi-panel-frontend' not in text and 'cdn-icons-png.flaticon.com' not in text, path
     for ref in re.findall(r'(?:from\s*|import\s*|import\s*\()\s*[\"\'](\.[^\"\']+)', text):
@@ -47,11 +49,19 @@ spec.loader.exec_module(mod)
 async def check():
     async def executor(fn, *args):
         return fn(*args)
-    hass = types.SimpleNamespace(data={}, http=types.SimpleNamespace(async_register_static_paths=AsyncMock()), async_add_executor_job=executor)
+    local_home = tempfile.TemporaryDirectory(prefix='miwifi-panel-check-')
+    config = types.SimpleNamespace(path=lambda *parts: str(Path(local_home.name).joinpath(*parts)))
+    hass = types.SimpleNamespace(data={}, config=config, http=types.SimpleNamespace(async_register_static_paths=AsyncMock()), async_add_executor_job=executor)
     version = await mod.read_local_version(hass)
-    assert version == json.loads((assets/'version.json').read_text())['version']
+    assert version == manifest_version
     await asyncio.gather(*(mod.async_register_panel(hass, version) for _ in range(8)))
     assert hass.http.async_register_static_paths.await_count == 1
+    staged = Path(local_home.name)/'.storage'/'miwifi_panel_web'
+    assert json.loads((staged/'version.json').read_text())['version'] == manifest_version
+    for js in staged.rglob('*.js'):
+        compiled = js.read_text(encoding='utf-8')
+        assert '__MIWIFI_VERSION__' not in compiled, js
+        assert not re.search(r'\?v=(?!'+re.escape(manifest_version)+r')[\w.\-]+', compiled), js
     assert custom.async_register_panel.await_count == 1
     assert custom.async_register_panel.call_args.kwargs['require_admin'] is True
     await mod.async_remove_miwifi_panel(hass)
@@ -73,6 +83,7 @@ async def check():
         raise AssertionError('Failure was swallowed')
     await mod.async_register_panel(hass, version)
     assert hass.http.async_register_static_paths.await_count == 2
+    local_home.cleanup()
 
 asyncio.run(check())
 print('PASS: Python/JSON syntax, JavaScript syntax, relative imports, local assets, bundled version, concurrent setup, reload, removal, version replacement and retry after registration failure.')

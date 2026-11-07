@@ -15,13 +15,12 @@ python -m pytest -q --ha-suite=maintained --continue-on-collection-errors
 Run legacy integration tests separately with:
 
 ```sh
-TZ=UTC python -m pytest -q --ha-suite=legacy --continue-on-collection-errors
+python -m pytest -q --ha-suite=legacy --continue-on-collection-errors
 ```
 
-Run the legacy frozen-clock tests in UTC, matching GitHub Actions. Their naive
-fixture timestamps otherwise disagree with `time.mktime()` in local time zones
-and can report connected clients as absent. This only sets the test process's
-time zone; do not change Home Assistant's configured time zone.
+A client's last activity is written and read in Home Assistant's time zone,
+which the test harness sets, so neither suite depends on the time zone of the
+host.
 
 `tests/conftest.py` lists the legacy modules inherited from PR #325. Selection
 happens before import: broken legacy imports do not block collection of the

@@ -757,36 +757,36 @@ async def test_init_in_force_mode(hass: HomeAssistant, legacy_clock) -> None:
 
         state: State = hass.states.get(_generate_id("00:00:00:00:00:01"))
         assert state.state == STATE_HOME
-        assert state.name == "00:00:00:00:00:01"
+        assert state.name == "Device 1"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["source_type"] == SourceType.ROUTER
-        assert state.attributes["ip"] is None
+        assert state.attributes["ip"] == "192.168.31.2"
         assert state.attributes["mac"] == "00:00:00:00:00:01"
         assert state.attributes["scanner"] == DOMAIN
-        assert state.attributes["online"] == ""
+        assert state.attributes["online"] == "8:05:01"
         assert state.attributes["connection"] == Connection.WIFI_2_4.phrase  # type: ignore
         assert state.attributes["router_mac"] == "00:00:00:00:00:00"
         assert state.attributes["signal"] == 100
-        assert state.attributes["down_speed"] == ""
-        assert state.attributes["up_speed"] == ""
+        assert state.attributes["down_speed"] == "0 B/s"
+        assert state.attributes["up_speed"] == "0 B/s"
         assert state.attributes["attribution"] == ATTRIBUTION
 
         state = hass.states.get(_generate_id("00:00:00:00:00:02"))
         assert state.state == STATE_HOME
-        assert state.name == "00:00:00:00:00:02"
+        assert state.name == "Device 2"
         assert state.attributes["icon"] == "mdi:lan-connect"
         assert state.attributes["attribution"] == ATTRIBUTION
         assert state.attributes["source_type"] == SourceType.ROUTER
-        assert state.attributes["ip"] is None
+        assert state.attributes["ip"] == "192.168.31.3"
         assert state.attributes["mac"] == "00:00:00:00:00:02"
         assert state.attributes["scanner"] == DOMAIN
-        assert state.attributes["online"] == ""
+        assert state.attributes["online"] == "8:05:01"
         assert state.attributes["connection"] == Connection.WIFI_5_0.phrase  # type: ignore
         assert state.attributes["router_mac"] == "00:00:00:00:00:00"
         assert state.attributes["signal"] == 100
-        assert state.attributes["down_speed"] == ""
-        assert state.attributes["up_speed"] == ""
+        assert state.attributes["down_speed"] == "0 B/s"
+        assert state.attributes["up_speed"] == "0 B/s"
         assert state.attributes["attribution"] == ATTRIBUTION
 
         state = hass.states.get(_generate_id("00:00:00:00:00:03"))

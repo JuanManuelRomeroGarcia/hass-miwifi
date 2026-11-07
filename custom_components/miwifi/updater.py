@@ -273,6 +273,18 @@ def _channel_of(adapter: dict) -> str | None:
     return str(channel)
 
 
+def _local_now() -> datetime:
+    """Home Assistant's local time to the second, without the offset.
+
+    A client's last activity and first seen are stored as this, in ISO form:
+    helper.parse_last_activity reads them back, for the trackers and the
+    client sensors, in Home Assistant's time zone, which is not always the
+    system's.
+    """
+
+    return dt_util.now().replace(tzinfo=None, microsecond=0)
+
+
 # Wait after an ask of the diagnostics endpoint that recovered no channel. It
 # doubles with every miss in a row, from the first value up to the second.
 WIFI_DIAG_RETRY_FIRST: Final = timedelta(minutes=1)
@@ -389,6 +401,10 @@ class LuciUpdater(DataUpdateCoordinator):
         self._parent_push_pending = False
         self._parent_census_at: float | None = None
         self._parent_census_source: LuciUpdater | None = None
+        # The parent and time of the last push that had each client, and the
+        # clients in this node's own last device list: see add_device.
+        self._parent_census_clients: dict[str, tuple[LuciUpdater, float]] = {}
+        self._device_list_macs: frozenset[str] = frozenset()
         # The MAC a main lists this node under in `parent`, when it is not the
         # one the node reports for itself. Set by the main's device list.
         self.backhaul_mac: str | None = None
@@ -1854,7 +1870,20 @@ class LuciUpdater(DataUpdateCoordinator):
             trace.census(response, {}, source="xqnetwork/wifi_connect_devices")
 
         # A fresh successful Wi-Fi census must not retain obsolete signals.
-        self._signals.clear()
+        # Swap the new map in whole, before the first await below: the main's
+        # device list can push this node's clients meanwhile and reads their
+        # signal here. An emptied map gave them none until its next push.
+        # Mesh nodes are left out, as in the loop below.
+        nodes: set[str] = set()
+        if self.is_repeater and self.is_force_load:
+            nodes, _ = _known_mesh_nodes(self.hass)
+        signals: dict[str, int | None] = {}
+        for device in response.get("list") or ():
+            mac = device.get(ATTR_TRACKER_MAC) if isinstance(device, dict) else None
+            if isinstance(mac, str) and mac.strip() and mac.strip().upper() not in nodes:
+                signals[mac.strip().upper()] = device.get("signal")
+        self._signals = signals
+
         now = dt_util.utcnow()
         macfilter_info: Optional[dict] = None
 
@@ -1963,11 +1992,9 @@ class LuciUpdater(DataUpdateCoordinator):
                     self._forget_mesh_node(mac, integrations)
                     continue
 
-                self._signals[mac] = device.get("signal")
-
                 if mac in self.devices:
                     self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
-                        datetime.now().replace(microsecond=0).isoformat()
+                        _local_now().isoformat()
                     )
 
                 if mac in filter_macs:
@@ -2051,6 +2078,8 @@ class LuciUpdater(DataUpdateCoordinator):
         except LuciError as _e:
             # Losing the client list must not also cost us device_restore, ap and
             # new_status: a node that is really gone already failed at status.
+            # With force load, the radio list refreshes its clients again.
+            self._device_list_macs = frozenset()
             await self.hass.async_add_executor_job(
                 _LOGGER.debug,
                 "[MiWiFi] device_list unavailable (%s)",
@@ -2112,6 +2141,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         # Collect devices that should be pushed to a leaf updater (key = integration IP)
         add_to: dict[str, list[dict]] = {}
+        listed: set[str] = set()
 
         for device in response.get("list", []):
             if not isinstance(device, dict):
@@ -2209,16 +2239,17 @@ class LuciUpdater(DataUpdateCoordinator):
 
             # Refresh last_activity only when seen online this cycle
             if mac and mac in self.devices:
-                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = datetime.now().replace(
-                    microsecond=0
-                ).isoformat()
+                self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = _local_now().isoformat()
 
             action: DeviceAction = DeviceAction.ADD
             if self._mass_update_device(device, integrations):
                 action = DeviceAction.SKIP
 
             if ATTR_TRACKER_MAC in device:
+                listed.add(device[ATTR_TRACKER_MAC])
                 await self.add_device(device, action=action)
+
+        self._device_list_macs = frozenset(listed)
 
         for mac in _remember_mesh_node_macs(self.hass, reported_nodes):
             self._forget_mesh_node(mac, integrations)
@@ -2274,6 +2305,18 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
             updater._parent_census_at = monotonic()
             updater._parent_census_source = self
+            # A client stays the parent's for the window after the last push
+            # that had it (see add_device): a census can miss a client the
+            # next one has again, and a node that lists clients under itself
+            # also pushes to itself. Kept while the node has a record of it.
+            updater._parent_census_clients = {
+                mac: census
+                for mac, census in getattr(updater, "_parent_census_clients", {}).items()
+                if mac in updater.devices
+            } | dict.fromkeys(
+                (row[ATTR_TRACKER_MAC] for row in devices),
+                (self, updater._parent_census_at),
+            )
             trace = getattr(updater, "_mesh_trace", None)
             if trace is not None:
                 trace.event("parent_push_complete", updater.data,
@@ -2482,10 +2525,31 @@ class LuciUpdater(DataUpdateCoordinator):
                     )
                 }
             else:
-                self.devices[device[ATTR_TRACKER_MAC]] |= {
+                # A device list knows more than this node's own lists. The
+                # parent's keeps what it pushed, while its last push of the
+                # client is recent; this node's own keeps what it listed
+                # against its radio list, whose rows have no address and come
+                # first in a poll. Anything else this census refreshes, but
+                # for what the row only defaults: the MAC that stands in for a
+                # name the row does not give, and "not blocked" for a client
+                # neither this node's filter list nor its device list has a
+                # state for.
+                mac = device[ATTR_TRACKER_MAC]
+                skip: tuple = ()
+                if self._has_recent_parent_census(mac) or (
+                    not device.get("ip")
+                    and mac in getattr(self, "_device_list_macs", ())
+                ):
+                    skip = REPEATER_SKIP_ATTRS
+                else:
+                    if "name" not in device:
+                        skip += (ATTR_TRACKER_NAME,)
+                    if mac not in getattr(self, "_filter_macs", {}):
+                        skip += (ATTR_TRACKER_INTERNET_BLOCKED,)
+                self.devices[mac] |= {
                     key: value
                     for key, value in _device.items()
-                    if key not in REPEATER_SKIP_ATTRS and value is not None
+                    if key not in skip and value is not None
                 }
         else:
             self.devices[device[ATTR_TRACKER_MAC]] = _device
@@ -2666,7 +2730,7 @@ class LuciUpdater(DataUpdateCoordinator):
 
         # ✅ last_activity: solo “now” si está online.
         # Si está offline, mantenemos el último valor real (o ponemos uno antiguo si no existe).
-        now_iso = datetime.now().replace(microsecond=0).isoformat()
+        now_iso = _local_now().isoformat()
         last_activity = None
 
         if is_online:
@@ -2674,7 +2738,7 @@ class LuciUpdater(DataUpdateCoordinator):
         else:
             last_activity = existing.get(ATTR_TRACKER_LAST_ACTIVITY)
             if not last_activity:
-                last_activity = (datetime.now() - timedelta(days=365)).replace(microsecond=0).isoformat()
+                last_activity = (_local_now() - timedelta(days=365)).isoformat()
 
         # ✅ online uptime: solo si online (si no, vacío)
         online_uptime = ""
@@ -2772,7 +2836,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 device[ATTR_TRACKER_MAC], {}
             ).get(
                 ATTR_TRACKER_FIRST_SEEN,
-                datetime.now().replace(microsecond=0).isoformat(),
+                _local_now().isoformat(),
             ),
             # ✅ Avoid KeyError when ip is missing / not in integrations
             ATTR_TRACKER_OPTIONAL_MAC: integrations[ip_value][UPDATER]
@@ -2885,7 +2949,7 @@ class LuciUpdater(DataUpdateCoordinator):
         if self._activity_days == 0 or len(self.devices) == 0:
             return
 
-        now = datetime.now().replace(microsecond=0)
+        now = _local_now()
         integrations: dict[str, dict] = async_get_integrations(self.hass)
 
         # Recorremos copia para poder borrar
@@ -2894,7 +2958,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 device[ATTR_TRACKER_LAST_ACTIVITY], str
             ):
                 self.devices[mac][ATTR_TRACKER_LAST_ACTIVITY] = (
-                    datetime.now().replace(microsecond=0).isoformat()
+                    _local_now().isoformat()
                 )
                 continue
 
@@ -3035,11 +3099,19 @@ class LuciUpdater(DataUpdateCoordinator):
                     return leaf
         return None
 
-    def _has_recent_parent_census(self) -> bool:
-        """Prefer a recent completed census from a still-loaded parent."""
+    def _has_recent_parent_census(self, mac: str | None = None) -> bool:
+        """Prefer a recent completed census from a still-loaded parent.
 
-        observed_at = getattr(self, "_parent_census_at", None)
-        source = getattr(self, "_parent_census_source", None)
+        :param mac: str | None: judge the last census that had this client
+        """
+
+        if mac is None:
+            observed_at = getattr(self, "_parent_census_at", None)
+            source = getattr(self, "_parent_census_source", None)
+        else:
+            source, observed_at = getattr(self, "_parent_census_clients", {}).get(
+                mac, (None, None)
+            )
         if observed_at is None or source is None:
             return False
         integration = async_get_integrations(self.hass).get(source.ip)

@@ -78,8 +78,8 @@ from .helper import (
     device_config_entry_ids,
     device_registry_rows,
     get_config_value,
+    LastActivityReader,
     map_signal_quality,
-    parse_last_activity,
     pretty_size,
 )
 from .logger import _LOGGER
@@ -671,6 +671,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         self._updater = updater
         self._listened_updaters: set[LuciUpdater] = {updater}
         self._stay_online = max(int(stay_online or 0), 10)
+        self._last_activity = LastActivityReader()
 
         self.entity_id = entity_id
         self._attr_unique_id = unique_id
@@ -1041,7 +1042,7 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
             last_activity = self._device.get(ATTR_TRACKER_LAST_ACTIVITY)
             last_ts: int = self._last_seen(
                 self._device,
-                parse_last_activity(str(last_activity)) if last_activity else 0,
+                self._last_activity.read(str(last_activity)) if last_activity else 0,
             )
             is_connected = False
             if last_ts:
@@ -1070,7 +1071,9 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         last_activity = device.get(ATTR_TRACKER_LAST_ACTIVITY) or self._device.get(
             ATTR_TRACKER_LAST_ACTIVITY
         )
-        current_ts: int = parse_last_activity(str(last_activity)) if last_activity else 0
+        current_ts: int = (
+            self._last_activity.read(str(last_activity)) if last_activity else 0
+        )
         if last_activity:
             device[ATTR_TRACKER_LAST_ACTIVITY] = last_activity
         current_ts = self._last_seen(device, current_ts)

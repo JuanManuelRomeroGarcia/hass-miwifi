@@ -94,4 +94,114 @@ for (const language of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"])
   const t = JSON.parse(fs.readFileSync(`custom_components/miwifi/www/translations/${language}.json`, "utf8"));
   for (const key of ["wifi_protocol", "link_tx_rate", "link_rx_rate"]) assert.ok(t[key]);
 }
-console.log("PASS: numeric name/IP sorting, search, columns, preference restore, blocked storage, unavailable state, admin-only WAN writes, duplicate-write guard, failure feedback and eight languages.");
+const ws = [];
+panel.hass.callWS = async message => {
+  ws.push(message);
+  return message.type === "config/entity_registry/get"
+    ? { device_id: "device-1", original_name: "02:00:00:00:00:01" }
+    : { entity_entry: { original_name: "02:00:00:00:00:01" } };
+};
+const named = device("02:00:00:00:00:01", "192.0.2.60", 50);
+panel._renaming = named.entity_id;
+await panel._rename(named, "  Kitchen TV ");
+assert.deepEqual(ws.map(message => message.type),
+  ["config/entity_registry/get", "config/entity_registry/update", "config/device_registry/update"]);
+assert.equal(ws[1].name, "Kitchen TV");
+assert.equal(ws[2].device_id, "device-1");
+assert.equal(ws[2].name_by_user, "Kitchen TV");
+assert.equal(panel._cellValue(named, "name", topo), "Kitchen TV"); // Shown before HA pushes the new state.
+assert.equal(panel._renaming, null);
+named.attributes.friendly_name = "Renamed elsewhere";
+assert.equal(panel._cellValue(named, "name", topo), "Renamed elsewhere"); // Newer HA state wins.
+ws.length = 0;
+panel._renaming = named.entity_id;
+await panel._rename(named, "   ");
+assert.equal(ws[1].name, null);
+assert.equal(ws[2].name_by_user, null);
+assert.equal(panel._cellValue(named, "name", topo), "02:00:00:00:00:01"); // Empty restores the original.
+ws.length = 0;
+await panel._rename(named, "Not editing");
+panel.hass.user.is_admin = false;
+panel._renaming = named.entity_id;
+await panel._rename(named, "Not an admin");
+assert.equal(ws.length, 0);
+panel.hass.user.is_admin = true;
+let releaseRename;
+panel.hass.callWS = message => { ws.push(message); return new Promise(resolve => { releaseRename = resolve; }); };
+const renaming = panel._rename(named, "Once");
+await panel._rename(named, "Twice");
+assert.equal(ws.length, 1);
+releaseRename({}); // Registry entry without a device: only the entity update follows.
+await new Promise(resolve => setTimeout(resolve));
+releaseRename({}); await renaming;
+assert.equal(ws.length, 2);
+// Completing one save must preserve an editor opened for another client.
+for (const fail of [false, true]) {
+  let finishFirst;
+  panel.hass.callWS = async message => {
+    if (message.type === "config/entity_registry/get") {
+      return new Promise((resolve, reject) => {
+        finishFirst = () => fail ? reject(Error("registry unavailable")) : resolve({});
+      });
+    }
+    return {};
+  };
+  panel._renaming = named.entity_id;
+  const savingFirst = panel._rename(named, fail ? "Failed save" : "First save");
+  const second = device("Second client", "192.0.2.61", 50);
+  await panel._startRename(second);
+  assert.equal(panel._renaming, second.entity_id);
+  finishFirst();
+  await savingFirst;
+  assert.equal(panel._renaming, second.entity_id);
+  assert.equal(panel._renamePending.has(named.entity_id), false);
+}
+panel.hass.callWS = async () => { throw Error("private backend detail"); };
+panel._renaming = named.entity_id;
+await panel._rename(named, "Fails");
+assert.equal(panel._renameError, "devices_rename_error");
+assert.equal(panel._renamePending.size, 0);
+assert.equal(panel._renaming, null);
+// Complete names remain in the template, with the edit control first.
+const completeName = "S21-Ultra-de-Juan-Manuel-con-un-nombre-completo";
+const longNamed = device(completeName, "192.0.2.70", 50);
+const flatten = value => {
+  if (Array.isArray(value)) return value.map(flatten).join("");
+  if (value?.strings) return value.strings.reduce((out, part, index) => out + part + flatten(value.values[index]), "");
+  return typeof value === "string" || typeof value === "number" ? String(value) : "";
+};
+panel.hass.user.is_admin = true;
+const renderedName = flatten(panel._renderName(longNamed, topo));
+assert.ok(renderedName.includes(completeName));
+assert.ok(renderedName.indexOf("rename-button") < renderedName.indexOf("device-name"));
+panel.hass.user.is_admin = false;
+assert.ok(!flatten(panel._renderName(longNamed, topo)).includes("rename-button"));
+assert.ok(flatten(panel._renderName(longNamed, topo)).includes(completeName));
+
+// Both views use a localized date, while sorting still uses chronology.
+panel.hass.language = "es";
+panel.hass.config = { time_zone: "America/New_York" };
+const wallTime = "2026-10-28T16:26:27";
+const dateOptions = { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" };
+const spanishWallTime = new Intl.DateTimeFormat("es", dateOptions).format(new Date(`${wallTime}Z`));
+assert.equal(panel._formatLastActivity(wallTime), spanishWallTime); // Do not shift an offset-free HA wall time.
+longNamed.attributes.last_activity = wallTime;
+assert.equal(panel._cellValue(longNamed, "last", topo), spanishWallTime);
+assert.ok(flatten(panel._renderCard(longNamed, topo, {})).includes(spanishWallTime));
+assert.ok(!flatten(panel._renderCard(longNamed, topo, {})).includes(wallTime));
+const utcTime = `${wallTime}Z`;
+assert.equal(panel._formatLastActivity(utcTime), new Intl.DateTimeFormat("es", { ...dateOptions, timeZone: "America/New_York" }).format(new Date(utcTime)));
+panel.hass.language = "en";
+assert.equal(panel._formatLastActivity(wallTime), new Intl.DateTimeFormat("en", dateOptions).format(new Date(utcTime)));
+for (const invalid of [null, undefined, "", "bad date", "2026-99-99T00:00:00"]) assert.equal(panel._formatLastActivity(invalid), "—");
+panel.hass.config.time_zone = "not-a-time-zone";
+assert.doesNotThrow(() => panel._formatLastActivity(utcTime));
+const earlier = device("Earlier", "192.0.2.71", 50);
+earlier.attributes.last_activity = "2026-10-31T23:59:59";
+const later = device("Later", "192.0.2.72", 50);
+later.attributes.last_activity = "2026-11-01T00:00:00";
+panel._search = "";
+panel._sort = "last";
+panel._descending = false;
+assert.deepEqual(Array.from(panel._visibleDevices([later, earlier], topo), d => d.entity_id), [earlier.entity_id, later.entity_id]);
+console.log("PASS: numeric name/IP sorting, search, columns, preference restore, blocked storage, unavailable state, admin-only WAN writes, duplicate-write guard, failure feedback, admin-only registry renames and eight languages.");
