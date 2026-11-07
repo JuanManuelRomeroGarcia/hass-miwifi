@@ -85,6 +85,8 @@ def load_updater(integrations):
         "asyncio": Mock(sleep=AsyncMock()),
         "contextlib": contextlib,
         "datetime": datetime,
+        # Home Assistant's local time, for the last activity: the system's here.
+        "dt_util": Mock(now=datetime.now),
         "monotonic": monotonic,
         "Connection": Connection,
         "DeviceAction": DeviceAction,
