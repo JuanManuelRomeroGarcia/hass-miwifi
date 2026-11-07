@@ -213,3 +213,61 @@ async def test_exact_absence_threshold_on_installed_code(hass):
             origin.data[ATTR_STATE] = False
             origin.async_update_listeners()
             assert tracker.available
+
+
+async def test_live_snapshot_without_any_timestamp_does_not_raise(hass):
+    async with mesh(hass) as (tracker, origin, destination):
+        for value in (None, ""):
+            tracker._device.pop(ATTR_TRACKER_LAST_ACTIVITY, None)
+            snapshot = dict(destination.devices.get(MAC, origin.devices[MAC]))
+            snapshot[ATTR_TRACKER_LAST_ACTIVITY] = value
+            snapshot[ATTR_TRACKER_UPDATER_ENTRY_ID] = destination._entry_id
+            snapshot[ATTR_TRACKER_ENTRY_ID] = destination._entry_id
+            destination.devices[MAC] = snapshot
+            tracker.update_from_router(snapshot)
+            assert tracker.is_connected
+            assert tracker.available
+            tracker._handle_coordinator_update()
+            assert tracker.is_connected
+
+
+async def test_partial_snapshot_keeps_last_seen_and_still_expires(hass):
+    async with mesh(hass) as (tracker, origin, destination):
+        now = int(time.time())
+        for age, expected in ((0, True), (91, False)):
+            seen = datetime.fromtimestamp(now - age).isoformat()
+            tracker._device[ATTR_TRACKER_LAST_ACTIVITY] = seen
+            snapshot = dict(origin.devices[MAC])
+            snapshot.pop(ATTR_TRACKER_LAST_ACTIVITY, None)
+            snapshot[ATTR_TRACKER_UPDATER_ENTRY_ID] = destination._entry_id
+            snapshot[ATTR_TRACKER_ENTRY_ID] = destination._entry_id
+            destination.devices[MAC] = snapshot
+            with patch("custom_components.miwifi.device_tracker.time.time", return_value=now):
+                tracker.update_from_router(snapshot)
+                assert tracker.is_connected is expected
+                assert tracker._device[ATTR_TRACKER_LAST_ACTIVITY] == seen
+                tracker._handle_coordinator_update()
+                assert tracker.is_connected is expected
+
+
+async def test_missing_client_without_last_seen_is_away(hass):
+    async with mesh(hass) as (tracker, origin, destination):
+        origin.devices.clear()
+        destination.devices.clear()
+        hass.data[DOMAIN]["devices_cache"].clear()
+        tracker._device.pop(ATTR_TRACKER_LAST_ACTIVITY, None)
+        tracker._handle_coordinator_update()
+        assert not tracker.is_connected
+        assert tracker.available
+
+
+async def test_malformed_timestamp_is_not_silently_accepted(hass):
+    async with mesh(hass) as (tracker, origin, destination):
+        snapshot = dict(origin.devices[MAC])
+        snapshot[ATTR_TRACKER_LAST_ACTIVITY] = "invalid-timestamp"
+        try:
+            tracker.update_from_router(snapshot)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("Malformed timestamps must retain the parser error")
