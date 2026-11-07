@@ -108,7 +108,7 @@ WiFi configuration is disabled for CR8806. Photos are included where available.
 | <img src="custom_components/miwifi/www/images/RB02.png" alt="Xiaomi Router AC1200" height="80"> | Xiaomi Router AC1200 | RB02 |
 | <img src="custom_components/miwifi/www/images/CR8808.png" alt="Xiaomi Router CR8808" height="80"> | Xiaomi Router CR8808 | CR8808 |
 | <img src="custom_components/miwifi/www/images/CR8809.png" alt="Xiaomi Router CR8809" height="80"> | Xiaomi Router CR8809 | CR8809 |
-| — | Xiaomi Router CR8806 | CR8806 |
+| <img src="custom_components/miwifi/www/images/CR8806.png" alt="Xiaomi Router CR8806" height="80"> | Xiaomi Router CR8806 | CR8806 |
 | <img src="custom_components/miwifi/www/images/RA82.png" alt="Xiaomi Mesh System AX3000" height="80"> | Xiaomi Mesh System AX3000 | RA82 |
 | <img src="custom_components/miwifi/www/images/RB01.png" alt="Xiaomi Router AX3200" height="80"> | Xiaomi Router AX3200 | RB01 |
 | <img src="custom_components/miwifi/www/images/RA71.png" alt="Redmi Router AX1800" height="80"> | Redmi Router AX1800 | RA71 |
