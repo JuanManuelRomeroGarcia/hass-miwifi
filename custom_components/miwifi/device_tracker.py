@@ -1038,9 +1038,10 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         # If device is not present in current refresh, keep last known attributes and
         # compute connectivity based on last_activity + stay_online window.
         if device is None:
+            last_activity = self._device.get(ATTR_TRACKER_LAST_ACTIVITY)
             last_ts: int = self._last_seen(
                 self._device,
-                parse_last_activity(str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))),
+                parse_last_activity(str(last_activity)) if last_activity else 0,
             )
             is_connected = False
             if last_ts:
@@ -1065,15 +1066,13 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         device = self._update_entry(device)
         is_available: bool = self._updater.data.get(ATTR_STATE, False)
 
-        # Connectivity: last_activity aging window. If router reports the device but we
-        # can't parse a timestamp, treat it as connected.
-        current_ts: int = parse_last_activity(
-            str(device.get(ATTR_TRACKER_LAST_ACTIVITY))
+        # Keep the last observation when a partial snapshot omits its timestamp.
+        last_activity = device.get(ATTR_TRACKER_LAST_ACTIVITY) or self._device.get(
+            ATTR_TRACKER_LAST_ACTIVITY
         )
-        if not current_ts:
-            current_ts = parse_last_activity(
-                str(self._device.get(ATTR_TRACKER_LAST_ACTIVITY))
-            )
+        current_ts: int = parse_last_activity(str(last_activity)) if last_activity else 0
+        if last_activity:
+            device[ATTR_TRACKER_LAST_ACTIVITY] = last_activity
         current_ts = self._last_seen(device, current_ts)
 
         if current_ts:
