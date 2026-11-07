@@ -1,5 +1,5 @@
 # MiWiFi for Home Assistant
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
+[![Open in Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=JuanManuelRomeroGarcia&repository=hass-miwifi&category=integration)
 [![Validation](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions/workflows/validate.yml/badge.svg)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions/workflows/validate.yml)
 [![Telegram](https://img.shields.io/badge/Telegram-channel-34ABDF.svg?style=for-the-badge)](https://t.me/XiaohackRouters)
 
@@ -20,6 +20,17 @@ The component allows you to monitor devices and manage routers based on [MiWiFi]
 
 ❗ On the modified firmware, not all functionality may work
 
+
+## Installation / Instalación
+
+**MiWiFi (Xiaohack Edition) is listed in the official HACS / Home Assistant Marketplace catalog.** You do not need to add this repository manually as a custom repository.
+
+- **Home Assistant 2026.11 and later:** Open **Settings → Marketplace**, search for **MiWiFi (Xiaohack Edition)**, and select **Install**. Complete the integration setup when prompted, or go to **Settings → Devices & services → Add integration**.
+- **Home Assistant 2026.10 and earlier:** Open **HACS → Integrations**, search for **MiWiFi (Xiaohack Edition)**, and download it. Restart Home Assistant if requested, then add MiWiFi under **Settings → Devices & services**.
+
+**Español:** MiWiFi (Xiaohack Edition) ya forma parte del catálogo oficial de HACS / Marketplace; **no es necesario añadir el repositorio como personalizado**. En Home Assistant 2026.11 o posterior, entra en **Ajustes → Marketplace**, busca **MiWiFi (Xiaohack Edition)** e instala la integración. En versiones anteriores, búscala en **HACS → Integraciones**. Completa la configuración en **Ajustes → Dispositivos y servicios** y reinicia Home Assistant solo si lo solicita.
+
+For additional setup details, see the [installation guide](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Install).
 
 ## More info
 - [Install](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/wiki/Install)
