@@ -1,5 +1,5 @@
-import { localize } from "./translations/localize.js?v=3.13.3";
-import { logToBackend } from "./pages/utils.js?v=3.13.3";
+import { localize } from "./translations/localize.js?v=__MIWIFI_VERSION__";
+import { logToBackend } from "./pages/utils.js?v=__MIWIFI_VERSION__";
 
 /**
  * Get current main router MAC from sensor

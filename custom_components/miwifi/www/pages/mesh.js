@@ -1,8 +1,8 @@
-import { getRouterImage } from "./utils.js?v=3.13.3";
-import { html } from "../vendor/lit.js?v=3.13.3";
-import { renderToggle, renderSelects } from "./utils.js?v=3.13.3";
-import { localize } from "../translations/localize.js?v=3.13.3";
-import { logToBackend } from "./utils.js?v=3.13.3";
+import { getRouterImage } from "./utils.js?v=__MIWIFI_VERSION__";
+import { html } from "../vendor/lit.js?v=__MIWIFI_VERSION__";
+import { renderToggle, renderSelects } from "./utils.js?v=__MIWIFI_VERSION__";
+import { localize } from "../translations/localize.js?v=__MIWIFI_VERSION__";
+import { logToBackend } from "./utils.js?v=__MIWIFI_VERSION__";
 
 const REPOSITORY = "JuanManuelRomeroGarcia/hass-miwifi";
 
