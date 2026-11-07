@@ -1,5 +1,11 @@
 # MiWiFi for Home Assistant
 [![Open in Home Assistant Marketplace](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=JuanManuelRomeroGarcia&repository=hass-miwifi&category=integration)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/default)
+[![Latest release](https://img.shields.io/github/v/release/JuanManuelRomeroGarcia/hass-miwifi?label=release)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/JuanManuelRomeroGarcia/hass-miwifi/total?label=downloads)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/releases)
+[![Last commit](https://img.shields.io/github/last-commit/JuanManuelRomeroGarcia/hass-miwifi?label=last%20commit)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/commits/main/)
+[![Repository size](https://img.shields.io/github/repo-size/JuanManuelRomeroGarcia/hass-miwifi?label=repo%20size)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi)
+[![License](https://img.shields.io/github/license/JuanManuelRomeroGarcia/hass-miwifi)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/blob/main/LICENSE)
 [![Validation](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions/workflows/validate.yml/badge.svg)](https://github.com/JuanManuelRomeroGarcia/hass-miwifi/actions/workflows/validate.yml)
 [![Telegram](https://img.shields.io/badge/Telegram-channel-34ABDF.svg?style=for-the-badge)](https://t.me/XiaohackRouters)
 
@@ -86,7 +92,7 @@ on the model, firmware and network configuration.
 
 ### Summary
 
-The gallery lists all 74 model codes recognized by the integration. Recognition
+The gallery lists all 75 model codes recognized by the integration. Recognition
 does not confirm that every feature works with every firmware version. Available
 APIs and known model limitations determine which features can be used. For example,
 WiFi configuration is disabled for CR8806. Photos are included where available.
@@ -102,7 +108,7 @@ WiFi configuration is disabled for CR8806. Photos are included where available.
 | <img src="custom_components/miwifi/www/images/RB02.png" alt="Xiaomi Router AC1200" height="80"> | Xiaomi Router AC1200 | RB02 |
 | <img src="custom_components/miwifi/www/images/CR8808.png" alt="Xiaomi Router CR8808" height="80"> | Xiaomi Router CR8808 | CR8808 |
 | <img src="custom_components/miwifi/www/images/CR8809.png" alt="Xiaomi Router CR8809" height="80"> | Xiaomi Router CR8809 | CR8809 |
-| — | Xiaomi Router CR8806 | CR8806 |
+| <img src="custom_components/miwifi/www/images/CR8806.png" alt="Xiaomi Router CR8806" height="80"> | Xiaomi Router CR8806 | CR8806 |
 | <img src="custom_components/miwifi/www/images/RA82.png" alt="Xiaomi Mesh System AX3000" height="80"> | Xiaomi Mesh System AX3000 | RA82 |
 | <img src="custom_components/miwifi/www/images/RB01.png" alt="Xiaomi Router AX3200" height="80"> | Xiaomi Router AX3200 | RB01 |
 | <img src="custom_components/miwifi/www/images/RA71.png" alt="Redmi Router AX1800" height="80"> | Redmi Router AX1800 | RA71 |
@@ -164,6 +170,7 @@ WiFi configuration is disabled for CR8806. Photos are included where available.
 | <img src="custom_components/miwifi/www/images/R4ACv2.png" alt="Xiaomi 4A Gigabit Edition" height="80"> | Xiaomi 4A Gigabit Edition | R4ACv2 |
 | <img src="custom_components/miwifi/www/images/RC02.png" alt="Xiaomi Router AX3000 NE" height="80"> | Xiaomi Router AX3000 NE | RC02 |
 | <img src="custom_components/miwifi/www/images/RP04.png" alt="Xiaomi BE10000 Pro" height="80"> | Xiaomi BE10000 Pro | RP04 |
+| <img src="custom_components/miwifi/www/images/RP09.png" alt="Xiaomi Router BE7200 Pro" height="80"> | Xiaomi Router BE7200 Pro | RP09 |
 | <img src="custom_components/miwifi/www/images/RD03V2.png" alt="Xiaomi Router AX3000T (Qualcomm version)" height="80"> | Xiaomi Router AX3000T (Qualcomm version) | RD03V2 |
 | <img src="custom_components/miwifi/www/images/RP01.png" alt="Xiaomi Whole House Router BE3600 Pro Wired, 5-port main router" height="80"> | Xiaomi Whole House Router BE3600 Pro Wired (5-port main router) | RP01 |
 | <img src="custom_components/miwifi/www/images/RP03.png" alt="Xiaomi Whole House Router BE3600 Pro Wired, satellite router" height="80"> | Xiaomi Whole House Router BE3600 Pro Wired (satellite router) | RP03 |

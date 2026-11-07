@@ -1,10 +1,10 @@
-import { loadTranslations, localize } from "./translations/localize.js?v=3.13.3";
-import { navigate, goBack } from "./router.js?v=3.13.3";
-import { logToBackend } from "./pages/utils.js?v=3.13.3";
-import { html, css, LitElement } from "./vendor/lit.js?v=3.13.3";
-import { until } from "./vendor/lit.js?v=3.13.3";
+import { loadTranslations, localize } from "./translations/localize.js?v=3.13.4";
+import { navigate, goBack } from "./router.js?v=3.13.4";
+import { logToBackend } from "./pages/utils.js?v=3.13.4";
+import { html, css, LitElement } from "./vendor/lit.js?v=3.13.4";
+import { until } from "./vendor/lit.js?v=3.13.4";
 
-const MIWIFI_VERSION = "3.13.3";
+const MIWIFI_VERSION = "3.13.4";
 class MiWiFiPanel extends LitElement {
 
   static properties = {
@@ -182,22 +182,10 @@ _startAutoRefresh() {
       return;
     }
 
-    // 🔌 Si la conexión WebSocket está caída, notificar y recargar
+    // Home Assistant reconnects the WebSocket automatically. Do not reload:
+    // reloading would discard unsaved settings and form data.
     if (!this.hass.connection?.connected) {
       console.warn(localize("log.websocket_lost"));
-
-      logToBackend(this.hass, "warning", "❌ [panel-frontend.js] WebSocket lost. Triggering forced reload.");
-
-      this.hass.callService("persistent_notification", "create", {
-        title: "⚠️ MiWiFi",
-        message: localize("notification.connection_lost"),
-        notification_id: "miwifi_connection_lost"
-      });
-
-      this._schedule(() => {
-        window.location.reload();
-      }, 1000);
-
       return;
     }
 
