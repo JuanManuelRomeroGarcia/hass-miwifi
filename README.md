@@ -92,7 +92,7 @@ on the model, firmware and network configuration.
 
 ### Summary
 
-The gallery lists all 74 model codes recognized by the integration. Recognition
+The gallery lists all 75 model codes recognized by the integration. Recognition
 does not confirm that every feature works with every firmware version. Available
 APIs and known model limitations determine which features can be used. For example,
 WiFi configuration is disabled for CR8806. Photos are included where available.
@@ -170,6 +170,7 @@ WiFi configuration is disabled for CR8806. Photos are included where available.
 | <img src="custom_components/miwifi/www/images/R4ACv2.png" alt="Xiaomi 4A Gigabit Edition" height="80"> | Xiaomi 4A Gigabit Edition | R4ACv2 |
 | <img src="custom_components/miwifi/www/images/RC02.png" alt="Xiaomi Router AX3000 NE" height="80"> | Xiaomi Router AX3000 NE | RC02 |
 | <img src="custom_components/miwifi/www/images/RP04.png" alt="Xiaomi BE10000 Pro" height="80"> | Xiaomi BE10000 Pro | RP04 |
+| Image pending | Xiaomi Router BE7200 Pro | RP09 |
 | <img src="custom_components/miwifi/www/images/RD03V2.png" alt="Xiaomi Router AX3000T (Qualcomm version)" height="80"> | Xiaomi Router AX3000T (Qualcomm version) | RD03V2 |
 | <img src="custom_components/miwifi/www/images/RP01.png" alt="Xiaomi Whole House Router BE3600 Pro Wired, 5-port main router" height="80"> | Xiaomi Whole House Router BE3600 Pro Wired (5-port main router) | RP01 |
 | <img src="custom_components/miwifi/www/images/RP03.png" alt="Xiaomi Whole House Router BE3600 Pro Wired, satellite router" height="80"> | Xiaomi Whole House Router BE3600 Pro Wired (satellite router) | RP03 |
