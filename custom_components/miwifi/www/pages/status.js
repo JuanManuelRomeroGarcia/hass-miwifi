@@ -1,8 +1,8 @@
-import "../components/miwifi-status-data.js?v=3.13.3";
-import { html } from "../vendor/lit.js?v=3.13.3";
-import { getMainRouterMac, formatSignal, logToBackend } from "./utils.js?v=3.13.3";
-import { localize } from "../translations/localize.js?v=3.13.3";
-import { showDialog } from "../dialogs.js?v=3.13.3";
+import "../components/miwifi-status-data.js?v=__MIWIFI_VERSION__";
+import { html } from "../vendor/lit.js?v=__MIWIFI_VERSION__";
+import { getMainRouterMac, formatSignal, logToBackend } from "./utils.js?v=__MIWIFI_VERSION__";
+import { localize } from "../translations/localize.js?v=__MIWIFI_VERSION__";
+import { showDialog } from "../dialogs.js?v=__MIWIFI_VERSION__";
 
 async function findMainTopoSensor(hass, retries = 6, delay = 500) {
   if (!hass || !hass.states) return null;

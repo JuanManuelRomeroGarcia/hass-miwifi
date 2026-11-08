@@ -1,7 +1,7 @@
-import { html } from "../vendor/lit.js?v=3.13.3";
-import { logToBackend } from "./utils.js?v=3.13.3";
-import { localize } from "../translations/localize.js?v=3.13.3";
-import "../components/miwifi-portforwarding.js?v=3.13.3";
+import { html } from "../vendor/lit.js?v=__MIWIFI_VERSION__";
+import { logToBackend } from "./utils.js?v=__MIWIFI_VERSION__";
+import { localize } from "../translations/localize.js?v=__MIWIFI_VERSION__";
+import "../components/miwifi-portforwarding.js?v=__MIWIFI_VERSION__";
 
 export const renderPortForwarding = (hass) => {
   try {

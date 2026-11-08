@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.13.4 — 2026-11-07
+
+- Remove the forced full-page reload on WebSocket disconnection in the MiWiFi panel. Home Assistant can reconnect without discarding unsaved form state; retain periodic refresh behavior (#391).
+- Fix tracker last-activity handling around daylight-saving-time fallback and add regression coverage (#384).
+- Improve restored tracker state and client/sensor update handling, with additional regression tests.
+- Recognize Xiaomi Router BE7200 Pro (RP09) in the router model enum and supported-model README. Model recognition does not guarantee every router API feature is supported.
+- Add router photographs for RP09 and CR8806 to the supported-router gallery; CR8806 was already recognized in the enum, and its Wi-Fi configuration restriction remains unchanged.
+- Restore the visible integration title "MiWiFi (Xiaohack Edition)" in all eight integration translation files, consistent with manifest.json.
+- Refresh README documentation for official HACS installation and repository/status badges. Update the integration manifest, frontend cache references and bundled version metadata to 3.13.4.
+- Experimental router API changes (#373) and pending Mesh recovery work (#385) are not included.
+
 ## 3.13.3 — 2026-10-28
 
 - Refresh clients from a force-load AP or Mesh node's own lists when no parent provides a recent snapshot (#378). Keep recent parent data authoritative and resume local observations after it expires. Preserve client names and blocking decisions when the radio list lacks them.

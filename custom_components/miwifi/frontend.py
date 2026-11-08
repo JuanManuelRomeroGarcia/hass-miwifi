@@ -3,6 +3,8 @@
 import asyncio
 import json
 import os
+import shutil
+import tempfile
 from pathlib import Path
 
 from homeassistant.components.frontend import DATA_PANELS, async_remove_panel
@@ -30,10 +32,41 @@ def _write_json_file(path: str, data: dict) -> None:
         json.dump(data, file)
 
 
+def _build_panel_assets(source: Path, destination: Path, version: str) -> None:
+    """Stage the bundled panel with a single manifest-derived cache version.
+
+    Never modify HACS-managed files. Publish only complete generated assets,
+    keeping the source templates reusable for subsequent releases.
+    """
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".miwifi-panel-", dir=destination.parent) as temporary:
+        assembled = Path(temporary) / "www"
+        for source_file in source.rglob("*"):
+            if not source_file.is_file():
+                continue
+            relative = source_file.relative_to(source)
+            output = assembled / relative
+            output.parent.mkdir(parents=True, exist_ok=True)
+            if source_file.suffix == ".js":
+                output.write_text(
+                    source_file.read_text(encoding="utf-8").replace("__MIWIFI_VERSION__", version),
+                    encoding="utf-8",
+                )
+            elif relative == Path("version.json"):
+                data = json.loads(source_file.read_text(encoding="utf-8"))
+                data["version"] = version
+                output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            else:
+                shutil.copy2(source_file, output)
+        if destination.exists():
+            shutil.rmtree(destination)
+        os.replace(assembled, destination)
+
+
 async def read_local_version(hass: HomeAssistant) -> str:
-    """Read the bundled version, never a downloaded or stored version."""
+    """Read the integration version; manifest.json is the only version source."""
     if "miwifi_cached_panel_version" not in hass.data:
-        data = await hass.async_add_executor_job(_read_json_file, PANEL_PATH / "version.json")
+        data = await hass.async_add_executor_job(_read_json_file, PANEL_PATH.parent / "manifest.json")
         hass.data["miwifi_cached_panel_version"] = data["version"]
     return hass.data["miwifi_cached_panel_version"]
 
@@ -42,8 +75,11 @@ async def async_register_panel(hass: HomeAssistant, version: str) -> None:
     """Register static resources once, including concurrent router setup."""
     async with hass.data.setdefault(_LOCK, asyncio.Lock()):
         if not hass.data.get(_STATIC):
+            # Build in the HA config cache, not inside HACS-managed source files.
+            assets_path = Path(hass.config.path(".storage", "miwifi_panel_web"))
+            await hass.async_add_executor_job(_build_panel_assets, PANEL_PATH, assets_path, version)
             await hass.http.async_register_static_paths([
-                StaticPathConfig(PANEL_URL, str(PANEL_PATH), False)
+                StaticPathConfig(PANEL_URL, str(assets_path), False)
             ])
             hass.data[_STATIC] = True
 
