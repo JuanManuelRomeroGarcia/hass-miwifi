@@ -560,11 +560,11 @@ def test_live_tracker_refreshes_its_registry_link() -> None:
     with patch("custom_components.miwifi.device_tracker._reparent_client_device") as reparent:
         MiWifiDeviceTracker.update_from_router(entity, device)
 
-    assert entity._device == device
+    entity._update_device_state.assert_called_once_with(device, force_write=True)
     reparent.assert_called_once_with(
         entity.hass, MAC, NEW, "02:00:00:00:00:02"
     )
-    entity.async_write_ha_state.assert_called_once_with()
+    entity.async_write_ha_state.assert_not_called()
 
 
 @pytest.mark.asyncio
