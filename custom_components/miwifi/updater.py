@@ -285,6 +285,37 @@ def _local_now() -> datetime:
     return dt_util.now().replace(tzinfo=None, microsecond=0)
 
 
+# Keys whose value is kept out of a router answer that is logged: the secrets,
+# and the user names that go with them, which the diagnostics redact too.
+LOG_SECRET_KEYS: Final = frozenset(
+    {"password", "passwd", "pppoe_passwd", "token", "stok", "key", "username"}
+)
+
+
+def _mask_log_secrets(value):
+    """Copy a router answer for the log with every credential it holds masked.
+
+    The credentials are not all in one place: xqnetwork/wan_info carries the
+    PPPoE user name and password in `info.details` and the VPN client's in
+    `info.vpnInfo`. An empty value stays empty, so the log still tells whether
+    one is set.
+
+    :param value: a router answer, or any part of one
+    :return: a copy of it; the answer itself is left untouched
+    """
+
+    if isinstance(value, dict):
+        return {
+            key: "***" if key in LOG_SECRET_KEYS and child else _mask_log_secrets(child)
+            for key, child in value.items()
+        }
+
+    if isinstance(value, list):
+        return [_mask_log_secrets(child) for child in value]
+
+    return value
+
+
 # Wait after an ask of the diagnostics endpoint that recovered no channel. It
 # doubles with every miss in a row, from the first value up to the second.
 WIFI_DIAG_RETRY_FIRST: Final = timedelta(minutes=1)
@@ -1394,20 +1425,8 @@ class LuciUpdater(DataUpdateCoordinator):
             response: dict = await asyncio.wait_for(self.luci.wan_info(), timeout=6)
 
             # --- sanitize secrets for logs (do NOT mutate original response) ---
-            safe = response
             try:
-                if isinstance(response, dict):
-                    safe = dict(response)
-                    info_safe = dict(safe.get("info") or {}) if isinstance(safe.get("info"), dict) else {}
-                    details_safe = dict(info_safe.get("details") or {}) if isinstance(info_safe.get("details"), dict) else {}
-
-                    # mask common secret fields
-                    for k in ("password", "passwd", "pppoe_passwd", "token", "stok", "key"):
-                        if k in details_safe and details_safe[k]:
-                            details_safe[k] = "***"
-
-                    info_safe["details"] = details_safe
-                    safe["info"] = info_safe
+                safe = _mask_log_secrets(response)
             except Exception:
                 # if anything goes wrong, just don't break WAN processing
                 safe = {"_log_sanitize": "failed"}
