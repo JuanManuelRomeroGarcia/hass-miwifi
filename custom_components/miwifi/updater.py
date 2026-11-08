@@ -285,18 +285,20 @@ def _local_now() -> datetime:
     return dt_util.now().replace(tzinfo=None, microsecond=0)
 
 
-# Keys whose value is a secret in a router answer that is logged.
+# Keys whose value is kept out of a router answer that is logged: the secrets,
+# and the user names that go with them, which the diagnostics redact too.
 LOG_SECRET_KEYS: Final = frozenset(
-    {"password", "passwd", "pppoe_passwd", "token", "stok", "key"}
+    {"password", "passwd", "pppoe_passwd", "token", "stok", "key", "username"}
 )
 
 
 def _mask_log_secrets(value):
-    """Copy a router answer for the log with every secret it holds masked.
+    """Copy a router answer for the log with every credential it holds masked.
 
-    The secrets are not all in one place: xqnetwork/wan_info carries the PPPoE
-    credentials in `info.details` and the VPN client's in `info.vpnInfo`. An
-    empty value stays empty, so the log still tells whether one is set.
+    The credentials are not all in one place: xqnetwork/wan_info carries the
+    PPPoE user name and password in `info.details` and the VPN client's in
+    `info.vpnInfo`. An empty value stays empty, so the log still tells whether
+    one is set.
 
     :param value: a router answer, or any part of one
     :return: a copy of it; the answer itself is left untouched

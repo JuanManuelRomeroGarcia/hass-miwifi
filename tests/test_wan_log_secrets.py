@@ -1,4 +1,4 @@
-"""The WAN debug log masks every secret in xqnetwork/wan_info, not only PPPoE's."""
+"""The WAN debug log masks every credential in xqnetwork/wan_info, not only PPPoE's."""
 
 # pylint: disable=protected-access
 
@@ -9,7 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.miwifi.const import ATTR_SENSOR_WAN_IP, ATTR_SENSOR_WAN_TYPE
+from custom_components.miwifi.const import (
+    ATTR_BINARY_SENSOR_WAN_LINK,
+    ATTR_BINARY_SENSOR_WAN_STATE,
+    ATTR_SENSOR_WAN_IP,
+    ATTR_SENSOR_WAN_TYPE,
+)
 from custom_components.miwifi.updater import LuciUpdater, _mask_log_secrets
 
 # The shape of a wan_info answer: PPPoE credentials in `details`, the VPN
@@ -30,6 +35,9 @@ WAN_INFO = {
         },
     },
 }
+
+# What no line of the log may hold.
+CREDENTIALS = ("isp-user", "pppoe-secret", "vpn-user", "vpn-secret")
 
 
 def _updater() -> LuciUpdater:
@@ -54,8 +62,8 @@ def _updater() -> LuciUpdater:
 
 
 @pytest.mark.asyncio
-async def test_wan_log_masks_the_vpn_and_pppoe_passwords() -> None:
-    """Neither password reaches the debug log; the sensors still read the answer."""
+async def test_wan_log_masks_the_vpn_and_pppoe_credentials() -> None:
+    """No user name or password reaches the debug log; the sensors still read them."""
 
     answer = deepcopy(WAN_INFO)
     updater = _updater()
@@ -71,16 +79,22 @@ async def test_wan_log_masks_the_vpn_and_pppoe_passwords() -> None:
         if call.args and call.args[0] == "WAN info response: %s"
     ]
     assert len(logged) == 1
-    text = repr(logged[0])
-    assert "vpn-secret" not in text
-    assert "pppoe-secret" not in text
-    assert logged[0]["info"]["vpnInfo"]["password"] == "***"
-    assert logged[0]["info"]["details"]["password"] == "***"
+    text = repr(logger.mock_calls)
+    for credential in CREDENTIALS:
+        assert credential not in text
+    for section in ("details", "vpnInfo"):
+        assert logged[0]["info"][section]["username"] == "***"
+        assert logged[0]["info"][section]["password"] == "***"
+    assert logged[0]["info"]["details"]["wanType"] == "pppoe"
     assert logged[0]["info"]["vpnInfo"]["server"] == "vpn.example.com"
 
     assert answer == WAN_INFO
-    assert updater.data[ATTR_SENSOR_WAN_TYPE] == "pppoe"
-    assert updater.data[ATTR_SENSOR_WAN_IP] == "192.0.2.10"
+    assert updater.data == {
+        ATTR_BINARY_SENSOR_WAN_STATE: True,
+        ATTR_BINARY_SENSOR_WAN_LINK: True,
+        ATTR_SENSOR_WAN_IP: "192.0.2.10",
+        ATTR_SENSOR_WAN_TYPE: "pppoe",
+    }
 
 
 def test_masking_reaches_every_level_and_keeps_empty_values() -> None:
@@ -88,8 +102,8 @@ def test_masking_reaches_every_level_and_keeps_empty_values() -> None:
 
     answer = {
         "info": {
-            "vpnInfo": {"password": "", "proto": ""},
-            "list": [{"token": "abc", "name": "x"}],
+            "vpnInfo": {"username": "", "password": "", "proto": ""},
+            "list": [{"token": "abc", "name": "x", "username": "y"}],
         },
         "stok": "def",
     }
@@ -97,8 +111,8 @@ def test_masking_reaches_every_level_and_keeps_empty_values() -> None:
 
     assert _mask_log_secrets(answer) == {
         "info": {
-            "vpnInfo": {"password": "", "proto": ""},
-            "list": [{"token": "***", "name": "x"}],
+            "vpnInfo": {"username": "", "password": "", "proto": ""},
+            "list": [{"token": "***", "name": "x", "username": "***"}],
         },
         "stok": "***",
     }
