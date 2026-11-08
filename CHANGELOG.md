@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.13.6 — 2026-11-08
+
+- Protect PPPoE and VPN client credentials in downloaded WAN debug logs. Recursively mask non-empty `username`, `password`, `passwd`, `pppoe_passwd`, `token`, `stok` and `key` fields at any depth, including nested lists, while retaining empty-field visibility (#392, thanks to @brembygit).
+- Sanitize only the debug-log copy; preserve the original router response, WAN state/link, IP and connection-type sensor values. Extend regression coverage for both credential sets, nested structures, empty fields and non-dictionary responses.
+- Existing log archives generated before this fix are not retroactively sanitized. Review or delete any previously downloaded debug logs that may contain credentials.
+- No router model or panel feature changes. Update through HACS / Home Assistant Marketplace and restart Home Assistant to apply the updated integration.
+
+## 3.13.5 — 2026-11-07
+
+- Restore manifest-driven frontend cache versioning across the bundled panel, router, pages, components and translation modules (#393). Prevent duplicate ES module instances that caused untranslated labels in v3.13.4.
+- Generate version-resolved panel assets locally in the Home Assistant configuration area without modifying HACS-managed integration files or downloading remote code. Keep `manifest.json` as the single source of truth and preserve the `__MIWIFI_VERSION__` placeholder in the bundled source.
+- Extend packaging regression checks; validate with HACS, hassfest, CodeQL and Home Assistant test suites. Panel translations were subsequently confirmed working in a real Home Assistant installation.
+
 ## 3.13.4 — 2026-11-07
 
 - Remove the forced full-page reload on WebSocket disconnection in the MiWiFi panel. Home Assistant can reconnect without discarding unsaved form state; retain periodic refresh behavior (#391).
