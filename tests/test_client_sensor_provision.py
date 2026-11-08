@@ -23,9 +23,11 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry, MockEn
 
 from custom_components.miwifi.const import (
     ATTR_TRACKER_IP,
+    ATTR_TRACKER_ONLINE,
     ATTR_TRACKER_MAC,
     ATTR_TRACKER_UPDATER_ENTRY_ID,
     CONF_ENABLE_DEVICE_SENSORS,
+    CONF_DEVICE_SENSOR_TYPES,
     CONF_DEVICE_SENSORS_GLOBAL,
     DOMAIN,
     SIGNAL_NEW_DEVICE,
@@ -33,7 +35,9 @@ from custom_components.miwifi.const import (
 )
 from custom_components.miwifi.device_tracker import _reparent_client_device
 from custom_components.miwifi.sensor import (
+    DEVICE_SENSOR_TYPES,
     MIWIFI_DEVICE_SENSORS,
+    _build_device_sensors,
     _not_provided_elsewhere,
     _async_add_all_sensors_later,
     async_setup_entry,
@@ -319,3 +323,105 @@ async def test_client_back_on_another_node_ends_on_one_device_row(hass: HomeAssi
         sensor = registry.async_get(registry.async_get_entity_id("sensor", DOMAIN, uid))
         assert sensor.device_id == rows[0].id
     assert hass.states.get(entity_id).state == "192.0.2.20"
+
+
+def _select_types(hass: HomeAssistant, entry: MockConfigEntry, *unselected: str) -> None:
+    """Save a selection of client sensor types, as the global options step does."""
+    hass.config_entries.async_update_entry(
+        entry,
+        options={
+            **entry.options,
+            CONF_ENABLE_DEVICE_SENSORS: True,
+            CONF_DEVICE_SENSORS_GLOBAL: entry.options.get(CONF_DEVICE_SENSORS_GLOBAL, 0) + 1,
+            CONF_DEVICE_SENSOR_TYPES: [key for key in DEVICE_SENSOR_TYPES if key not in unselected],
+        },
+    )
+
+
+def _registered(hass: HomeAssistant) -> set[str]:
+    registry = er.async_get(hass)
+    return {uid for uid in CLIENT_UIDS if registry.async_get_entity_id("sensor", DOMAIN, uid)}
+
+
+def _without(*keys: str) -> set[str]:
+    return {f"miwifi-dev-{MAC.lower()}-{key}" for key in DEVICE_SENSOR_TYPES if key not in keys}
+
+
+def test_selected_type_keeps_its_enabled_default(hass: HomeAssistant) -> None:
+    """Selecting a type creates it; whether it starts enabled stays per type."""
+    sensors = _build_device_sensors(
+        Mock(), {ATTR_TRACKER_MAC: MAC}, frozenset(DEVICE_SENSOR_TYPES)
+    )
+
+    assert [sensor.entity_description for sensor in sensors] == list(MIWIFI_DEVICE_SENSORS)
+    for sensor in sensors:
+        assert sensor.entity_registry_enabled_default is sensor.entity_description.entity_registry_enabled_default
+    assert _build_device_sensors(Mock(), {ATTR_TRACKER_MAC: MAC}, frozenset()) == []
+
+
+async def test_setup_removes_only_the_unselected_client_sensor_types(hass: HomeAssistant) -> None:
+    main, node = _entries(hass)
+    registry = er.async_get(hass)
+    for uid in CLIENT_UIDS:
+        registry.async_get_or_create("sensor", DOMAIN, uid, config_entry=node)
+    # "signal_quality" ends like "signal" but is another type and stays.
+    _select_types(hass, main, ATTR_TRACKER_ONLINE, "signal")
+
+    await _set_up_node_sensors(hass, node)
+
+    assert _registered(hass) == _without(ATTR_TRACKER_ONLINE, "signal")
+
+
+async def test_startup_adds_only_the_selected_client_sensor_types(hass: HomeAssistant) -> None:
+    _, node = _entries(hass)
+    _select_types(hass, node, ATTR_TRACKER_ONLINE)
+    updater = DataUpdateCoordinator(
+        hass, logging.getLogger(__name__), config_entry=node, name=node.entry_id
+    )
+    updater.data = {"topo_graph": {"graph": {"is_main": False}}}
+    updater.devices = {MAC: {ATTR_TRACKER_MAC: MAC, ATTR_TRACKER_UPDATER_ENTRY_ID: node.entry_id}}
+    hass.data.setdefault(DOMAIN, {})[node.entry_id] = {UPDATER: updater}
+    add_entities = Mock()
+    with ExitStack() as stack:
+        stack.enter_context(patch("custom_components.miwifi.sensor.MIWIFI_SENSORS", []))
+        stack.enter_context(patch("custom_components.miwifi.sensor._is_cb0401v2", return_value=False))
+        for name in ("MiWifiTopologyGraphSensor", "MiWifiConfigSensor"):
+            stack.enter_context(patch(
+                f"custom_components.miwifi.sensor.{name}",
+                side_effect=lambda updater, kind=name: ClientSensor("0", kind),
+            ))
+        await _async_add_all_sensors_later(hass, node, add_entities)
+
+    added = {entity.unique_id for entity in add_entities.call_args.args[0]}
+    assert added & set(CLIENT_UIDS) == _without(ATTR_TRACKER_ONLINE)
+    await updater.async_shutdown()
+
+
+async def test_reselected_type_comes_back_with_its_entity_id(hass: HomeAssistant, caplog) -> None:
+    _, node = _entries(hass)
+    # Rows of an earlier run, with the entity ids the sensors give themselves.
+    registry = er.async_get(hass)
+    entity_ids = {}
+    for key in DEVICE_SENSOR_TYPES:
+        uid = f"miwifi-dev-{MAC.lower()}-{key}"
+        entity_ids[uid] = registry.async_get_or_create(
+            "sensor", DOMAIN, uid, config_entry=node,
+            suggested_object_id=f"miwifi_{MAC.lower().replace(':', '_')}_{key}",
+        ).entity_id
+
+    # Unselected: the setup cleanup removes it and the client does not get it again.
+    _select_types(hass, node, ATTR_TRACKER_ONLINE)
+    updater = await _set_up_node_sensors(hass, node)
+    assert _registered(hass) == _without(ATTR_TRACKER_ONLINE)
+    _client_comes_back(hass, updater, node)
+    await hass.async_block_till_done()
+    assert _registered(hass) == _without(ATTR_TRACKER_ONLINE)
+
+    # Selected again: only the missing type is added, under its old entity id.
+    caplog.set_level(logging.ERROR)
+    _select_types(hass, node)
+    _client_comes_back(hass, updater, node)
+    await hass.async_block_till_done()
+    assert "does not generate unique IDs" not in caplog.text
+    for uid, entity_id in entity_ids.items():
+        assert registry.async_get_entity_id("sensor", DOMAIN, uid) == entity_id

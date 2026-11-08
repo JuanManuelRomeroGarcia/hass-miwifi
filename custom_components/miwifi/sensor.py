@@ -102,6 +102,7 @@ from .helper import (
     async_remove_empty_client_device,
     async_get_serving_node,
     detect_manufacturer,
+    get_mesh_device_sensor_types,
     get_mesh_device_sensors_enabled,
     LastActivityReader,
     map_signal_quality,
@@ -412,6 +413,9 @@ MIWIFI_DEVICE_SENSORS: tuple[SensorEntityDescription, ...] = (
         entity_registry_enabled_default=True,
     ),
 )
+
+# Every client sensor type, in the order the global options offer them.
+DEVICE_SENSOR_TYPES: Final = tuple(desc.key for desc in MIWIFI_DEVICE_SENSORS)
 
 # ────────────────────────────────────────────────────────────────────────────────
 # CB0401V2 (5G CPE) - Model-specific sensors
@@ -924,13 +928,14 @@ class MiWifiDeviceAttributeSensor(CoordinatorEntity, SensorEntity):
 
 
 def _build_device_sensors(
-    updater: LuciUpdater, device: dict[str, Any]
+    updater: LuciUpdater, device: dict[str, Any], types: frozenset[str]
 ) -> list[SensorEntity]:
     """Build per-device sensors for a client.
 
     Notes:
-    - MIWIFI_DEVICE_SENSORS already define entity_registry_enabled_default=False,
-      so they will be created but disabled by default (as desired).
+    - Only the selected types are built. Each keeps the
+      entity_registry_enabled_default of its description, so selecting a type
+      does not enable a sensor that is created disabled.
     """
     mac = str(device.get(ATTR_TRACKER_MAC, "")).strip()
     if not mac:
@@ -939,12 +944,23 @@ def _build_device_sensors(
     return [
         MiWifiDeviceAttributeSensor(updater, device, desc)
         for desc in MIWIFI_DEVICE_SENSORS
+        if desc.key in types
     ]
 
 
 def _device_sensors_enabled(hass: HomeAssistant) -> bool:
     """Use one mesh-wide setting so leaf clients keep their sensors."""
     return get_mesh_device_sensors_enabled(hass)
+
+
+def _device_sensor_types(hass: HomeAssistant) -> frozenset[str]:
+    """Use one mesh-wide selection, so every node creates the same types."""
+    return get_mesh_device_sensor_types(hass, DEVICE_SENSOR_TYPES)
+
+
+def _device_sensors_mesh(hass: HomeAssistant) -> tuple[bool, frozenset[str]]:
+    """Return the mesh-wide client sensor settings; a change reloads every entry."""
+    return _device_sensors_enabled(hass), _device_sensor_types(hass)
 
 
 def _not_provided_elsewhere(
@@ -992,8 +1008,14 @@ async def async_setup_entry(
     # Migration / cleanup:
     # - Remove legacy per-device sensor unique_ids tied to entry_id (mesh duplicates).
     # - If per-device sensors are disabled, also remove the new scheme.
+    # - Otherwise remove the types that are not selected. Unselected sensors
+    #   are not created, so their rows would stay as orphans on every client.
     registry = er.async_get(hass)
     device_sensors_enabled = _device_sensors_enabled(hass)
+    device_sensor_types = _device_sensor_types(hass)
+    unselected_suffixes = tuple(
+        f"-{key}" for key in DEVICE_SENSOR_TYPES if key not in device_sensor_types
+    )
 
     for ent in list(registry.entities.values()):
         if ent.domain != "sensor" or ent.platform != DOMAIN:
@@ -1006,8 +1028,11 @@ async def async_setup_entry(
             registry.async_remove(ent.entity_id)
             continue
 
-        # New scheme: "miwifi-dev-<MAC>-<key>"
-        if not device_sensors_enabled and uid.startswith(f"{DOMAIN}-dev-"):
+        # New scheme: "miwifi-dev-<MAC>-<key>". Keys have no "-", so the
+        # suffix names the type without parsing the MAC.
+        if uid.startswith(f"{DOMAIN}-dev-") and (
+            not device_sensors_enabled or uid.endswith(unselected_suffixes)
+        ):
             registry.async_remove(ent.entity_id)
 
     @callback
@@ -1030,7 +1055,8 @@ async def async_setup_entry(
         # registry rows exist but nothing provides them. Checking the registry
         # would skip both cases, so check the live platforms instead.
         to_add = _not_provided_elsewhere(
-            hass, _build_device_sensors(updater, new_device)
+            hass,
+            _build_device_sensors(updater, new_device, _device_sensor_types(hass)),
         )
         if to_add:
             async_add_entities(to_add)
@@ -1271,6 +1297,7 @@ async def _async_add_all_sensors_later(
         )
 
     if _device_sensors_enabled(hass):
+        device_sensor_types = _device_sensor_types(hass)
         # IMPORTANT: do not use entity_registry existence to skip.
         # On restart those entities exist in registry but must be instantiated again.
         for device in (updater.devices or {}).values():
@@ -1279,7 +1306,9 @@ async def _async_add_all_sensors_later(
             mac = str(device.get(ATTR_TRACKER_MAC, "")).strip()
             if not mac:
                 continue
-            entities.extend(_build_device_sensors(updater, device))
+            entities.extend(
+                _build_device_sensors(updater, device, device_sensor_types)
+            )
 
     # Defensive de-duplication:
     # - avoid duplicates inside the same setup task

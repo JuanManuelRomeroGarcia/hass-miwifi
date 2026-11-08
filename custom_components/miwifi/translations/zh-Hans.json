@@ -70,7 +70,11 @@
           "log_level": "日志级别（全局）",
           "auto_purge_every_days": "自动清理（每 X 天，0 = 禁用）[PRO]",
           "auto_purge_at": "自动清理时间 (HH:MM) [PRO]",
-          "enable_device_sensors": "创建设备传感器（客户端）"
+          "enable_device_sensors": "创建设备传感器（客户端）",
+          "device_sensor_types": "要创建的设备传感器"
+        },
+        "data_description": {
+          "device_sensor_types": "适用于所有已连接的设备。未选择类型的传感器不会被创建，已有的将被删除。"
         }
       },
       "device_settings": {
@@ -96,6 +100,26 @@
           "scan_interval": "计划轮询之间的间隔。请求本身也需要时间，因此实际读取间隔可能更长。缩短间隔会增加路由器负载；请考虑报告最慢的 Mesh 节点。",
           "timeout": "单次路由器请求的等待时间。某些接口使用更短的限制；此值不是完整轮询周期的最长时间，也不是在家状态保持时间。"
         }
+      }
+    }
+  },
+  "selector": {
+    "device_sensor_types": {
+      "options": {
+        "ip": "IP 地址",
+        "connection": "连接方式",
+        "online": "已连接时间",
+        "down_speed": "下载速度",
+        "up_speed": "上传速度",
+        "total_usage": "已传输数据",
+        "signal": "信号",
+        "wifi_protocol": "Wi-Fi 协议",
+        "link_tx_rate": "TX 链路速率",
+        "link_rx_rate": "RX 链路速率",
+        "signal_quality": "信号质量",
+        "last_activity": "最后活动",
+        "first_seen": "首次发现",
+        "internet_blocked": "互联网访问已阻止"
       }
     }
   },

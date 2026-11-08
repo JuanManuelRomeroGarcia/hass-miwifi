@@ -70,7 +70,11 @@
           "log_level": "Niveau de log (global)",
           "auto_purge_every_days": "Purge automatique tous les X jours (0 = désactivé) [PRO]",
           "auto_purge_at": "Heure de purge automatique (HH:MM) [PRO]",
-          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)"
+          "enable_device_sensors": "Créer des capteurs pour les appareils (clients)",
+          "device_sensor_types": "Capteurs d'appareil à créer"
+        },
+        "data_description": {
+          "device_sensor_types": "S'applique à tous les appareils connectés. Les capteurs des types non sélectionnés ne sont pas créés et ceux qui existent sont supprimés."
         }
       },
       "device_settings": {
@@ -96,6 +100,26 @@
           "scan_interval": "Intervalle entre les lectures programmées. Les requêtes ajoutent du temps. Un intervalle court sollicite davantage le routeur. Tenez compte du nœud mesh le plus lent.",
           "timeout": "Délai d’attente par requête au routeur. Certaines requêtes ont une limite plus courte. Ce n’est ni la durée maximale d’un cycle complet ni le délai de présence."
         }
+      }
+    }
+  },
+  "selector": {
+    "device_sensor_types": {
+      "options": {
+        "ip": "Adresse IP",
+        "connection": "Connexion",
+        "online": "Durée de connexion",
+        "down_speed": "Débit descendant",
+        "up_speed": "Débit montant",
+        "total_usage": "Données transférées",
+        "signal": "Signal",
+        "wifi_protocol": "Protocole Wi-Fi",
+        "link_tx_rate": "Débit de liaison TX",
+        "link_rx_rate": "Débit de liaison RX",
+        "signal_quality": "Qualité du signal",
+        "last_activity": "Dernière activité",
+        "first_seen": "Première détection",
+        "internet_blocked": "Accès Internet bloqué"
       }
     }
   },

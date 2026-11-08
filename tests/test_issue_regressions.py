@@ -46,10 +46,22 @@ def mesh_sensor_helpers():
     env = {
         'DOMAIN': 'miwifi', 'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
         'DEFAULT_ENABLE_DEVICE_SENSORS': False, 'CONF_DEVICE_SENSORS_GLOBAL': 'device_sensors_global',
+        'CONF_DEVICE_SENSOR_TYPES': 'device_sensor_types',
     }
-    for name in ('get_config_value', '_device_sensors_save', 'get_mesh_device_sensors_save', 'get_mesh_device_sensors_enabled'):
+    for name in ('get_config_value', '_device_sensors_save', 'get_mesh_device_sensors_save', 'get_mesh_device_sensors_enabled', 'get_mesh_device_sensor_types'):
         load_function('helper.py', name, env)
     return env
+
+
+CLIENT_SENSOR_TYPES = ('ip', 'online', 'down_speed', 'signal', 'signal_quality')
+
+
+def mesh_sensor_state():
+    """The mesh-wide client-sensor state as sensor.py computes it."""
+    env = {**mesh_sensor_helpers(), 'DEVICE_SENSOR_TYPES': CLIENT_SENSOR_TYPES}
+    for name in ('_device_sensors_enabled', '_device_sensor_types', '_device_sensors_mesh'):
+        load_function('sensor.py', name, env)
+    return env['_device_sensors_mesh']
 
 
 class LuciError(BaseException):
@@ -500,7 +512,7 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
         )
         env = {
             'asyncio': asyncio, 'DOMAIN': 'miwifi', 'DEVICE_SENSORS_MESH': 'device_sensors_mesh',
-            '_LOGGER': Mock(), '_device_sensors_enabled': lambda hass: sensors_now,
+            '_LOGGER': Mock(), '_device_sensors_mesh': lambda hass: sensors_now,
             'get_global_panel_state': AsyncMock(return_value=False), 'async_remove_miwifi_panel': AsyncMock(),
             'read_local_version': AsyncMock(), 'async_register_panel': AsyncMock(),
         }
@@ -520,6 +532,15 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sorted(c.args[0] for c in reload.await_args_list), ['e0', 'e1', 'e2', 'e3'])
             self.assertEqual(hass.data['miwifi']['device_sensors_mesh'], now)
 
+    async def test_client_sensor_type_change_reloads_every_entry(self):
+        entries = [SimpleNamespace(entry_id=f'e{i}') for i in range(3)]
+        before = (True, frozenset({'ip', 'online'}))
+        now = (True, frozenset({'ip'}))
+        listener, hass, reload = self.listener(entries, sensors_before=before, sensors_now=now)
+        await listener(hass, entries[1])
+        self.assertEqual(sorted(c.args[0] for c in reload.await_args_list), ['e0', 'e1', 'e2'])
+        self.assertEqual(hass.data['miwifi']['device_sensors_mesh'], now)
+
     async def test_unknown_previous_state_reloads_only_the_entry(self):
         entries = [SimpleNamespace(entry_id='e0'), SimpleNamespace(entry_id='e1')]
         listener, hass, reload = self.listener(entries, sensors_before=None, sensors_now=True)
@@ -531,11 +552,10 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             SimpleNamespace(entry_id='main', options={'enable_device_sensors': True}, data={}),
             SimpleNamespace(entry_id='leaf', options={'enable_device_sensors': False}, data={}),
         ]
-        enabled = load_function('sensor.py', '_device_sensors_enabled', {
-            'get_mesh_device_sensors_enabled': mesh_sensor_helpers()['get_mesh_device_sensors_enabled'],
-        })
-        listener, hass, reload = self.listener(entries, sensors_before=True, sensors_now=True)
-        listener.__globals__['_device_sensors_enabled'] = enabled
+        mesh = mesh_sensor_state()
+        listener, hass, reload = self.listener(entries, sensors_before=None, sensors_now=None)
+        listener.__globals__['_device_sensors_mesh'] = mesh
+        hass.data['miwifi']['device_sensors_mesh'] = mesh(hass)
         await listener(hass, entries[1])
         self.assertEqual([c.args[0] for c in reload.await_args_list], ['leaf'])
 
@@ -571,13 +591,14 @@ class OptionsReloadTests(unittest.IsolatedAsyncioTestCase):
             'CONF_AUTO_PURGE_EVERY_DAYS': 'auto_purge_every_days', 'CONF_AUTO_PURGE_AT': 'auto_purge_at',
             'CONF_ENABLE_DEVICE_SENSORS': 'enable_device_sensors',
             'CONF_DEVICE_SENSORS_GLOBAL': 'device_sensors_global',
+            'CONF_DEVICE_SENSOR_TYPES': 'device_sensor_types', 'DEVICE_SENSOR_TYPES': CLIENT_SENSOR_TYPES,
             'set_global_log_level': AsyncMock(), 'set_global_panel_state': AsyncMock(),
             'async_verify_access': AsyncMock(return_value=(200, None)),
             'codes': SimpleNamespace(is_success=lambda code: code == 200),
             'set_global_auto_purge': set_purge,
         }
         helpers = mesh_sensor_helpers()
-        env.update({name: helpers[name] for name in ('get_mesh_device_sensors_save', 'get_mesh_device_sensors_enabled')})
+        env.update({name: helpers[name] for name in ('get_mesh_device_sensors_save', 'get_mesh_device_sensors_enabled', 'get_mesh_device_sensor_types')})
         cls = load_class(
             'config_flow.py',
             'MiWifiOptionsFlow',

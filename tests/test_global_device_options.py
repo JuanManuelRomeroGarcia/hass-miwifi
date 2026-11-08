@@ -22,6 +22,7 @@ from custom_components.miwifi.const import (
     CONF_ACTIVITY_DAYS,
     CONF_AUTO_PURGE_AT,
     CONF_AUTO_PURGE_EVERY_DAYS,
+    CONF_DEVICE_SENSOR_TYPES,
     CONF_DEVICE_SENSORS_GLOBAL,
     CONF_ENABLE_DEVICE_SENSORS,
     CONF_ENABLE_PANEL,
@@ -42,8 +43,10 @@ from custom_components.miwifi.helper import (
     get_global_auto_purge,
     get_global_log_level,
     get_global_panel_state,
+    get_mesh_device_sensor_types,
     get_mesh_device_sensors_enabled,
 )
+from custom_components.miwifi.sensor import DEVICE_SENSOR_TYPES, _device_sensors_mesh
 
 NODE_IP = "192.0.2.2"
 
@@ -247,7 +250,7 @@ def reload(hass: HomeAssistant):
 
 
 def _listen(hass: HomeAssistant, *entries: MockConfigEntry) -> None:
-    hass.data[DOMAIN][DEVICE_SENSORS_MESH] = get_mesh_device_sensors_enabled(hass)
+    hass.data[DOMAIN][DEVICE_SENSORS_MESH] = _device_sensors_mesh(hass)
     for entry in entries:
         entry.add_update_listener(async_update_options)
 
@@ -273,6 +276,98 @@ async def test_global_save_reloads_the_mesh_only_when_client_sensors_change(
     assert sorted(call.args[0] for call in reload.await_args_list) == sorted(
         [main.entry_id, node.entry_id]
     )
+
+
+ALL_TYPES = frozenset(DEVICE_SENSOR_TYPES)
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "types"),
+    [
+        # Never saved: every type, whatever an entry holds.
+        ({}, {}, ALL_TYPES),
+        ({CONF_DEVICE_SENSOR_TYPES: ["ip"]}, {}, ALL_TYPES),
+        # Saved: the selection of the latest save, on whichever entry it was made.
+        ({CONF_DEVICE_SENSOR_TYPES: ["ip", "online"], CONF_DEVICE_SENSORS_GLOBAL: 1}, {}, {"ip", "online"}),
+        ({CONF_DEVICE_SENSOR_TYPES: ["ip"], CONF_DEVICE_SENSORS_GLOBAL: 1}, {CONF_DEVICE_SENSOR_TYPES: ["online"], CONF_DEVICE_SENSORS_GLOBAL: 2}, {"online"}),
+        ({CONF_DEVICE_SENSOR_TYPES: ["ip"], CONF_DEVICE_SENSORS_GLOBAL: 3}, {CONF_DEVICE_SENSOR_TYPES: ["online"], CONF_DEVICE_SENSORS_GLOBAL: 2}, {"ip"}),
+        # A save without a selection, by this release or an earlier one, keeps every type.
+        ({CONF_DEVICE_SENSOR_TYPES: ["ip"], CONF_DEVICE_SENSORS_GLOBAL: 1}, {CONF_DEVICE_SENSORS_GLOBAL: 2}, ALL_TYPES),
+        # Types of other releases are ignored; an empty selection is kept.
+        ({CONF_DEVICE_SENSOR_TYPES: ["ip", "no_such_type"], CONF_DEVICE_SENSORS_GLOBAL: 1}, {}, {"ip"}),
+        ({CONF_DEVICE_SENSOR_TYPES: [], CONF_DEVICE_SENSORS_GLOBAL: 1}, {}, set()),
+        # A value that is not a list is no selection.
+        ({CONF_DEVICE_SENSOR_TYPES: "ip", CONF_DEVICE_SENSORS_GLOBAL: 1}, {}, ALL_TYPES),
+    ],
+)
+def test_mesh_client_sensor_types(
+    hass: HomeAssistant, first: dict, second: dict, types: set[str]
+) -> None:
+    _entry(hass, first)
+    _entry(hass, second, ip=NODE_IP)
+
+    assert get_mesh_device_sensor_types(hass, DEVICE_SENSOR_TYPES) == types
+
+
+async def test_global_step_offers_every_client_sensor_type(hass: HomeAssistant) -> None:
+    entry = _entry(hass)
+
+    form = await _open(hass, entry, "global_settings")
+
+    key = next(k for k in form["data_schema"].schema if str(k) == CONF_DEVICE_SENSOR_TYPES)
+    config = form["data_schema"].schema[key].config
+    assert config["options"] == list(DEVICE_SENSOR_TYPES)
+    assert config["multiple"] is True
+    assert config["translation_key"] == CONF_DEVICE_SENSOR_TYPES
+    assert _defaults(form)[CONF_DEVICE_SENSOR_TYPES] == list(DEVICE_SENSOR_TYPES)
+
+
+async def test_global_save_stores_the_client_sensor_type_selection(
+    hass: HomeAssistant,
+) -> None:
+    """Without a main every entry offers the step, so either may save it."""
+    first = _entry(hass)
+    second = _entry(hass, ip=NODE_IP)
+    selected = [key for key in DEVICE_SENSOR_TYPES if key != "online"]
+
+    # Stored in the order of the types, whatever order the form sends.
+    await _save_global(hass, second, **{CONF_DEVICE_SENSOR_TYPES: selected[::-1]})
+    assert second.options[CONF_DEVICE_SENSOR_TYPES] == selected
+    assert get_mesh_device_sensor_types(hass, DEVICE_SENSOR_TYPES) == set(selected)
+    form = await _open(hass, first, "global_settings")
+    assert _defaults(form)[CONF_DEVICE_SENSOR_TYPES] == selected
+
+    # Saving other settings keeps the selection.
+    await _save_global(hass, first, **{CONF_LOG_LEVEL: "warning"})
+    assert first.options[CONF_DEVICE_SENSOR_TYPES] == selected
+    assert get_mesh_device_sensor_types(hass, DEVICE_SENSOR_TYPES) == set(selected)
+
+    # All types are stored as no selection, so later types are created too.
+    await _save_global(hass, first, **{CONF_DEVICE_SENSOR_TYPES: list(DEVICE_SENSOR_TYPES)})
+    assert CONF_DEVICE_SENSOR_TYPES not in first.options
+    assert get_mesh_device_sensor_types(hass, DEVICE_SENSOR_TYPES) == ALL_TYPES
+
+
+async def test_global_save_reloads_the_mesh_when_client_sensor_types_change(
+    hass: HomeAssistant, reload: AsyncMock
+) -> None:
+    main = _entry(hass, {CONF_ENABLE_DEVICE_SENSORS: True})
+    node = _entry(hass, ip=NODE_IP)
+    _load(hass, main, "main")
+    _load(hass, node, "node")
+    _listen(hass, main, node)
+    selected = [key for key in DEVICE_SENSOR_TYPES if key != "online"]
+
+    await _save_global(hass, main, **{CONF_DEVICE_SENSOR_TYPES: selected})
+    await hass.async_block_till_done()
+    assert sorted(call.args[0] for call in reload.await_args_list) == sorted(
+        [main.entry_id, node.entry_id]
+    )
+
+    reload.reset_mock()
+    await _save_global(hass, main, **{CONF_DEVICE_SENSOR_TYPES: selected})
+    await hass.async_block_till_done()
+    assert [call.args[0] for call in reload.await_args_list] == [main.entry_id]
 
 
 NODE_OPTIONS = {
