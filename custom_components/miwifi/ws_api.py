@@ -288,6 +288,7 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
             "wifiIndex": _wifi_index_from_device(it.get("device")),
             "ifname": it.get("ifname"),
             "enabled": _norm_bool(it.get("enabled", it.get("status", 0))),
+            "status": it.get("status"),
             "ssid": it.get("ssid"),
             "encryption": it.get("encryption") or it.get("enctype"),
             "hidden": it.get("hidden"),

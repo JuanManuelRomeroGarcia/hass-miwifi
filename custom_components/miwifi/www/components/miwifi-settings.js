@@ -91,7 +91,8 @@ export class MiWiFiSettingsPanel extends LitElement {
       const safePwd = isAdmin && typeof g.password === "string" ? g.password : "";
 
       this.guestOrig = {
-        enabled: !!g.enabled,
+        // Some routers report configured (enabled) separately from running (status).
+        enabled: ["1", "true", "on", "yes"].includes(String(g.status ?? g.enabled).trim().toLowerCase()),
         ssid: g.ssid || "",
         encryption: g.encryption || "psk2",
         hidden,
@@ -599,7 +600,7 @@ export class MiWiFiSettingsPanel extends LitElement {
     const currentLog = config.log_level || "info";
 
     const guestSwitch = switches.find((sw) => sw.entity_id.endsWith("_wifi_guest"));
-    const guestEnabled = guestSwitch ? guestSwitch.state === "on" : this.guestForm?.enable;
+    const guestEnabled = this.guestForm?.enable ?? (guestSwitch?.state === "on");
 
     const sw24 = this._switchForRadioFromList("twoG", switches);
     const sw5  = this._switchForRadioFromList("fiveG", switches);
