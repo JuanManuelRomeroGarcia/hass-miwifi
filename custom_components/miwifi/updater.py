@@ -2904,8 +2904,10 @@ class LuciUpdater(DataUpdateCoordinator):
 
             _device: dict[str, Any] = self._build_device(device, integrations)
             target = integration[UPDATER].devices[device[ATTR_TRACKER_MAC]]
+            target_name = _client_display_name(device, target.get(ATTR_TRACKER_NAME))
             _device[ATTR_TRACKER_NAME] = _client_display_name(
-                device, target.get(ATTR_TRACKER_NAME)
+                {ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC], "name": target_name},
+                _device[ATTR_TRACKER_NAME],
             )
             if self.is_repeater and self.is_force_load:
                 for attr in REPEATER_SKIP_ATTRS:
