@@ -1120,13 +1120,23 @@ class MiWifiSetGuestWifiServiceCall(_I18nMixin, MiWifiMainOrDeviceServiceCall):
         cur_encryption = None
         wifi_index = 3
         ifname = None
+        guest_found = False
         try:
             diag = await luci.wifi_diag_detail_all()
         except LuciError:
-            diag = await luci.wifi_detail_all()
+            diag = {}
 
-        for it in (diag or {}).get("info", []) or []:
+        adapters = (diag or {}).get("info", []) or []
+        if not any(str(it.get("iftype")) == "3" or it.get("ifname") in ("wl14", "wl33") for it in adapters):
+            try:
+                details = await luci.wifi_detail_all()
+            except LuciError as err:
+                raise vol.Invalid(await self._t("router_error", "El router devolvió un error.")) from err
+            adapters = (details or {}).get("info", []) or []
+
+        for it in adapters:
             if str(it.get("iftype")) == "3" or it.get("ifname") in ("wl14", "wl33"):
+                guest_found = True
                 cur_ssid = it.get("ssid")
                 cur_encryption = it.get("encryption") or it.get("enctype")
                 dev = it.get("device") or ""
@@ -1135,6 +1145,9 @@ class MiWifiSetGuestWifiServiceCall(_I18nMixin, MiWifiMainOrDeviceServiceCall):
                     wifi_index = int(m.group(1))
                 ifname = it.get("ifname")
                 break
+
+        if not guest_found:
+            raise vol.Invalid(await self._t("router_error", "El router devolvió un error."))
 
         await self.hass.async_add_executor_job(
             _LOGGER.info,
@@ -1160,14 +1173,14 @@ class MiWifiSetGuestWifiServiceCall(_I18nMixin, MiWifiMainOrDeviceServiceCall):
         if ifname:
             payload["ifname"] = ifname  
 
-        if effective_encryption:
-            payload["encryption"] = effective_encryption
-            payload["enctype"] = effective_encryption
+        if want_encryption is not None:
+            payload["encryption"] = want_encryption
+            payload["enctype"] = want_encryption
 
         if hidden is not None:
             payload["hidden"] = hidden
 
-        if req_password is not None and (effective_encryption or "psk2") != "none":
+        if req_password and (effective_encryption or "psk2") != "none":
             if not (8 <= len(req_password) <= 63):
                 msg = await self._t(
                     "password_length_error", "La contraseña debe tener entre 8 y 63 caracteres."
@@ -1195,46 +1208,20 @@ class MiWifiSetGuestWifiServiceCall(_I18nMixin, MiWifiMainOrDeviceServiceCall):
         await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] set_guest_wifi: payload=%s", safe_payload)
 
 
-        await luci.login()
-        resp = await luci.set_guest_wifi(payload)
+        try:
+            await luci.login()
+            resp = await luci.set_guest_wifi(payload, retry_auth=False)
+        except LuciError as err:
+            # LuciError inherits BaseException; surface a normal HA service error.
+            raise vol.Invalid(await self._t("router_error", "El router devolvió un error.")) from err
         await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] set_guest_wifi: response=%s", resp)
-        code = (resp or {}).get("code")
-
-        if code not in (0, "0", None):
-            await self.hass.async_add_executor_job(
-                _LOGGER.info, "[MiWiFi] set_guest_wifi: first call failed (code=%s), trying set_wifi", code
-            )
-            resp2 = await luci.set_wifi(payload)
-            await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] set_guest_wifi: set_wifi response=%s", resp2)
-            code2 = (resp2 or {}).get("code")
-            if code2 not in (0, "0", None):
-                msg = await self._t("router_error", "El router devolvió un error.")
-                await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] set_guest_wifi: both calls failed")
-                raise vol.Invalid(msg)
+        if not isinstance(resp, dict) or resp.get("code") not in (0, "0"):
+            raise vol.Invalid(await self._t("router_error", "El router devolvió un error."))
 
         
         await updater.async_request_refresh()
-        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] set_guest_wifi: applied successfully")
-
- 
-        notifier = MiWiFiNotifier(self.hass)
-        translations = await notifier.get_translations()
-        title = translations.get("title", "MiWiFi")
-        notify = translations.get("notifications", {})
-        state_on = notify.get("status_on", "ON")
-        state_off = notify.get("status_off", "OFF")
-
-        msg_tpl = notify.get(
-            "guest_updated",
-            "Guest Wi-Fi: {state}<br>SSID: {ssid}<br>Encryption: {encryption}"
-        )
-        msg = (
-            msg_tpl
-            .replace("{state}", state_on if new_enabled else state_off)
-            .replace("{ssid}", payload.get("ssid", "(no change)"))
-            .replace("{encryption}", payload.get("encryption", effective_encryption) or "(no change)")
-        )
-        await notifier.notify(msg, title=title, notification_id="miwifi_set_guest_wifi")
+        # The panel verifies the subsequent read before announcing success.
+        await self.hass.async_add_executor_job(_LOGGER.info, "[MiWiFi] set_guest_wifi: request accepted; refresh requested")
 
 
 class MiWifiGetWifisServiceCall(MiWifiMainOrDeviceServiceCall):

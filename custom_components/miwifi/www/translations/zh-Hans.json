@@ -203,6 +203,7 @@
   "ui_reload": "重新加载",
   "ui_apply": "应用更改",
   "ui_saved": "更改已发送。",
+  "guest_save_unconfirmed": "无法确认访客 Wi-Fi 更改。请重新加载以检查路由器，然后再重试。",
 
   "wifi_title_24g": "Wi-Fi 2.4G",
   "wifi_title_5g": "Wi-Fi 5G",

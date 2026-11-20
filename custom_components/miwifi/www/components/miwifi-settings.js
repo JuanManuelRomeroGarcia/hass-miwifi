@@ -67,7 +67,8 @@ export class MiWiFiSettingsPanel extends LitElement {
   createRenderRoot() { return this; }
 
   // ------------------ Wi-Fis (Guest + radios) ------------------
-  async _fetchWifis() {
+  async _fetchWifis({verify = null} = {}) {
+    if (this.guestLoading || (this.guestApplying && !verify)) return false;
     this.guestLoading = true;
     this.guestError = null;
     this.requestUpdate();
@@ -81,16 +82,17 @@ export class MiWiFiSettingsPanel extends LitElement {
       const w = res?.wifis;
       if (!w) throw new Error("invalid_response");
 
-      const g = w.guest || {};
+      const g = w.guest;
+      if (!g || typeof g !== "object" || Array.isArray(g)) throw new Error("invalid_guest_response");
       const two = w["2g"] || null;
       const five = w["5g"] || null;
       const game = w["game"] || null;
 
-      const hiddenRaw = g.hidden;
-      const hidden = hiddenRaw === 1 || hiddenRaw === "1" || hiddenRaw === true;
+      const hiddenRaw = String(g.hidden).trim().toLowerCase();
+      const hidden = ["1", "true", "on", "yes"].includes(hiddenRaw);
       const safePwd = isAdmin && typeof g.password === "string" ? g.password : "";
 
-      this.guestOrig = {
+      const original = {
         // Some routers report configured (enabled) separately from running (status).
         enabled: ["1", "true", "on", "yes"].includes(String(g.status ?? g.enabled).trim().toLowerCase()),
         ssid: g.ssid || "",
@@ -98,6 +100,18 @@ export class MiWiFiSettingsPanel extends LitElement {
         hidden,
         password: safePwd,
       };
+      if (verify) {
+        const raw = String(g.status ?? g.enabled).trim().toLowerCase();
+        const actual = {enable: original.enabled, ssid: g.ssid,
+          encryption: g.encryption,
+          hidden: ["0", "1", "false", "true", "off", "on", "no", "yes"].includes(hiddenRaw) ? Number(hidden) : undefined,
+          password: g.password};
+        if (!["0", "1", "false", "true", "off", "on", "no", "yes"].includes(raw)
+            || !Object.entries(verify).every(([key, value]) => actual[key] === value)) {
+          throw new Error(localize("guest_save_unconfirmed"));
+        }
+      }
+      this.guestOrig = original;
       this.guestForm = {
         enable: this.guestOrig.enabled,
         ssid: this.guestOrig.ssid,
@@ -109,22 +123,24 @@ export class MiWiFiSettingsPanel extends LitElement {
 
       this.radios = { twoG: two, fiveG: five, game: game };
       this._wifisLoaded = true;
+      return true;
     } catch (err) {
-      try {
-        const mainMac = this.routerSensor?.attributes?.graph?.mac?.toLowerCase()?.replace(/:/g, "_") || "";
-        const guestSwitch = Object.values(this.hass.states).find(
-          (sw) => sw.entity_id === `switch.miwifi_${mainMac}_wifi_guest`
-        );
-        const fallbackEnabled = guestSwitch ? guestSwitch.state === "on" : false;
-
-        this.guestOrig = { enabled: fallbackEnabled, ssid: "", encryption: "psk2", hidden: false, password: "" };
-        this.guestForm = { ...this.guestOrig, enable: fallbackEnabled };
-        this.guestDirty = false;
-
-        this.guestError = "Este HA no devuelve respuesta de miwifi/get_wifis. Modo básico.";
-      } catch (e2) {
-        this.guestError = String(err?.message || err) || "Unknown error";
+      this.guestError = String(err?.message || err) || "Unknown error";
+      if (!this.guestForm) {
+        try {
+          const mainMac = this.routerSensor?.attributes?.graph?.mac?.toLowerCase()?.replace(/:/g, "_") || "";
+          const guestSwitch = Object.values(this.hass.states).find(
+            (sw) => sw.entity_id === `switch.miwifi_${mainMac}_wifi_guest`
+          );
+          const fallbackEnabled = guestSwitch ? guestSwitch.state === "on" : false;
+          this.guestOrig = { enabled: fallbackEnabled, ssid: "", encryption: "psk2", hidden: false, password: "" };
+          this.guestForm = { ...this.guestOrig, enable: fallbackEnabled };
+          this.guestDirty = false;
+        } catch (_fallbackError) {
+          // Keep the read error; no editable baseline has been loaded.
+        }
       }
+      return false;
     } finally {
       this.guestLoading = false;
       this.requestUpdate();
@@ -139,12 +155,14 @@ export class MiWiFiSettingsPanel extends LitElement {
     if (!!this.guestForm.hidden !== !!this.guestOrig.hidden) return true;
 
     const isAdmin = !!(this.hass?.user?.is_admin);
-    if (isAdmin && (this.guestForm.password || "") !== (this.guestOrig.password || "")) return true;
+    if (isAdmin && this.guestForm.encryption !== "none" && this.guestForm.password
+        && this.guestForm.password !== (this.guestOrig.password || "")) return true;
 
     return false;
   }
 
   _onGuestChange(key, val) {
+    if (this.guestLoading || this.guestApplying) return;
     const f = { ...(this.guestForm || {}) };
     f[key] = val;
     this.guestForm = f;
@@ -153,8 +171,10 @@ export class MiWiFiSettingsPanel extends LitElement {
   }
 
   async _applyGuest() {
-    if (!this._guestIsDirty()) return;
+    if (this.guestApplying || this.guestLoading || !this._wifisLoaded
+        || !this.hass?.user?.is_admin || !this._guestIsDirty()) return;
     this.guestApplying = true;
+    this.guestError = null;
     this.requestUpdate();
 
     try {
@@ -165,32 +185,34 @@ export class MiWiFiSettingsPanel extends LitElement {
         enable: !!f.enable,
         ...(f.ssid !== (o.ssid || "") ? { ssid: f.ssid } : {}),
         ...(f.encryption !== (o.encryption || "psk2") ? { encryption: f.encryption } : {}),
-        ...(f.hidden !== !!o.hidden ? { hidden: !!f.hidden } : {}),
+        ...(f.hidden !== !!o.hidden ? { hidden: Number(!!f.hidden) } : {}),
       };
 
       const isAdmin = !!(this.hass?.user?.is_admin);
-      if (isAdmin) {
-        body.password = f.password || "";
+      if (isAdmin && f.encryption !== "none" && f.password && f.password !== o.password) {
+        body.password = f.password;
       }
 
       await this.hass.callService("miwifi", "set_guest_wifi", body);
+      if (!await this._fetchWifis({verify: body})) {
+        throw new Error(this.guestError || localize("guest_save_unconfirmed"));
+      }
 
-      this.hass.callService("persistent_notification", "create", {
+      await this.hass.callService("persistent_notification", "create", {
         title: localize("title") || "MiWiFi",
         message: localize("ui_saved") || "Changes sent.",
         notification_id: "miwifi_guest_saved",
-      });
-
-      await this._fetchWifis();
+      }).catch(() => {});
     } catch (e) {
-      this.hass.callService("persistent_notification", "create", {
+      this.guestError = String(e?.message || e);
+      await this.hass.callService("persistent_notification", "create", {
         title: localize("title") || "MiWiFi",
         message: (localize("ui_error") || "Error") + ": " + (e?.message || e),
         notification_id: "miwifi_guest_error",
-      });
+      }).catch(() => {});
     } finally {
       this.guestApplying = false;
-      this.guestDirty = false;
+      this.guestDirty = this._guestIsDirty();
       this.requestUpdate();
     }
   }
@@ -606,7 +628,7 @@ export class MiWiFiSettingsPanel extends LitElement {
     const sw5  = this._switchForRadioFromList("fiveG", switches);
     const swG  = this._switchForRadioFromList("game", switches);
 
-    if (!this._wifisLoaded && !this.guestLoading) {
+    if (!this._wifisLoaded && !this.guestLoading && !this.guestError) {
       this._fetchWifis();
     }
 
@@ -652,20 +674,16 @@ export class MiWiFiSettingsPanel extends LitElement {
             <div class="switchline" style="margin-bottom:12px;">
               <label>${localize("guest_enable") || "Activar"}</label>
               <ha-switch .checked=${guestEnabled}
-                @change=${(e)=>{ 
-                  const on = e.target.checked; 
-                  if (guestSwitch) {
-                    this.hass.callService("switch", on ? "turn_on" : "turn_off", { entity_id: guestSwitch.entity_id });
-                  }
-                  this._onGuestChange("enable", on);
-                }}></ha-switch>
+                ?disabled=${this.guestApplying || this.guestLoading}
+                @change=${(e)=>this._onGuestChange("enable", e.target.checked)}></ha-switch>
             </div>
 
             ${guestEnabled ? html`
               <div class="row">
                 <mw-input>
                   <label>${localize("guest_encryption") || "Cifrado"}</label>
-                  <select @change=${(e)=>this._onGuestChange("encryption", e.target.value)}>
+                  <select ?disabled=${this.guestApplying || this.guestLoading}
+                    @change=${(e)=>this._onGuestChange("encryption", e.target.value)}>
                     <option value="psk2" ?selected=${this.guestForm.encryption==="psk2"}>psk2 (WPA2-PSK)</option>
                     <option value="none" ?selected=${this.guestForm.encryption==="none"}>none (open)</option>
                   </select>
@@ -674,6 +692,7 @@ export class MiWiFiSettingsPanel extends LitElement {
                 <mw-input>
                   <label>${localize("guest_ssid") || "SSID"}</label>
                   <input type="text" .value=${this.guestForm.ssid}
+                    ?disabled=${this.guestApplying || this.guestLoading}
                     @input=${(e)=>this._onGuestChange("ssid", e.target.value)} />
                 </mw-input>
 
@@ -685,8 +704,10 @@ export class MiWiFiSettingsPanel extends LitElement {
                   <input
                     .type=${this.guestShowPwd ? "text" : "password"}
                     .value=${this.guestForm.password}
+                    ?disabled=${this.guestApplying || this.guestLoading}
                     @input=${(e)=>this._onGuestChange("password", e.target.value)} />
                   <button class="miwifi-button" style="margin-top:6px"
+                    ?disabled=${this.guestApplying || this.guestLoading}
                     @click=${()=>{ this.guestShowPwd = !this.guestShowPwd; this.requestUpdate(); }}>
                     ${this.guestShowPwd ? "🙈 Ocultar" : "👁 Mostrar"}
                   </button>
@@ -695,16 +716,19 @@ export class MiWiFiSettingsPanel extends LitElement {
                 <div class="switchline">
                   <label>${localize("guest_hidden") || "Ocultar SSID"}</label>
                   <ha-switch .checked=${!!this.guestForm.hidden}
+                    ?disabled=${this.guestApplying || this.guestLoading}
                     @change=${(e)=>this._onGuestChange("hidden", e.target.checked)}></ha-switch>
                 </div>
               </div>
             ` : ""}
 
             <div class="right" style="margin-top:8px;">
-              <button class="miwifi-button" @click=${()=>this._fetchWifis()}>
+              <button class="miwifi-button" ?disabled=${this.guestApplying || this.guestLoading}
+                @click=${()=>this._fetchWifis()}>
                 ${localize("ui_reload") || "Recargar"}
               </button>
               <button class="miwifi-button ${this.guestDirty && !this.guestApplying ? "" : "hidden"}"
+                      ?disabled=${this.guestApplying || this.guestLoading || !this._wifisLoaded}
                       @click=${()=>this._applyGuest()}>
                 ${localize("ui_apply") || "Aplicar cambios"}
               </button>

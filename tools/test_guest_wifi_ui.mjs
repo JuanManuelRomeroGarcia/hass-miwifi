@@ -16,8 +16,18 @@ function guestToggle(value) {
   if (Array.isArray(value)) return value.map(guestToggle).find(Boolean);
   if (!value?.strings) return undefined;
   const index = value.strings.findIndex(text => text.includes("<ha-switch .checked="));
-  if (index !== -1) return {checked: value.values[index], change: value.values[index + 1]};
+  if (index !== -1) {
+    const change = value.strings.findIndex((text, i) => i > index && text.includes("@change="));
+    return {checked: value.values[index], change: value.values[change]};
+  }
   return value.values.map(guestToggle).find(Boolean);
+}
+
+function disabledBindings(value) {
+  if (Array.isArray(value)) return value.flatMap(disabledBindings);
+  if (!value?.strings) return [];
+  return [...value.strings.flatMap((text, i) => text.includes("?disabled=") ? [value.values[i]] : []),
+    ...value.values.flatMap(disabledBindings)];
 }
 
 function setup(guest, switchState) {
@@ -63,18 +73,20 @@ for (const [guest, expected] of cases) {
   }
 }
 
-// Both write paths retain the draft even while the HA switch still says off.
+// Apply is the only writer, even when the HA switch entity exists and is stale.
 for (const switchState of [undefined, "off"]) {
-  const {panel, calls} = setup({enabled: "1", status: "0", ssid: "Synthetic guest"}, switchState);
+  const {panel, calls} = setup({enabled: "1", status: "0", ssid: "Synthetic guest", password: "Existing-secret"}, switchState);
   await panel._fetchWifis();
   for (const enable of [true, false]) {
     guestToggle(panel.render()).change({target: {checked: enable}});
+    assert.equal(calls.filter(call => call.domain === "switch").length, 0);
     assert.equal(guestToggle(panel.render()).checked, enable);
     assert.equal(panel.guestDirty, true);
     await panel._applyGuest();
     const write = calls.filter(call => call.service === "set_guest_wifi").at(-1);
     assert.equal(write.domain, "miwifi");
     assert.equal(write.data.enable, enable);
+    assert.deepEqual(Object.keys(write.data), ["enable"]);
     assert.equal(panel.guestOrig.enabled, enable);
     assert.equal(guestToggle(panel.render()).checked, enable);
     assert.equal(panel.guestDirty, false);
@@ -90,7 +102,116 @@ for (const switchState of [undefined, "off"]) {
   panel.hass.callService = async () => {};
   guestToggle(panel.render()).change({target: {checked: true}});
   await panel._applyGuest();
-  assert.equal(guestToggle(panel.render()).checked, false);
+  assert.equal(guestToggle(panel.render()).checked, true); // Unconfirmed draft remains editable.
+  assert.equal(panel.guestOrig.enabled, false);
+  assert.equal(panel.guestDirty, true);
+}
+
+// Failures keep edits and never emit a saved notification.
+for (const failure of ["service", "read", "mismatch", "missing", "partial", "invalid-status"]) {
+  const {panel, calls} = setup({enabled: "1", status: "0", password: "Existing-secret"}, "off");
+  await panel._fetchWifis();
+  panel._onGuestChange("enable", true);
+  panel._onGuestChange("ssid", "Requested guest");
+  panel.hass.callService = async (domain, service, data) => {
+    calls.push({domain, service, data});
+    if (service === "set_guest_wifi" && failure === "service") throw new Error("write failed");
+  };
+  panel.hass.callWS = async () => {
+    if (failure === "read") throw new Error("read failed");
+    if (failure === "missing") return {wifis: {}};
+    return {wifis: {guest: {status: failure === "invalid-status" ? "unknown" : failure === "mismatch" ? "0" : "1"}}};
+  };
+  await panel._applyGuest();
+  assert.equal(panel.guestForm.enable, true, failure);
+  assert.equal(panel.guestForm.ssid, "Requested guest", failure);
+  assert.equal(panel.guestForm.password, "Existing-secret", failure);
+  assert.equal(panel.guestDirty, true, failure);
+  assert.ok(panel.guestError, failure);
+  assert.equal(calls.some(call => call.data?.notification_id === "miwifi_guest_saved"), false, failure);
+}
+
+// A save and its confirmation read form a single guarded operation.
+{
+  const {panel} = setup({status: "0", password: "Existing-secret"}, "off");
+  await panel._fetchWifis();
+  panel._onGuestChange("enable", true);
+  let finishWrite, finishRead, readStarted, writes = 0, reads = 0;
+  const reading = new Promise(resolve => {readStarted = resolve;});
+  panel.hass.callService = async (_domain, service) => {
+    if (service === "set_guest_wifi") { writes++; await new Promise(resolve => {finishWrite = resolve;}); }
+  };
+  panel.hass.callWS = async () => {
+    reads++;
+    return await new Promise(resolve => {finishRead = resolve; readStarted();});
+  };
+  const pending = panel._applyGuest();
+  assert.ok(disabledBindings(panel.render()).length >= 8);
+  assert.ok(disabledBindings(panel.render()).every(Boolean));
+  await panel._applyGuest();
+  await panel._fetchWifis();
+  panel._onGuestChange("enable", false);
+  assert.equal(panel.guestForm.enable, true);
+  assert.equal(writes, 1);
+  assert.equal(reads, 0);
+  finishWrite();
+  await reading;
+  assert.equal(reads, 1);
+  assert.ok(disabledBindings(panel.render()).every(Boolean));
+  await panel._applyGuest();
+  panel._onGuestChange("ssid", "Must not be accepted");
+  finishRead({wifis: {guest: {status: "1", password: "Existing-secret"}}});
+  await pending;
+  assert.equal(panel.guestForm.ssid, "");
   assert.equal(panel.guestDirty, false);
 }
-console.log(`Guest Wi-Fi: ${cases.length} state cases and enable/disable/save/readback with and without a switch pass.`);
+
+// Clearing the password input means keep it; it is never sent as an empty secret.
+{
+  const {panel, calls} = setup({status: "0", password: "Existing-secret"});
+  await panel._fetchWifis();
+  panel._onGuestChange("password", "");
+  assert.equal(panel.guestDirty, false);
+  panel._onGuestChange("enable", true);
+  await panel._applyGuest();
+  assert.deepEqual(Object.keys(calls.find(call => call.service === "set_guest_wifi").data), ["enable"]);
+}
+
+// Only explicitly edited configuration fields accompany the enable flag.
+for (const [field, value] of [["ssid", "New guest"], ["encryption", "none"], ["hidden", true], ["password", "New-secret"]]) {
+  const guest = {status: "1", ssid: "Old guest", encryption: "psk2", hidden: false, password: "Existing-secret"};
+  const {panel, calls} = setup(guest);
+  await panel._fetchWifis();
+  panel._onGuestChange(field, value);
+  panel.hass.callService = async (domain, service, data) => {
+    calls.push({domain, service, data});
+    if (service === "set_guest_wifi") Object.assign(guest, data);
+  };
+  await panel._applyGuest();
+  const body = calls.find(call => call.service === "set_guest_wifi").data;
+  assert.deepEqual(Object.keys(body).sort(), ["enable", field].sort());
+  assert.equal(panel.guestDirty, false, field);
+  assert.equal(panel.guestError, null, field);
+}
+// Missing fields and unknown hidden flags cannot confirm a requested value.
+for (const [field, before, after, reply] of [
+  ["hidden", true, false, {}],
+  ["hidden", true, false, {hidden: "unknown"}],
+  ["encryption", "none", "psk2", {}],
+  ["ssid", "Old guest", "", {}],
+]) {
+  const {panel, calls} = setup({status: "1", [field]: before});
+  await panel._fetchWifis();
+  panel._onGuestChange(field, after);
+  panel.hass.callWS = async () => ({wifis: {guest: {status: "1", ...reply}}});
+  await panel._applyGuest();
+  assert.equal(panel.guestDirty, true, field);
+  assert.equal(panel.guestForm[field], after, field);
+  assert.ok(panel.guestError, field);
+  assert.equal(calls.some(call => call.data?.notification_id === "miwifi_guest_saved"), false);
+}
+for (const language of ["en", "es", "de", "fr", "pt-BR", "ru", "tr", "zh-Hans"]) {
+  const translations = JSON.parse(fs.readFileSync(new URL(`../custom_components/miwifi/www/translations/${language}.json`, import.meta.url)));
+  assert.ok(translations.guest_save_unconfirmed, language);
+}
+console.log(`Guest Wi-Fi: ${cases.length} state cases, single writes, selective payloads, errors, readback and concurrency pass.`);

@@ -203,6 +203,7 @@
   "ui_reload": "Recarregar",
   "ui_apply": "Aplicar alterações",
   "ui_saved": "Alterações enviadas.",
+  "guest_save_unconfirmed": "Não foi possível confirmar as alterações do Wi-Fi de convidados. Recarregue para verificar o roteador antes de tentar novamente.",
 
   "wifi_title_24g": "Wi-Fi 2.4G",
   "wifi_title_5g": "Wi-Fi 5G",
