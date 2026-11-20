@@ -11,12 +11,12 @@ from custom_components.miwifi.luci import LuciClient
 from custom_components.miwifi.exceptions import LuciConnectionError, LuciRequestError
 
 
-async def call_guest(hass, data, response=None, *, missing=False, details_only=False):
+async def call_guest(hass, data, response=None, *, missing=False, details_only=False, diag_rows=None, detail_rows=None):
     rows = [] if missing else [{"iftype": 3, "ifname": "wl14", "device": "wifi3.network1",
                                "ssid": "Existing guest", "encryption": "psk2", "password": "Existing-secret"}]
     luci = SimpleNamespace(
-        wifi_diag_detail_all=AsyncMock(return_value={"info": [] if details_only else rows}),
-        wifi_detail_all=AsyncMock(return_value={"info": rows}),
+        wifi_diag_detail_all=AsyncMock(return_value={"info": diag_rows if diag_rows is not None else ([] if details_only else rows)}),
+        wifi_detail_all=AsyncMock(return_value={"info": detail_rows if detail_rows is not None else rows}),
         login=AsyncMock(), set_guest_wifi=AsyncMock(
             side_effect=response if isinstance(response, BaseException) else None, return_value=response),
         set_wifi=AsyncMock(return_value={"code": 0}),
@@ -107,3 +107,23 @@ async def test_guest_auth_retry_is_disabled_only_for_panel_saves(single_write):
         assert await client.set_guest_wifi({"on": 1, "wifiIndex": 3}) == {"code": 0}
         assert client._request_with_retry.await_count == 2
         client.login.assert_awaited_once()
+
+@pytest.mark.parametrize("enable", [True, False])
+async def test_index_from_matching_detail_is_used(hass, enable):
+    diag = [{"ifname": "wl14", "iftype": 3, "status": "0"}]
+    detail = [{"ifname": "wl14", "device": "wifi7.network1", "ssid": "Guest"}]
+    luci, _, _, failed = await call_guest(hass, {"enable": enable}, {"code": 0}, diag_rows=diag, detail_rows=detail)
+    assert not failed
+    assert luci.set_guest_wifi.call_args.args[0]["wifiIndex"] == 7
+    assert luci.set_guest_wifi.call_args.args[0]["ifname"] == "wl14"
+
+@pytest.mark.parametrize("diag,detail", [
+    ([{"ifname": "wl14", "iftype": 3}], []),
+    ([{"ifname": "wl14", "iftype": 3, "device": "wifi3.network1"}], [{"ifname": "wl14", "device": "wifi7.network1"}]),
+    ([{"ifname": "wl14", "iftype": 3}], [{"ifname": "wl33", "device": "wifi7.network1"}]),
+])
+async def test_unverifiable_or_conflicting_index_never_writes(hass, diag, detail):
+    luci, _, _, failed = await call_guest(hass, {"enable": True}, {"code": 0}, diag_rows=diag, detail_rows=detail)
+    assert failed
+    luci.login.assert_not_awaited()
+    luci.set_guest_wifi.assert_not_awaited()

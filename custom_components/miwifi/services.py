@@ -17,6 +17,7 @@ from .sensor import MiWifiNATRulesSensor
 from .notifier import MiWiFiNotifier
 from .helper import device_config_entry_ids, device_registry_rows, parse_last_activity
 from .purged_clients import get_purged_clients
+from .guest_wifi import resolve_guest
 from .mac_replacement import get_mac_replacement
 from .router_dump import DumpRedactor, async_collect_reads
 from homeassistant.loader import async_get_integration
@@ -1116,38 +1117,23 @@ class MiWifiSetGuestWifiServiceCall(_I18nMixin, MiWifiMainOrDeviceServiceCall):
             )
 
         
-        cur_ssid = None
-        cur_encryption = None
-        wifi_index = 3
-        ifname = None
-        guest_found = False
         try:
             diag = await luci.wifi_diag_detail_all()
-        except LuciError:
+        except (Exception, LuciError):
             diag = {}
+        try:
+            details = await luci.wifi_detail_all()
+        except (Exception, LuciError):
+            details = {}
 
-        adapters = (diag or {}).get("info", []) or []
-        if not any(str(it.get("iftype")) == "3" or it.get("ifname") in ("wl14", "wl33") for it in adapters):
-            try:
-                details = await luci.wifi_detail_all()
-            except LuciError as err:
-                raise vol.Invalid(await self._t("router_error", "El router devolvió un error.")) from err
-            adapters = (details or {}).get("info", []) or []
-
-        for it in adapters:
-            if str(it.get("iftype")) == "3" or it.get("ifname") in ("wl14", "wl33"):
-                guest_found = True
-                cur_ssid = it.get("ssid")
-                cur_encryption = it.get("encryption") or it.get("enctype")
-                dev = it.get("device") or ""
-                m = re.search(r"wifi(\d+)\.network", dev)
-                if m:
-                    wifi_index = int(m.group(1))
-                ifname = it.get("ifname")
-                break
-
-        if not guest_found:
-            raise vol.Invalid(await self._t("router_error", "El router devolvió un error."))
+        guest, wifi_index, ambiguous = resolve_guest(
+            (diag or {}).get("info", []) or [], (details or {}).get("info", []) or []
+        )
+        if not guest or wifi_index is None or ambiguous:
+            raise vol.Invalid("Cannot determine the guest Wi-Fi interface and index safely; no changes were sent to the router.")
+        cur_ssid = guest.get("ssid")
+        cur_encryption = guest.get("encryption") or guest.get("enctype")
+        ifname = guest.get("ifname")
 
         await self.hass.async_add_executor_job(
             _LOGGER.info,
