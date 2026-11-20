@@ -6,6 +6,8 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.components import websocket_api
 from .const import DOMAIN, UPDATER, ATTR_DEVICE_NAME, ATTR_DEVICE_MODEL, ATTR_DEVICE_MAC_ADDRESS
+from .exceptions import LuciError
+from .guest_wifi import resolve_guest
 from .mac_replacement import get_mac_replacement
 from .registry import get_device
 
@@ -178,14 +180,13 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
 
   
     try:
-        try:
-            diag = await luci.wifi_diag_detail_all()
-        except Exception:
-            diag = {}
+        diag = await luci.wifi_diag_detail_all()
+    except (Exception, LuciError):
+        diag = {}
+    try:
         details = await luci.wifi_detail_all()
-    except Exception as err:
-        connection.send_error(msg["id"], "router_error", f"{type(err).__name__}: {err}")
-        return
+    except (Exception, LuciError):
+        details = {}
 
     d_info = (details or {}).get("info", []) or []
     g_info = (diag or {}).get("info", []) or []
@@ -252,15 +253,6 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
         m = re.search(r"wifi(\d+)\.network", dev)
         return int(m.group(1)) if m else None
 
-    def _find_guest():
-       
-        for it in all_info:
-            if str(it.get("iftype")) == "3":
-                return it
-            if (it.get("ifname") or "").lower() in ("wl14", "wl33"):
-                return it
-        return None
-
     def _find_2g():
         for it in all_info:
             if _is_24g(it) and not _is_game_5g(it):
@@ -288,6 +280,7 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
             "wifiIndex": _wifi_index_from_device(it.get("device")),
             "ifname": it.get("ifname"),
             "enabled": _norm_bool(it.get("enabled", it.get("status", 0))),
+            "status": it.get("status"),
             "ssid": it.get("ssid"),
             "encryption": it.get("encryption") or it.get("enctype"),
             "hidden": it.get("hidden"),
@@ -298,8 +291,14 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
             "password": (None if hide_sensitive else pwd) if pwd is not None else None,
         }
 
+    guest, guest_index, _ = resolve_guest(g_info, d_info)
+
+    guest_data = _pack(guest)
+    if guest_data:
+        guest_data["wifiIndex"] = guest_index
+
     data = {
-        "guest": _pack(_find_guest()),
+        "guest": guest_data,
         "2g": _pack(_find_2g()),
         "5g": _pack(_find_5g()),
         "game": _pack(_find_game()),

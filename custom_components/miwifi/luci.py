@@ -298,6 +298,7 @@ class LuciClient:
         use_stok: bool = True,
         errors: dict[int, str] | None = None,
         timeout: float | None = None,
+        retry_auth: bool = True,
     ) -> dict:
         """GET method.
 
@@ -353,7 +354,7 @@ class LuciClient:
 
             # Si el router devuelve invalid token, hacemos re-login y reintentamos 1 vez
             msg = str(_data.get("msg", "")).lower()
-            if use_stok and ("invalid token" in msg):
+            if use_stok and retry_auth and ("invalid token" in msg):
                 _LOGGER.debug("[MiWiFi] Invalid token detected on GET %s -> re-login and retry once", path.split("?", 1)[0])
 
                 async with self._login_lock:
@@ -544,14 +545,15 @@ class LuciClient:
 
         return await self.get(self._api_paths["set_wifi"], data)
 
-    async def set_guest_wifi(self, data: dict) -> dict:
+    async def set_guest_wifi(self, data: dict, *, retry_auth: bool = True) -> dict:
         """xqnetwork/set_wifi_without_restart method.
 
         :param data: dict: Adapter data
         :return dict: dict with api data.
         """
 
-        return await self.get(self._api_paths["set_guest_wifi"], data)
+        # The panel's save service opts out of replay; existing entity calls retain their behavior.
+        return await self.get(self._api_paths["set_guest_wifi"], data, retry_auth=retry_auth)
 
     async def avaliable_channels(self, index: int = 1) -> dict:
         """xqnetwork/avaliable_channels method.

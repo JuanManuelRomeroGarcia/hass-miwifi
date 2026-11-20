@@ -203,6 +203,7 @@
   "ui_reload": "Recargar",
   "ui_apply": "Aplicar cambios",
   "ui_saved": "Cambios enviados.",
+  "guest_save_unconfirmed": "No se pudieron confirmar los cambios de Wi-Fi de invitados. Recarga para comprobar el router antes de volver a intentarlo.",
 
   "wifi_title_24g": "Wi-Fi 2.4G",
   "wifi_title_5g": "Wi-Fi 5G",

@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.13.7 — 2026-11-20
+
+- Correct the guest Wi-Fi panel state when routers report configured `enabled` and operational `status` separately (#397). Accept string, number and boolean representations and fall back to `enabled` when `status` is unavailable.
+- Apply guest edits with one write, send only changed fields and preserve pending edits on failure. Read back requested values before reporting success; lock controls during the operation.
+- Retain ordinary radio information when guest Wi-Fi is unavailable, combine status only for matching interfaces and reflect external guest-switch changes when the form is clean.
+- Add focused WebSocket, service and panel regressions in eight languages. RC06/R3/R4 hardware validation remains pending.
+
+
 ## 3.13.6 — 2026-11-08
 
 - Protect PPPoE and VPN client credentials in downloaded WAN debug logs. Recursively mask non-empty `username`, `password`, `passwd`, `pppoe_passwd`, `token`, `stok` and `key` fields at any depth, including nested lists, while retaining empty-field visibility (#392, thanks to @brembygit).
