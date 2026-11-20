@@ -660,6 +660,7 @@ class ClientValuesWithoutDataTests(unittest.TestCase):
         from datetime import datetime, timedelta
         env = {**load_constants(), 'DataUpdateCoordinator': object, 'datetime': datetime, 'timedelta': timedelta}
         env['_local_now'] = load_function('updater.py', '_local_now', {'dt_util': SimpleNamespace(now=datetime.now)})
+        env['_client_display_name'] = load_function('updater.py', '_client_display_name', env)
         tree = ast.parse((COMPONENT/'updater.py').read_text(encoding='utf-8'))
         skip_attrs = next(item for item in tree.body if isinstance(item, ast.AnnAssign)
                           and isinstance(item.target, ast.Name) and item.target.id == 'REPEATER_SKIP_ATTRS')

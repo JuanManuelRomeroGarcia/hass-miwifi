@@ -273,6 +273,23 @@ def _channel_of(adapter: dict) -> str | None:
     return str(channel)
 
 
+def _client_display_name(device: dict, previous: str | None = None) -> str:
+    """Keep router-assigned names, ignoring empty or MAC-only observations."""
+    mac = str(device.get(ATTR_TRACKER_MAC) or "").strip()
+
+    def valid(value: Any) -> bool:
+        if not isinstance(value, str) or not value.strip():
+            return False
+        compact = value.strip().replace(":", "").replace("-", "").lower()
+        mac_compact = mac.replace(":", "").replace("-", "").lower()
+        return not (len(mac_compact) == 12 and compact == mac_compact)
+
+    for candidate in (device.get("name"), device.get("oname"), device.get("originName"), previous):
+        if valid(candidate):
+            return candidate.strip()
+    return mac
+
+
 def _local_now() -> datetime:
     """Home Assistant's local time to the second, without the offset.
 
@@ -2843,7 +2860,7 @@ class LuciUpdater(DataUpdateCoordinator):
             ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC],
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: router_mac,
             ATTR_TRACKER_SIGNAL: signal,
-            ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
+            ATTR_TRACKER_NAME: _client_display_name(device, existing.get(ATTR_TRACKER_NAME)),
             ATTR_TRACKER_IP: ip_value,
             ATTR_TRACKER_CONNECTION: connection,
             ATTR_TRACKER_DOWN_SPEED: down_speed,
@@ -2886,6 +2903,10 @@ class LuciUpdater(DataUpdateCoordinator):
                 continue
 
             _device: dict[str, Any] = self._build_device(device, integrations)
+            target = integration[UPDATER].devices[device[ATTR_TRACKER_MAC]]
+            _device[ATTR_TRACKER_NAME] = _client_display_name(
+                device, target.get(ATTR_TRACKER_NAME)
+            )
             if self.is_repeater and self.is_force_load:
                 for attr in REPEATER_SKIP_ATTRS:
                     if attr in _device:
