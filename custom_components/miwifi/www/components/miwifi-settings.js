@@ -57,6 +57,7 @@ export class MiWiFiSettingsPanel extends LitElement {
     this.guestDirty = false;
     this.guestApplying = false;
     this.guestShowPwd = false;
+    this._lastGuestSwitchState = undefined;
 
     this.radios = { twoG: null, fiveG: null, game: null };
     this._wifisLoaded = false;
@@ -83,6 +84,13 @@ export class MiWiFiSettingsPanel extends LitElement {
       if (!w) throw new Error("invalid_response");
 
       const g = w.guest;
+      if (g == null && !verify) {
+        this.radios = {twoG: w["2g"] || null, fiveG: w["5g"] || null, game: w["game"] || null};
+        this.guestForm = null;
+        this.guestOrig = null;
+        this._wifisLoaded = true;
+        return true;
+      }
       if (!g || typeof g !== "object" || Array.isArray(g)) throw new Error("invalid_guest_response");
       const two = w["2g"] || null;
       const five = w["5g"] || null;
@@ -622,6 +630,14 @@ export class MiWiFiSettingsPanel extends LitElement {
     const currentLog = config.log_level || "info";
 
     const guestSwitch = switches.find((sw) => sw.entity_id.endsWith("_wifi_guest"));
+    const switchState = guestSwitch?.state;
+    if (this._lastGuestSwitchState !== undefined && switchState !== this._lastGuestSwitchState
+        && ["on", "off"].includes(switchState) && this.guestForm && !this.guestDirty
+        && !this.guestApplying && !this.guestLoading) {
+      this.guestForm = {...this.guestForm, enable: switchState === "on"};
+      this.guestOrig = {...this.guestOrig, enabled: switchState === "on"};
+    }
+    this._lastGuestSwitchState = switchState;
     const guestEnabled = this.guestForm?.enable ?? (guestSwitch?.state === "on");
 
     const sw24 = this._switchForRadioFromList("twoG", switches);

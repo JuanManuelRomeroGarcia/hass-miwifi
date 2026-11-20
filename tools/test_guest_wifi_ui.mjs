@@ -51,6 +51,30 @@ function setup(guest, switchState) {
   return {panel, calls};
 }
 
+// A router without a guest interface must still load its normal radios.
+{
+  const {panel} = setup({});
+  panel.hass.callWS = async () => ({wifis: {guest: null, "2g": {ssid: "Radio"}}});
+  assert.equal(await panel._fetchWifis(), true);
+  assert.equal(panel.radios.twoG.ssid, "Radio");
+  assert.equal(panel.guestForm, null);
+  assert.equal(panel.guestError, null);
+}
+
+// External entity transitions update a clean form but not an in-progress edit.
+{
+  const {panel} = setup({enabled: "1", status: "0"}, "off");
+  await panel._fetchWifis();
+  assert.equal(guestToggle(panel.render()).checked, false);
+  const entity = Object.values(panel.hass.states)[0];
+  entity.state = "on";
+  assert.equal(guestToggle(panel.render()).checked, true);
+  guestToggle(panel.render()).change({target: {checked: false}});
+  entity.state = "off";
+  assert.equal(guestToggle(panel.render()).checked, false);
+  assert.equal(panel.guestDirty, true);
+}
+
 const cases = [
   [{enabled: "1", status: "0"}, false], // RC06: configured, operationally off.
   ...["1", 1, true, "true", "on", "yes"].map(status => [{enabled: "0", status}, true]),

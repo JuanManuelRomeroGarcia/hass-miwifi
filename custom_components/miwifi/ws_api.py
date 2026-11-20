@@ -299,8 +299,16 @@ async def websocket_get_wifis(hass: HomeAssistant, connection, msg) -> None:
             "password": (None if hide_sensitive else pwd) if pwd is not None else None,
         }
 
+    guest = _find_guest()
+    if guest and guest.get("status") is None and guest.get("ifname"):
+        matches = [row for row in d_info if isinstance(row, dict)
+                   and str(row.get("ifname", "")).lower() == str(guest["ifname"]).lower()
+                   and row.get("status") is not None]
+        if len(matches) == 1:
+            guest = {**guest, "status": matches[0]["status"]}
+
     data = {
-        "guest": _pack(_find_guest()),
+        "guest": _pack(guest),
         "2g": _pack(_find_2g()),
         "5g": _pack(_find_5g()),
         "game": _pack(_find_game()),
