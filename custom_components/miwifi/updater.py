@@ -2288,6 +2288,17 @@ class LuciUpdater(DataUpdateCoordinator):
                     del self.devices[mac_u]
                     with contextlib.suppress(ValueError):
                         self._moved_devices.remove(mac_u)
+                elif mac_u:
+                    # A client may move between leaves while the main holds no copy.
+                    known = [row for integration in integrations.values()
+                             if isinstance((peer := integration.get(UPDATER)), LuciUpdater)
+                             and isinstance((row := peer.devices.get(mac_u)), dict)
+                             and _valid_client_name(row.get(ATTR_TRACKER_NAME), mac_u)]
+                    if known and len({row[ATTR_TRACKER_NAME] for row in known}) == 1:
+                        previous = dict(known[0])
+                        if any(row.get(_NAME_PROVENANCE) != previous.get(_NAME_PROVENANCE) for row in known[1:]):
+                            previous[_NAME_PROVENANCE] = None
+                        device[_NAME_PREVIOUS] = previous
 
                 target_ip = mac_to_ip[parent_mac]
                 add_to.setdefault(target_ip, []).append(device)
