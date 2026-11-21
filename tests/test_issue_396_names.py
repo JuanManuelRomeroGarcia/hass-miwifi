@@ -231,3 +231,29 @@ async def test_roaming_parent_retains_observed_name_and_source(hass):
     assert target.devices[MAC][ATTR_TRACKER_NAME] == "Hostname"
     moved["oname"] = "Renamed"
     assert target._build_device(moved)[ATTR_TRACKER_NAME] == "Renamed"
+
+async def test_parent_routes_mac_only_roaming_from_other_node_with_name(hass):
+    from tests.test_extended_client_metrics import census
+    main = make_updater(hass, ip="192.0.2.1", mac="02:00:00:00:00:01")
+    old = make_updater(hass, ip="192.0.2.2", mac="02:00:00:00:00:02")
+    target = make_updater(hass, ip="192.0.2.3", mac="02:00:00:00:00:03")
+    old.devices[MAC] = main._build_device({**ROW, "entry_id": main._entry_id, "name": MAC, "oname": "Known"})
+    row = {**ROW, "name": MAC, "parent": "02:00:00:00:00:03"}
+    row.pop("oname", None)
+    integrations = {node.ip: {UPDATER: node} for node in (main, old, target)}
+    await census(main, [row], {"devices": []}, integrations)
+    assert target.devices[MAC][ATTR_TRACKER_NAME] == "Known"
+    assert target.devices[MAC]["_miwifi_name_provenance"] == old.devices[MAC]["_miwifi_name_provenance"]
+
+async def test_parent_does_not_guess_between_disagreeing_mesh_names(hass):
+    from tests.test_extended_client_metrics import census
+    main = make_updater(hass, ip="192.0.2.1", mac="02:00:00:00:00:01")
+    old = make_updater(hass, ip="192.0.2.2", mac="02:00:00:00:00:02")
+    target = make_updater(hass, ip="192.0.2.3", mac="02:00:00:00:00:03")
+    old.devices[MAC] = main._build_device({**ROW, "entry_id": main._entry_id, "name": "First"})
+    target.devices[MAC] = {"mac": MAC, "name": "Second"}
+    row = {**ROW, "name": MAC, "parent": "02:00:00:00:00:03"}
+    row.pop("oname", None)
+    integrations = {node.ip: {UPDATER: node} for node in (main, old, target)}
+    await census(main, [row], {"devices": []}, integrations)
+    assert target.devices[MAC][ATTR_TRACKER_NAME] == "Second"
