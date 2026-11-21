@@ -294,7 +294,12 @@ async def test_pushed_client_keeps_what_the_main_pushed(nodes, node_lists, first
     await _poll(leaf)
     await _poll(leaf)
 
-    assert _values(leaf.devices[PUSHED], LISTED) == PUSHED_VALUES
+    expected = dict(PUSHED_VALUES)
+    if first == "node" and node_lists == "radio_and_device_list":
+        # The valid name was first observed on the leaf. A differing name
+        # from another coordinator does not prove that it should replace it.
+        expected[ATTR_TRACKER_NAME] = "Old name"
+    assert _values(leaf.devices[PUSHED], LISTED) == expected
 
 
 @pytest.mark.parametrize("meanwhile", ["main_census_misses_it", "node_pushes_to_itself"])

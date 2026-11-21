@@ -273,6 +273,49 @@ def _channel_of(adapter: dict) -> str | None:
     return str(channel)
 
 
+_NAME_PROVENANCE = "_miwifi_name_provenance"
+_NAME_OBSERVER = "_miwifi_name_observer"
+_NAME_PREVIOUS = "_miwifi_name_previous"
+
+
+def _valid_client_name(value: Any, mac: str) -> bool:
+    if not isinstance(value, str) or not value.strip():
+        return False
+    compact = value.strip().replace(":", "").replace("-", "").lower()
+    mac_compact = mac.replace(":", "").replace("-", "").lower()
+    return not (len(mac_compact) == 12 and compact == mac_compact)
+
+
+def _client_name_and_source(device: dict, previous: dict, observer: str) -> tuple[str, dict | None]:
+    """Accept renames from an observed source; preserve ambiguous historical names."""
+    mac = str(device.get(ATTR_TRACKER_MAC) or "").strip()
+    old = previous.get(ATTR_TRACKER_NAME)
+    provenance = previous.get(_NAME_PROVENANCE)
+    if not isinstance(provenance, dict) or provenance.get("value") != old:
+        provenance = None
+    for field in ("name", "oname", "originName"):
+        candidate = device.get(field)
+        if not _valid_client_name(candidate, mac):
+            continue
+        candidate = candidate.strip()
+        if _valid_client_name(old, mac):
+            if provenance is None:
+                return old, None
+            if provenance.get("observer") != observer:
+                return old, provenance
+            if provenance.get("field") != field:
+                # A custom router name is distinguishable when the same router
+                # still reports the previously selected hostname separately.
+                if not (field == "name" and provenance.get("field") in ("oname", "originName")
+                        and device.get(provenance["field"]) == old):
+                    return old, provenance
+        return candidate, {"field": field, "observer": observer, "value": candidate}
+    if _valid_client_name(old, mac):
+        return old, provenance
+    return mac, None
+
+
+
 def _local_now() -> datetime:
     """Home Assistant's local time to the second, without the offset.
 
@@ -2241,9 +2284,21 @@ class LuciUpdater(DataUpdateCoordinator):
                 # local copy from the current updater immediately.
                 mac_u = str(device.get(ATTR_TRACKER_MAC, "") or "").strip().upper()
                 if mac_u and mac_u in self.devices:
+                    device[_NAME_PREVIOUS] = dict(self.devices[mac_u])
                     del self.devices[mac_u]
                     with contextlib.suppress(ValueError):
                         self._moved_devices.remove(mac_u)
+                elif mac_u:
+                    # A client may move between leaves while the main holds no copy.
+                    known = [row for integration in integrations.values()
+                             if isinstance((peer := integration.get(UPDATER)), LuciUpdater)
+                             and isinstance((row := peer.devices.get(mac_u)), dict)
+                             and _valid_client_name(row.get(ATTR_TRACKER_NAME), mac_u)]
+                    if known and len({row[ATTR_TRACKER_NAME] for row in known}) == 1:
+                        previous = dict(known[0])
+                        if any(row.get(_NAME_PROVENANCE) != previous.get(_NAME_PROVENANCE) for row in known[1:]):
+                            previous[_NAME_PROVENANCE] = None
+                        device[_NAME_PREVIOUS] = previous
 
                 target_ip = mac_to_ip[parent_mac]
                 add_to.setdefault(target_ip, []).append(device)
@@ -2316,6 +2371,7 @@ class LuciUpdater(DataUpdateCoordinator):
                 device.setdefault(ATTR_TRACKER_ENTRY_ID, leaf_entry_id)
                 device.setdefault(ATTR_TRACKER_UPDATER_ENTRY_ID, leaf_entry_id)
 
+                device[_NAME_OBSERVER] = self._entry_id
                 await updater.add_device(
                     device,
                     is_from_parent=True,
@@ -2454,9 +2510,15 @@ class LuciUpdater(DataUpdateCoordinator):
                         if mac in integration[UPDATER].devices:
                             integration[UPDATER].devices[mac] |= {
                                 attr: device[attr]
-                                for attr in [ATTR_TRACKER_NAME, ATTR_TRACKER_IP]
+                                for attr in [ATTR_TRACKER_IP]
                                 if attr in device and device[attr] is not None
                             }
+                            target = integration[UPDATER].devices[mac]
+                            if not _valid_client_name(target.get(ATTR_TRACKER_NAME), str(mac)):
+                                restored_name = device.get(ATTR_TRACKER_NAME)
+                                if _valid_client_name(restored_name, str(mac)):
+                                    target[ATTR_TRACKER_NAME] = restored_name
+                                    target[_NAME_PROVENANCE] = device.get(_NAME_PROVENANCE)
 
                         _is_add = False
 
@@ -2561,13 +2623,13 @@ class LuciUpdater(DataUpdateCoordinator):
                     skip = REPEATER_SKIP_ATTRS
                 else:
                     if "name" not in device:
-                        skip += (ATTR_TRACKER_NAME,)
+                        skip += (ATTR_TRACKER_NAME, _NAME_PROVENANCE,)
                     if mac not in getattr(self, "_filter_macs", {}):
                         skip += (ATTR_TRACKER_INTERNET_BLOCKED,)
                 self.devices[mac] |= {
                     key: value
                     for key, value in _device.items()
-                    if key not in skip and value is not None
+                    if key not in skip and (ATTR_TRACKER_NAME not in skip or key != _NAME_PROVENANCE) and value is not None
                 }
         else:
             self.devices[device[ATTR_TRACKER_MAC]] = _device
@@ -2720,9 +2782,19 @@ class LuciUpdater(DataUpdateCoordinator):
         connection: Connection | None = self._resolve_connection(device)
 
         existing = self.devices.get(device[ATTR_TRACKER_MAC], {})
+        previous = device.get(_NAME_PREVIOUS)
+        if (not _valid_client_name(existing.get(ATTR_TRACKER_NAME), str(device[ATTR_TRACKER_MAC]))
+                and isinstance(previous, dict)
+                and previous.get(ATTR_TRACKER_MAC) == device[ATTR_TRACKER_MAC]):
+            existing = {**existing, ATTR_TRACKER_NAME: previous.get(ATTR_TRACKER_NAME),
+                        _NAME_PROVENANCE: previous.get(_NAME_PROVENANCE)}
         total_usage = device.get(
             ATTR_TRACKER_TOTAL_USAGE,
             existing.get(ATTR_TRACKER_TOTAL_USAGE),
+        )
+
+        client_name, name_source = _client_name_and_source(
+            device, existing, device.get(_NAME_OBSERVER) or self._entry_id
         )
 
         # Mesh: si el dispositivo reporta 'parent', ese es el nodo/AP real al que está asociado
@@ -2843,7 +2915,8 @@ class LuciUpdater(DataUpdateCoordinator):
             ATTR_TRACKER_MAC: device[ATTR_TRACKER_MAC],
             ATTR_TRACKER_ROUTER_MAC_ADDRESS: router_mac,
             ATTR_TRACKER_SIGNAL: signal,
-            ATTR_TRACKER_NAME: device.get("name", device[ATTR_TRACKER_MAC]),
+            ATTR_TRACKER_NAME: client_name,
+            _NAME_PROVENANCE: name_source,
             ATTR_TRACKER_IP: ip_value,
             ATTR_TRACKER_CONNECTION: connection,
             ATTR_TRACKER_DOWN_SPEED: down_speed,
@@ -2886,6 +2959,15 @@ class LuciUpdater(DataUpdateCoordinator):
                 continue
 
             _device: dict[str, Any] = self._build_device(device, integrations)
+            target = integration[UPDATER].devices[device[ATTR_TRACKER_MAC]]
+            target_name, target_source = _client_name_and_source(
+                device, target, device.get(_NAME_OBSERVER) or self._entry_id
+            )
+            if not _valid_client_name(target_name, str(device[ATTR_TRACKER_MAC])):
+                target_name = _device[ATTR_TRACKER_NAME]
+                target_source = _device.get(_NAME_PROVENANCE)
+            _device[ATTR_TRACKER_NAME] = target_name
+            _device[_NAME_PROVENANCE] = target_source
             if self.is_repeater and self.is_force_load:
                 for attr in REPEATER_SKIP_ATTRS:
                     if attr in _device:
