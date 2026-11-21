@@ -1,6 +1,9 @@
 # Changelog
 
-## 3.13.7 — 2026-11-20
+## 3.13.7b1 — prueba conjunta, 2026-11-21
+
+- Preserve client names across incomplete Mesh observations and persist observed source metadata; legacy names of unknown origin remain conservative (#396).
+- Block guest Wi-Fi saves when the interface index is missing or contradictory and combine matching diagnostic and detail responses (#397).
 
 - Correct the guest Wi-Fi panel state when routers report configured `enabled` and operational `status` separately (#397). Accept string, number and boolean representations and fall back to `enabled` when `status` is unavailable.
 - Apply guest edits with one write, send only changed fields and preserve pending edits on failure. Read back requested values before reporting success; lock controls during the operation.
