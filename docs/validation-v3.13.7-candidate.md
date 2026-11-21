@@ -1,6 +1,6 @@
 # MiWiFi 3.13.7b1 — protocolo de prueba voluntaria
 
-Esta candidata privada combina los PR #399 y #398. No es una release estable ni se distribuye mediante HACS. El ZIP contiene `custom_components/miwifi`; comprobar su SHA-256 antes de usarlo. No ejecutar cambios en la red de invitados sin autorización expresa del propietario.
+Esta candidata de prueba combina los PR #399 y #398. No es una release estable ni se distribuye mediante HACS. El ZIP contiene `custom_components/miwifi`; comprobar su SHA-256 antes de usarlo. No ejecutar cambios en la red de invitados sin autorización expresa del propietario.
 
 ## Entorno y recuperación
 
