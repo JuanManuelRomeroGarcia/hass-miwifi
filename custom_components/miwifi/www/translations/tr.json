@@ -203,6 +203,7 @@
   "ui_reload": "Yenile",
   "ui_apply": "Değişiklikleri Uygula",
   "ui_saved": "Değişiklikler gönderildi.",
+  "guest_save_unconfirmed": "Misafir Wi-Fi değişiklikleri doğrulanamadı. Tekrar denemeden önce yönlendiriciyi kontrol etmek için yenileyin.",
 
   "wifi_title_24g": "Wi-Fi 2.4G",
   "wifi_title_5g": "Wi-Fi 5G",

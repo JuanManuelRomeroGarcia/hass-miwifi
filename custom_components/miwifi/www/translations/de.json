@@ -203,6 +203,7 @@
   "ui_reload": "Neu laden",
   "ui_apply": "Änderungen anwenden",
   "ui_saved": "Änderungen gesendet.",
+  "guest_save_unconfirmed": "Die Änderungen am Gast-WLAN konnten nicht bestätigt werden. Laden Sie die Daten neu, um den Router vor einem erneuten Versuch zu prüfen.",
 
   "wifi_title_24g": "Wi-Fi 2.4G",
   "wifi_title_5g": "Wi-Fi 5G",
