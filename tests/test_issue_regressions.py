@@ -660,13 +660,17 @@ class ClientValuesWithoutDataTests(unittest.TestCase):
         from datetime import datetime, timedelta
         env = {**load_constants(), 'DataUpdateCoordinator': object, 'datetime': datetime, 'timedelta': timedelta}
         env['_local_now'] = load_function('updater.py', '_local_now', {'dt_util': SimpleNamespace(now=datetime.now)})
-        env['_client_display_name'] = load_function('updater.py', '_client_display_name', env)
+        env.update(_NAME_PROVENANCE="_miwifi_name_provenance", _NAME_OBSERVER="_miwifi_name_observer",
+                   _NAME_PREVIOUS="_miwifi_name_previous")
+        env['_valid_client_name'] = load_function('updater.py', '_valid_client_name', env)
+        env['_client_name_and_source'] = load_function('updater.py', '_client_name_and_source', env)
         tree = ast.parse((COMPONENT/'updater.py').read_text(encoding='utf-8'))
         skip_attrs = next(item for item in tree.body if isinstance(item, ast.AnnAssign)
                           and isinstance(item.target, ast.Name) and item.target.id == 'REPEATER_SKIP_ATTRS')
         env['REPEATER_SKIP_ATTRS'] = eval(compile(ast.Expression(skip_attrs.value), 'updater.py', 'eval'), env)
         cls = load_class('updater.py', 'LuciUpdater', env, {'_build_device', '_mass_update_device'})
         self.updater = cls.__new__(cls)
+        self.updater._entry_id = "entry"
         self.updater._resolve_connection = lambda device: None
         self.updater.data = {'mac': '00:00:00:00:00:01'}
         self.updater.devices = {}
