@@ -217,6 +217,20 @@ async def _stop(*updaters):
         await updater.async_shutdown()
 
 
+@pytest.mark.parametrize("stored_name", [PRESENT, "", None])
+async def test_partial_restored_name_does_not_replace_force_load_client(hass, router, stored_name):
+    client, _ = router
+    _, main = _main(hass)
+    leaf_entry, leaf = await _leaf(hass, client)
+    leaf.devices[PRESENT] = {**_stored(PRESENT, leaf_entry), "name": "Router custom"}
+    snapshot = {**_stored(PRESENT, leaf_entry), "name": stored_name}
+    main._async_load_devices = AsyncMock(return_value={PRESENT: snapshot})
+    try:
+        await main._async_prepare_device_restore(main.data)
+        assert leaf.devices[PRESENT]["name"] == "Router custom"
+    finally:
+        await _stop(main, leaf)
+
 @pytest.mark.parametrize("back_via", ["own_radio_list", "main_push"])
 async def test_absent_client_is_restored_not_home_and_returns_home(hass, router, caplog, back_via):
     client, notifier = router

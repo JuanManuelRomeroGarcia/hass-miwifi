@@ -36,7 +36,7 @@ async def test_three_node_censuses_keep_name_and_accept_router_rename(hass):
         assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "name_16" for node in nodes)
     row = {**ROW, "entry_id": nodes[0]._entry_id, "name": "Router custom", "oname": "name_16"}
     nodes[0]._mass_update_device(row, integrations)
-    assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "Router custom" for node in nodes[1:])
+    assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "name_16" for node in nodes[1:])  # Legacy provenance is unknown.
 
 
 async def test_mac_only_observation_preserves_previously_known_name(hass):
@@ -123,7 +123,7 @@ async def test_three_nodes_start_with_unequal_names_and_roam_in_both_orders(hass
     assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "Known hostname" for node in nodes)
     source = nodes[order[-1]]
     source._mass_update_device({**ROW, "entry_id": source._entry_id, "name": "New router name"}, integrations)
-    assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "New router name" for node in nodes if node is not source)
+    assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "Known hostname" for node in nodes if node is not source)  # Historical names remain ambiguous.
 
 
 async def test_real_tracker_stable_observations_do_not_update_registry(hass):
@@ -134,6 +134,9 @@ async def test_real_tracker_stable_observations_do_not_update_registry(hass):
     entity_id = entity_registry.async_get_entity_id("device_tracker", "miwifi", UID)
     assert entity_id
     device_id = entity_registry.async_get(entity_id).device_id
+    registry = dr.async_get(hass)
+    registry.async_update_device(device_id, name_by_user="Personal name")
+    await hass.async_block_till_done()
     observed = {"device_registry_updated": [], "entity_registry_updated": [], "state_changed": []}
     unsubscribers = [hass.bus.async_listen(key, observed[key].append) for key in observed]
     for _ in range(4):
@@ -147,5 +150,84 @@ async def test_real_tracker_stable_observations_do_not_update_registry(hass):
                       if event.data.get("entity_id") == entity_id and event.data.get("action") == "update"]
     assert device_updates == []
     assert entity_updates == []
+    assert registry.async_get(device_id).name_by_user == "Personal name"
     assert entity_registry.async_get(entity_id).device_id == device_id
     assert hass.states.get(entity_id).state == "home"
+
+@pytest.mark.parametrize("field", ["name", "oname", "originName"])
+async def test_known_source_allows_subsequent_rename(hass, field):
+    updater = make_updater(hass, ip="192.0.2.1")
+    row = {**ROW, "entry_id": updater._entry_id, "name": MAC, field: "First"}
+    updater.devices[MAC] = updater._build_device(row)
+    row[field] = "Second"
+    assert updater._build_device(row)[ATTR_TRACKER_NAME] == "Second"
+
+async def test_unknown_historical_name_survives_different_hostname(hass):
+    updater = make_updater(hass)
+    updater.devices[MAC] = {ATTR_TRACKER_NAME: "Router custom"}
+    row = {**ROW, "entry_id": updater._entry_id, "name": MAC, "oname": "Different hostname"}
+    assert updater._build_device(row)[ATTR_TRACKER_NAME] == "Router custom"
+
+async def test_other_mesh_observer_cannot_overwrite_known_hostname(hass):
+    source = make_updater(hass, ip="192.0.2.1")
+    other = make_updater(hass, ip="192.0.2.2")
+    source._entry_id, other._entry_id = "main", "mesh"
+    row = {**ROW, "entry_id": "main", "name": MAC, "oname": "Main hostname"}
+    other.devices[MAC] = source._build_device(row)
+    row = {**ROW, "entry_id": "mesh", "name": MAC, "oname": "Mesh hostname"}
+    assert other._build_device(row)[ATTR_TRACKER_NAME] == "Main hostname"
+
+async def test_known_source_rename_propagates_across_three_nodes_and_restart(hass):
+    from copy import deepcopy
+    from unittest.mock import AsyncMock
+    nodes = [make_updater(hass, ip=f"192.0.2.{i + 1}") for i in range(3)]
+    for index, node in enumerate(nodes):
+        node._entry_id = f"node_{index}"
+        del node._mass_update_device
+    source = nodes[0]
+    row = {**ROW, "entry_id": source._entry_id, "name": MAC, "oname": "First"}
+    source.devices[MAC] = source._build_device(row)
+    for node in nodes[1:]:
+        node.devices[MAC] = deepcopy(source.devices[MAC])
+    store = AsyncMock()
+    source._store = store
+    await source._async_save_devices()
+    saved = deepcopy(store.async_save.call_args.args[0])
+    store.async_load.return_value = saved
+    source.devices = await source._async_load_devices()
+    row["oname"] = "Renamed"
+    source.devices[MAC] = source._build_device(row)
+    source._mass_update_device(row, {node.ip: {UPDATER: node} for node in nodes})
+    assert all(node.devices[MAC][ATTR_TRACKER_NAME] == "Renamed" for node in nodes)
+
+async def test_historical_record_is_not_relabelled_as_known_source(hass):
+    updater = make_updater(hass)
+    updater.devices[MAC] = {ATTR_TRACKER_NAME: "Old"}
+    row = {**ROW, "entry_id": updater._entry_id, "name": MAC, "oname": "Old"}
+    updater.devices[MAC] = updater._build_device(row)
+    row["oname"] = "New"
+    assert updater._build_device(row)[ATTR_TRACKER_NAME] == "Old"
+
+async def test_same_router_can_set_custom_name_while_hostname_stays_known(hass):
+    updater = make_updater(hass)
+    row = {**ROW, "entry_id": updater._entry_id, "name": MAC, "oname": "Hostname"}
+    updater.devices[MAC] = updater._build_device(row)
+    row["name"] = "Router custom"
+    updater.devices[MAC] = updater._build_device(row)
+    assert updater.devices[MAC][ATTR_TRACKER_NAME] == "Router custom"
+    row["name"] = MAC
+    row["oname"] = "Different hostname"
+    assert updater._build_device(row)[ATTR_TRACKER_NAME] == "Router custom"
+
+async def test_roaming_parent_retains_observed_name_and_source(hass):
+    source = make_updater(hass, ip="192.0.2.1")
+    target = make_updater(hass, ip="192.0.2.2")
+    source._entry_id, target._entry_id = "parent", "leaf"
+    row = {**ROW, "entry_id": "parent", "name": MAC, "oname": "Hostname"}
+    original = source._build_device(row)
+    moved = {**ROW, "entry_id": "leaf", "name": MAC,
+             "_miwifi_name_observer": "parent", "_miwifi_name_previous": original}
+    target.devices[MAC] = target._build_device(moved)
+    assert target.devices[MAC][ATTR_TRACKER_NAME] == "Hostname"
+    moved["oname"] = "Renamed"
+    assert target._build_device(moved)[ATTR_TRACKER_NAME] == "Renamed"
