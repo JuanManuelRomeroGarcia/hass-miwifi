@@ -957,11 +957,21 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         :return bool: the tracker was live when the last states were last saved
         """
 
-        last_states: dict = async_get_restore_state(self.hass).last_states
-        if (own := last_states.get(self.entity_id)) is None:
+        restore_data = async_get_restore_state(self.hass)
+        if hasattr(restore_data, "async_get_stored_state"):
+            own = restore_data.async_get_stored_state(self.entity_id)
+            stored_states = (
+                *restore_data.last_states_by_entity_id.values(),
+                *restore_data.last_states_by_entity_registry_id.values(),
+            )
+        else:
+            own = restore_data.last_states.get(self.entity_id)
+            stored_states = restore_data.last_states.values()
+
+        if own is None:
             return False
 
-        saved: Counter = Counter(stored.last_seen for stored in last_states.values())
+        saved: Counter = Counter(stored.last_seen for stored in stored_states)
         last_save = max(
             (seen for seen, count in saved.items() if count > 1), default=max(saved)
         )

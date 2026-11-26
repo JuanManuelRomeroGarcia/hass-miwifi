@@ -353,6 +353,7 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
         await node.async_shutdown()
 
 
+@pytest.mark.parametrize("split_restore_cache", [False, True], ids=["legacy", "split"])
 @pytest.mark.parametrize(
     ("saved_before_the_last_save", "shown"),
     [
@@ -362,7 +363,7 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
     ids=["at_the_last_save", "in_an_earlier_run"],
 )
 async def test_removal_since_the_start_does_not_date_the_last_save(
-    hass, router, saved_before_the_last_save, shown
+    hass, router, monkeypatch, saved_before_the_last_save, shown, split_restore_cache
 ):
     """Home Assistant was down for an hour, and has removed an entity since.
 
@@ -392,6 +393,22 @@ async def test_removal_since_the_start_does_not_date_the_last_save(
     await other.async_add_entities([removed])
     await other.async_reset()
     assert last_states[removed.entity_id].last_seen > last_states[ENTITY_ID].last_seen
+
+    if split_restore_cache:
+        tracker_state = last_states[ENTITY_ID]
+        split_cache = SimpleNamespace(
+            last_states_by_entity_id={
+                entity_id: stored
+                for entity_id, stored in last_states.items()
+                if entity_id not in (ENTITY_ID, "sensor.also_live_at_the_last_save")
+            },
+            last_states_by_entity_registry_id={
+                "tracker-registry-id": tracker_state,
+                "sensor-registry-id": last_states["sensor.also_live_at_the_last_save"],
+            },
+            async_get_stored_state={ENTITY_ID: tracker_state}.get,
+        )
+        monkeypatch.setattr(device_tracker, "async_get_restore_state", lambda _hass: split_cache)
 
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     states = _states(hass)
