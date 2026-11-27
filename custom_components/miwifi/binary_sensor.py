@@ -28,6 +28,7 @@ from .const import (
     ATTR_STATE_NAME,
 )
 from .entity import MiWifiEntity
+from .cpe_ipv6 import is_cb0401v2, parse_ipv6
 from .updater import LuciUpdater, async_get_updater
 
 PARALLEL_UPDATES = 0
@@ -96,6 +97,12 @@ async def async_setup_entry(
         )
         for description in MIWIFI_BINARY_SENSORS
     ]
+    if is_cb0401v2(updater):
+        description = BinarySensorEntityDescription(
+            key="mobile_ipv6_interface", name="Mobile IPv6 interface", icon="mdi:ip-network",
+            entity_category=EntityCategory.DIAGNOSTIC,
+        )
+        entities.append(MiWifiIPv6Interface(f"{config_entry.entry_id}-{description.key}", description, updater))
     async_add_entities(entities)
 
 
@@ -138,4 +145,21 @@ class MiWifiBinarySensor(MiWifiEntity, BinarySensorEntity):
         self._attr_available = is_available
         self._attr_is_on = is_on
 
+        self.async_write_ha_state()
+
+
+class MiWifiIPv6Interface(MiWifiBinarySensor):
+    """Router-reported interface status, not an internet connectivity test."""
+
+    @property
+    def is_on(self):
+        response = self._updater.data.get("mobile_net_info")
+        return parse_ipv6(response.get("ipv6info") if isinstance(response, dict) else None)["up"]
+
+    @property
+    def available(self):
+        return super().available and self._updater.data.get("mobile_ipv6_query_ok") is not False
+
+    def _handle_coordinator_update(self):
+        self._attr_available = self._updater.data.get(ATTR_STATE, False)
         self.async_write_ha_state()
