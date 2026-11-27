@@ -188,6 +188,20 @@ class _OtherEntity(RestoreEntity):
     _attr_should_poll = False
 
 
+def _stored_states(restore_data):
+    """Return cached fixture states by entity ID on either Core layout."""
+    if not hasattr(restore_data, "async_get_stored_state"):
+        return restore_data.last_states
+    return {
+        stored.state.entity_id: stored
+        for index in (
+            restore_data.last_states_by_entity_id,
+            restore_data.last_states_by_entity_registry_id,
+        )
+        for stored in index.values()
+    }
+
+
 def _states(hass):
     """Every state the client's tracker shows from now on, without repeats."""
     states: list[str] = []
@@ -339,7 +353,8 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
     mock_restore_cache(
         hass, [State(ENTITY_ID, STATE_HOME), State("sensor.live_at_the_last_save", "1")]
     )
-    restore_state.async_get(hass).last_states[ENTITY_ID].last_seen -= saved_before_the_last_save
+    stored = _stored_states(restore_state.async_get(hass))[ENTITY_ID]
+    stored.last_seen -= saved_before_the_last_save
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     states = _states(hass)
     try:
@@ -353,6 +368,7 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
         await node.async_shutdown()
 
 
+@pytest.mark.parametrize("split_restore_cache", [False, True], ids=["legacy", "split"])
 @pytest.mark.parametrize(
     ("saved_before_the_last_save", "shown"),
     [
@@ -362,7 +378,7 @@ async def test_restored_tracker_holds_only_a_state_from_the_last_save(
     ids=["at_the_last_save", "in_an_earlier_run"],
 )
 async def test_removal_since_the_start_does_not_date_the_last_save(
-    hass, router, saved_before_the_last_save, shown
+    hass, router, monkeypatch, saved_before_the_last_save, shown, split_restore_cache
 ):
     """Home Assistant was down for an hour, and has removed an entity since.
 
@@ -380,7 +396,8 @@ async def test_removal_since_the_start_does_not_date_the_last_save(
             State("sensor.also_live_at_the_last_save", "1"),
         ],
     )
-    last_states = restore_state.async_get(hass).last_states
+    restore_data = restore_state.async_get(hass)
+    last_states = _stored_states(restore_data)
     for stored in last_states.values():
         stored.last_seen -= timedelta(hours=1)
     last_states[ENTITY_ID].last_seen -= saved_before_the_last_save
@@ -391,7 +408,24 @@ async def test_removal_since_the_start_does_not_date_the_last_save(
     removed.entity_id = "sensor.removed_since_the_start"
     await other.async_add_entities([removed])
     await other.async_reset()
+    last_states = _stored_states(restore_data)
     assert last_states[removed.entity_id].last_seen > last_states[ENTITY_ID].last_seen
+
+    if split_restore_cache:
+        tracker_state = last_states[ENTITY_ID]
+        split_cache = SimpleNamespace(
+            last_states_by_entity_id={
+                entity_id: stored
+                for entity_id, stored in last_states.items()
+                if entity_id not in (ENTITY_ID, "sensor.also_live_at_the_last_save")
+            },
+            last_states_by_entity_registry_id={
+                "tracker-registry-id": tracker_state,
+                "sensor-registry-id": last_states["sensor.also_live_at_the_last_save"],
+            },
+            async_get_stored_state={ENTITY_ID: tracker_state}.get,
+        )
+        monkeypatch.setattr(device_tracker, "async_get_restore_state", lambda _hass: split_cache)
 
     await get_store(hass, NODE_IP).async_save({CLIENT: _stored(entry)})
     states = _states(hass)
@@ -466,7 +500,7 @@ async def test_restart_holds_the_state_the_tracker_saved(hass, router):
         # shows the tracker unavailable.
         hass.data[DOMAIN].pop("devices_cache", None)
         await async_mock_load_restore_state_from_storage(hass)
-        assert saved.last_states[ENTITY_ID].state.state == STATE_HOME
+        assert _stored_states(saved)[ENTITY_ID].state.state == STATE_HOME
         assert hass.states.get(ENTITY_ID).state == STATE_UNAVAILABLE
         entry, node = _node(hass, "force_load_node", entry)
         states = _states(hass)
