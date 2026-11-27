@@ -960,6 +960,8 @@ class MiWifiDeviceTracker(ScannerEntity, CoordinatorEntity, RestoreEntity):
         restore_data = async_get_restore_state(self.hass)
         if hasattr(restore_data, "async_get_stored_state"):
             own = restore_data.async_get_stored_state(self.entity_id)
+            # Core has no public API to enumerate the restore cache. Both
+            # internal indexes are needed to find the shared save timestamp.
             stored_states = (
                 *restore_data.last_states_by_entity_id.values(),
                 *restore_data.last_states_by_entity_registry_id.values(),
