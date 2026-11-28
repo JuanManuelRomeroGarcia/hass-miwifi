@@ -9,6 +9,7 @@ import contextlib
 from .logger import _LOGGER
 from .notifier import MiWiFiNotifier
 from .miwifi_utils import parse_memory_to_mb
+from .cpe_ipv6 import is_cb0401v2
 from collections import defaultdict
 
 from .unsupported import get_combined_unsupported
@@ -968,11 +969,14 @@ class LuciUpdater(DataUpdateCoordinator):
         if "hardware" in response:
             hw = str(response.get("hardware") or "").strip()
             hw_l = hw.lower()
+            if "cb0401" not in hw_l:
+                data.pop("cpe_ipv6_model_exact", None)
 
             # ✅ CB0401V2 / 5G CPE (provider firmwares) - do not block integration
             if "cb0401" in hw_l:
                 self._is_cb0401v2 = True
                 data["cpe_profile"] = "CB0401V2"
+                data["cpe_ipv6_model_exact"] = hw_l == "cb0401v2"
                 data[ATTR_DEVICE_MANUFACTURER] = DEFAULT_MANUFACTURER
                 data.setdefault(ATTR_DEVICE_MODEL, hw)
                 data[ATTR_MODEL] = Model.NOT_KNOWN
@@ -1260,6 +1264,8 @@ class LuciUpdater(DataUpdateCoordinator):
                 )
                 if isinstance(resp, dict):
                     data["mobile_net_info"] = resp
+                    if is_cb0401v2(self):
+                        data["mobile_ipv6_query_ok"] = resp.get("code", 0) in (0, "0")
 
                     info = resp.get("info") if isinstance(resp.get("info"), dict) else {}
                     ipv4info = resp.get("ipv4info") if isinstance(resp.get("ipv4info"), dict) else {}
@@ -1295,11 +1301,15 @@ class LuciUpdater(DataUpdateCoordinator):
                     data["mobile_netmask"] = ipv4_0.get("mask")
                     data["mobile_gw"] = ipv4info.get("gw")
                     data["mobile_dns"] = ipv4info.get("dns")
+                elif is_cb0401v2(self):
+                    data["mobile_ipv6_query_ok"] = False
 
                 self._cpe_mobile_fail_count = 0
                 self._cpe_mobile_next_try = now
 
             except asyncio.TimeoutError:
+                if is_cb0401v2(self):
+                    data["mobile_ipv6_query_ok"] = False
                 self._cpe_mobile_fail_count = int(getattr(self, "_cpe_mobile_fail_count", 0) or 0) + 1
                 cooldown = timedelta(minutes=2) if self._cpe_mobile_fail_count < 3 else timedelta(minutes=10)
                 self._cpe_mobile_next_try = now + cooldown
@@ -1309,7 +1319,15 @@ class LuciUpdater(DataUpdateCoordinator):
                     self.ip,
                     cooldown,
                 )
-            except Exception as e:
+            except LuciAuthenticationError:
+                if is_cb0401v2(self):
+                    data["mobile_ipv6_query_ok"] = False
+                raise
+            except (Exception, LuciError) as e:
+                if is_cb0401v2(self):
+                    data["mobile_ipv6_query_ok"] = False
+                elif isinstance(e, LuciError):
+                    raise
                 self._cpe_mobile_fail_count = int(getattr(self, "_cpe_mobile_fail_count", 0) or 0) + 1
                 cooldown = timedelta(minutes=5)
                 self._cpe_mobile_next_try = now + cooldown

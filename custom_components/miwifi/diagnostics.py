@@ -27,6 +27,8 @@ from homeassistant.core import HomeAssistant
 
 from .updater import async_get_updater, async_get_integrations
 from .mesh_diagnostics import build_mesh_support
+from .sensor import _is_cb0401v2
+from .cpe_ipv6 import is_cb0401v2
 
 TO_REDACT: Final = {
     CONF_PASSWORD,
@@ -42,30 +44,43 @@ TO_REDACT: Final = {
     "pwd",
 }
 
+# CPE payloads can contain subscriber IDs and nested IPv4/IPv6 addresses.
+CPE_REDACT: Final = TO_REDACT | {
+    "mobile_net_info", "mobile_info", "mobile_ipv4info", "cpe_detect", "cpe_newstatus", "sms",
+    "mobile_ipv4", "mobile_netmask", "mobile_gw", "mobile_dns", "wan_ip",
+    "title", "name", "unique_id", "device_name", "device_mac_address", "device_hw_version", "serial", "sn",
+    "ipv4info", "ipv6info", "ip", "ip_address", "mac", "ipaddr", "ip6addr", "lan_ip6addr",
+    "lan_ip6prefix", "ip6gw", "dns", "imsi", "imei", "iccid",
+}
+
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, config_entry: ConfigEntry
 ) -> dict:
     """Return diagnostics for a config entry."""
 
-    _data: dict = {"config_entry": async_redact_data(config_entry.as_dict(), TO_REDACT)}
+    updater = async_get_updater(hass, config_entry.entry_id)
+    redactions = CPE_REDACT if updater and (_is_cb0401v2(updater) or is_cb0401v2(updater)) else TO_REDACT
+    _data: dict = {"config_entry": async_redact_data(config_entry.as_dict(), redactions)}
     _data["mesh_support"] = build_mesh_support(hass, async_get_integrations(hass))
     integration = await async_get_integration(hass, DOMAIN)
     _data["mesh_support"]["versions"] = {
         "home_assistant": HA_VERSION, "miwifi": integration.version,
     }
 
-    if _updater := async_get_updater(hass, config_entry.entry_id):
+    if _updater := updater:
         if hasattr(_updater, "data"):
-            _data["data"] = async_redact_data(_updater.data, TO_REDACT)
+            _data["data"] = async_redact_data(_updater.data, redactions)
 
         if hasattr(_updater, "devices"):
-            _data["devices"] = async_redact_data(_updater.devices, TO_REDACT)
+            _data["devices"] = async_redact_data(_updater.devices, redactions)
 
         if len(_updater.luci.diagnostics) > 0:
             _data["requests"] = async_redact_data(
-                {path.split("?", 1)[0]: value for path, value in _updater.luci.diagnostics.items()},
-                TO_REDACT,
+                {path.split("?", 1)[0]: ("**REDACTED**" if path.split("?", 1)[0].startswith(
+                    ("xqdtcustom/", "xqmobile/")) else value)
+                 for path, value in _updater.luci.diagnostics.items()},
+                redactions,
             )
 
     return _data

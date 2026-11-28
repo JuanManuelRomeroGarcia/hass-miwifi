@@ -97,6 +97,7 @@ from .const import (
     ATTR_TRACKER_UPDATER_ENTRY_ID,
 )
 from .entity import MiWifiEntity
+from .cpe_ipv6 import is_cb0401v2, parse_ipv6
 from .enum import Connection, DeviceClass
 from .helper import (
     async_remove_empty_client_device,
@@ -515,6 +516,13 @@ MIWIFI_CPE_SENSORS: tuple[SensorEntityDescription, ...] = (
     ),
 )
 
+IPV6_SENSORS = tuple(
+    SensorEntityDescription(key=f"mobile_ipv6_{key}", name=name, icon="mdi:ip-network",
+                            entity_category=EntityCategory.DIAGNOSTIC)
+    for key, name in (("wan", "Mobile IPv6 WAN address"), ("lan", "Mobile IPv6 LAN address"),
+                      ("prefix", "Mobile IPv6 LAN prefix"), ("mode", "Mobile IPv6 mode"))
+)
+
 def _is_cb0401v2(updater: LuciUpdater) -> bool:
     data = updater.data or {}
 
@@ -714,6 +722,36 @@ class MiWifiSensor(MiWifiEntity, SensorEntity):
             )
 
         return self.entity_description.native_unit_of_measurement
+
+
+class MiWifiIPv6Sensor(MiWifiEntity, SensorEntity):
+    """IPv6 diagnostics, independent of the main router's IPv4 sensors."""
+
+    def __init__(self, unique_id, description, updater):
+        super().__init__(unique_id, description, updater, ENTITY_ID_FORMAT)
+
+    @property
+    def available(self):
+        return super().available and self._updater.data.get("mobile_ipv6_query_ok") is not False
+
+    def _parsed(self):
+        response = self._updater.data.get("mobile_net_info")
+        return parse_ipv6(response.get("ipv6info") if isinstance(response, dict) else None)
+
+    @property
+    def native_value(self):
+        return self._parsed().get(self.entity_description.key.removeprefix("mobile_ipv6_"))
+
+    @property
+    def extra_state_attributes(self):
+        if self.entity_description.key != "mobile_ipv6_wan":
+            return {}
+        data = self._parsed()
+        return {key: data[key] for key in ("gateway", "dns", "wan_addresses", "lan_addresses", "prefixes")}
+
+    def _handle_coordinator_update(self):
+        self._attr_available = self._updater.data.get(ATTR_STATE, False)
+        self.async_write_ha_state()
 
 
 class MiWifiWan2Sensor(MiWifiEntity, SensorEntity):
@@ -1251,6 +1289,9 @@ async def _async_add_all_sensors_later(
     descriptions = list(MIWIFI_SENSORS)
     if is_cpe:
         descriptions.extend(MIWIFI_CPE_SENSORS)
+    if is_cb0401v2(updater):
+        entities.extend(MiWifiIPv6Sensor(f"{config_entry.entry_id}-{description.key}", description, updater)
+                        for description in IPV6_SENSORS)
 
     for description in descriptions:
         if description.key == ATTR_SENSOR_DEVICES_5_0_GAME and not updater.supports_game:
